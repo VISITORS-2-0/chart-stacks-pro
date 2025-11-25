@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { DashboardSidebar, MenuItem } from "@/components/DashboardSidebar";
 import { ChartCard } from "@/components/ChartCard";
+import { FilterBar, TimeRange } from "@/components/FilterBar";
 import { generateMockData } from "@/utils/chartData";
 
 interface ActiveChart extends MenuItem {
@@ -11,6 +12,9 @@ interface ActiveChart extends MenuItem {
 const Index = () => {
   const [activeCharts, setActiveCharts] = useState<ActiveChart[]>([]);
   const [brushRange, setBrushRange] = useState<{ startIndex?: number; endIndex?: number }>({});
+  const [patientId, setPatientId] = useState("");
+  const [timeRange, setTimeRange] = useState<TimeRange>({ type: "relative", relative: "30d" });
+  const [patientCount] = useState(10000);
 
   useEffect(() => {
     // Synchronize horizontal scrolling across all chart containers
@@ -63,7 +67,16 @@ const Index = () => {
       <div className="flex min-h-screen w-full bg-background">
         <DashboardSidebar onItemClick={handleItemClick} />
         
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 flex flex-col overflow-hidden">
+          <FilterBar
+            patientId={patientId}
+            onPatientIdChange={setPatientId}
+            timeRange={timeRange}
+            onTimeRangeChange={setTimeRange}
+            patientCount={patientCount}
+          />
+          
+          <div className="flex-1 overflow-auto">
           <div className="container max-w-7xl p-6">
             {activeCharts.length === 0 ? (
               <div className="flex h-[calc(100vh-3rem)] items-center justify-center">
@@ -94,6 +107,7 @@ const Index = () => {
                 ))}
               </div>
             )}
+          </div>
           </div>
         </main>
       </div>

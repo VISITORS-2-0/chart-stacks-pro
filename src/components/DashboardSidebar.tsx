@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, ChevronsUpDown } from "lucide-react";
+import { Search, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +11,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   Collapsible,
@@ -77,6 +78,7 @@ const menuStructure = [
 export function DashboardSidebar({ onItemClick }: DashboardSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [openSections, setOpenSections] = useState<string[]>(["Raw", "Context", "Gradient", "Stage", "Pattern"]);
+  const { open, setOpen } = useSidebar();
 
   const toggleSection = (section: string) => {
     setOpenSections((prev) =>
@@ -115,18 +117,22 @@ export function DashboardSidebar({ onItemClick }: DashboardSidebarProps) {
     <Sidebar className="w-64 border-r border-primary/20 bg-primary text-primary-foreground">
       <SidebarContent className="bg-primary">
         <SidebarGroup>
-          <div className="flex items-center justify-between px-4 py-2">
-            <SidebarGroupLabel className="text-sm font-semibold text-primary-foreground">
-              Medical Data Dashboard
+          <div className="flex items-center justify-between px-4 py-3 border-b border-primary-foreground/10">
+            <SidebarGroupLabel className="text-xl font-bold text-primary-foreground tracking-wider">
+              VISITORS
             </SidebarGroupLabel>
             <Button
               variant="ghost"
               size="icon"
-              onClick={toggleAllSections}
-              className="h-6 w-6 text-primary-foreground hover:bg-primary-foreground/10"
-              title={openSections.length > 0 ? "Collapse all" : "Expand all"}
+              onClick={() => setOpen(!open)}
+              className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/10"
+              title={open ? "Collapse sidebar" : "Expand sidebar"}
             >
-              <ChevronsUpDown className="h-4 w-4" />
+              {open ? (
+                <ChevronsLeft className="h-5 w-5" />
+              ) : (
+                <ChevronsRight className="h-5 w-5" />
+              )}
             </Button>
           </div>
           <SidebarGroupContent className="px-4 py-2">

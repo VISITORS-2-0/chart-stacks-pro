@@ -13,9 +13,10 @@ interface DataExplorationProps {
   onAddChart: (item: MenuItem) => void;
   onRemoveChart: (id: string) => void;
   onCloseAll: () => void;
+  onCreateAssociation: () => void;
 }
 
-export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onCloseAll }: DataExplorationProps) {
+export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onCloseAll, onCreateAssociation }: DataExplorationProps) {
   const [brushRange, setBrushRange] = useState<{ startIndex?: number; endIndex?: number }>({});
   const [patientId, setPatientId] = useState("");
   const [timeRange, setTimeRange] = useState<TimeRange>({ type: "relative", relative: "30d" });
@@ -59,6 +60,7 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
         patientCount={patientCount}
         onCloseAll={onCloseAll}
         hasCharts={activeCharts.length > 0}
+        onCreateAssociation={onCreateAssociation}
       />
       
       <div className="flex-1 overflow-auto">

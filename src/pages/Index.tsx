@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
-import React from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { DashboardSidebar, MenuItem } from "@/components/DashboardSidebar";
 import { ChartCard } from "@/components/ChartCard";
 import { FilterBar, TimeRange } from "@/components/FilterBar";
 import { generateMockData } from "@/utils/chartData";
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 
 interface ActiveChart extends MenuItem {
   data: Array<{ date: string; value: number }>;
@@ -92,33 +90,22 @@ const Index = () => {
                 </div>
               </div>
             ) : (
-              <ResizablePanelGroup direction="vertical" className="min-h-0">
-                {activeCharts.map((chart, index) => (
-                  <React.Fragment key={chart.id}>
-                    <ResizablePanel 
-                      id={`panel-${chart.id}`}
-                      order={index}
-                      defaultSize={100 / activeCharts.length}
-                      minSize={15}
-                    >
-                      <ChartCard
-                        id={chart.id}
-                        title={chart.title}
-                        chartType={chart.chartType}
-                        data={chart.data}
-                        onRemove={handleRemoveChart}
-                        scrollContainerId={`chart-scroll-${chart.id}`}
-                        onBrushChange={handleBrushChange}
-                        brushStartIndex={brushRange.startIndex}
-                        brushEndIndex={brushRange.endIndex}
-                      />
-                    </ResizablePanel>
-                    {index < activeCharts.length - 1 && (
-                      <ResizableHandle className="h-2 bg-border hover:bg-primary/50 transition-colors my-2" />
-                    )}
-                  </React.Fragment>
+              <div className="space-y-6">
+                {activeCharts.map((chart) => (
+                  <ChartCard
+                    key={chart.id}
+                    id={chart.id}
+                    title={chart.title}
+                    chartType={chart.chartType}
+                    data={chart.data}
+                    onRemove={handleRemoveChart}
+                    scrollContainerId={`chart-scroll-${chart.id}`}
+                    onBrushChange={handleBrushChange}
+                    brushStartIndex={brushRange.startIndex}
+                    brushEndIndex={brushRange.endIndex}
+                  />
                 ))}
-              </ResizablePanelGroup>
+              </div>
             )}
           </div>
           </div>

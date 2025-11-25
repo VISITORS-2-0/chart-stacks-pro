@@ -81,20 +81,20 @@ export function DashboardSidebar({ onItemClick }: DashboardSidebarProps) {
     .filter((section) => section.children.length > 0);
 
   return (
-    <Sidebar className="w-64 border-r border-sidebar-border">
-      <SidebarContent>
+    <Sidebar className="w-64 border-r border-primary/20 bg-primary text-primary-foreground">
+      <SidebarContent className="bg-primary">
         <SidebarGroup>
-          <SidebarGroupLabel className="px-4 py-2 text-sm font-semibold">
+          <SidebarGroupLabel className="px-4 py-2 text-sm font-semibold text-primary-foreground">
             Medical Data Dashboard
           </SidebarGroupLabel>
           <SidebarGroupContent className="px-4 py-2">
             <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-primary-foreground/60" />
               <Input
                 placeholder="Search metrics..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8"
+                className="pl-8 bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground placeholder:text-primary-foreground/60"
               />
             </div>
           </SidebarGroupContent>
@@ -111,7 +111,7 @@ export function DashboardSidebar({ onItemClick }: DashboardSidebarProps) {
                 >
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
-                      <SidebarMenuButton className="w-full justify-between font-medium">
+                      <SidebarMenuButton className="w-full justify-between font-medium text-primary-foreground hover:bg-primary-foreground/10">
                         <span>{section.parent}</span>
                         <ChevronRight
                           className={`h-4 w-4 transition-transform duration-200 ${
@@ -133,7 +133,7 @@ export function DashboardSidebar({ onItemClick }: DashboardSidebarProps) {
                                   chartType: section.chartType,
                                 })
                               }
-                              className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                              className="text-primary-foreground hover:bg-primary-foreground/10"
                             >
                               {child.title}
                             </SidebarMenuButton>

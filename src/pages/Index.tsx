@@ -1,45 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardSidebar, MenuItem } from "@/components/DashboardSidebar";
-import { ChartCard } from "@/components/ChartCard";
-import { FilterBar, TimeRange } from "@/components/FilterBar";
 import { generateMockData } from "@/utils/chartData";
+import { DataExploration } from "./DataExploration";
+import { PopulationQuery } from "./PopulationQuery";
+import { PatternExplorer } from "./PatternExplorer";
+import { DataExport } from "./DataExport";
 
 interface ActiveChart extends MenuItem {
   data: Array<{ date: string; value: number }>;
 }
 
+type TabValue = "exploration" | "population" | "pattern" | "export";
+
 const Index = () => {
   const [activeCharts, setActiveCharts] = useState<ActiveChart[]>([]);
-  const [brushRange, setBrushRange] = useState<{ startIndex?: number; endIndex?: number }>({});
-  const [patientId, setPatientId] = useState("");
-  const [timeRange, setTimeRange] = useState<TimeRange>({ type: "relative", relative: "30d" });
-  const [patientCount] = useState(10000);
-
-  useEffect(() => {
-    // Synchronize horizontal scrolling across all chart containers
-    const scrollContainers = document.querySelectorAll('[id^="chart-scroll-"]');
-    
-    const handleScroll = (e: Event) => {
-      const scrollLeft = (e.target as HTMLElement).scrollLeft;
-      scrollContainers.forEach((container) => {
-        if (container !== e.target) {
-          (container as HTMLElement).scrollLeft = scrollLeft;
-        }
-      });
-    };
-
-    scrollContainers.forEach((container) => {
-      container.addEventListener('scroll', handleScroll);
-    });
-
-    return () => {
-      scrollContainers.forEach((container) => {
-        container.removeEventListener('scroll', handleScroll);
-      });
-    };
-  }, [activeCharts]);
+  const [activeTab, setActiveTab] = useState<TabValue>("exploration");
 
   const handleItemClick = (item: MenuItem) => {
     // Check if chart already exists
@@ -61,11 +37,28 @@ const Index = () => {
 
   const handleCloseAll = () => {
     setActiveCharts([]);
-    setBrushRange({});
   };
 
-  const handleBrushChange = (startIndex: number, endIndex: number) => {
-    setBrushRange({ startIndex, endIndex });
+  const renderActiveScreen = () => {
+    switch (activeTab) {
+      case "exploration":
+        return (
+          <DataExploration
+            activeCharts={activeCharts}
+            onAddChart={handleItemClick}
+            onRemoveChart={handleRemoveChart}
+            onCloseAll={handleCloseAll}
+          />
+        );
+      case "population":
+        return <PopulationQuery />;
+      case "pattern":
+        return <PatternExplorer />;
+      case "export":
+        return <DataExport />;
+      default:
+        return null;
+    }
   };
 
   return (
@@ -74,102 +67,64 @@ const Index = () => {
         <DashboardSidebar onItemClick={handleItemClick} />
         
         <main className="flex-1 flex flex-col overflow-hidden">
-          <Tabs defaultValue="exploration" className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="w-full justify-start rounded-none border-b bg-background px-6 h-12 flex-shrink-0">
-              <TabsTrigger value="exploration" className="data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                Data Exploration
-              </TabsTrigger>
-              <TabsTrigger value="population" className="data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                Population Query
-              </TabsTrigger>
-              <TabsTrigger value="pattern" className="data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                Pattern Explorer
-              </TabsTrigger>
-              <TabsTrigger value="export" className="data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                Data Export
-              </TabsTrigger>
-            </TabsList>
+          {/* Tab Navigation */}
+          <div className="w-full border-b bg-background px-6 h-12 flex items-center flex-shrink-0">
+            <button
+              onClick={() => setActiveTab("exploration")}
+              className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+                activeTab === "exploration"
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Data Exploration
+              {activeTab === "exploration" && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab("population")}
+              className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+                activeTab === "population"
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Population Query
+              {activeTab === "population" && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab("pattern")}
+              className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+                activeTab === "pattern"
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Pattern Explorer
+              {activeTab === "pattern" && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab("export")}
+              className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+                activeTab === "export"
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Data Export
+              {activeTab === "export" && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+              )}
+            </button>
+          </div>
 
-            <TabsContent value="exploration" className="flex-1 flex flex-col mt-0 overflow-hidden data-[state=active]:flex">
-              <FilterBar
-                patientId={patientId}
-                onPatientIdChange={setPatientId}
-                timeRange={timeRange}
-                onTimeRangeChange={setTimeRange}
-                patientCount={patientCount}
-                onCloseAll={handleCloseAll}
-                hasCharts={activeCharts.length > 0}
-              />
-              
-              <div className="flex-1 overflow-auto">
-                <div className="container max-w-7xl p-6">
-                  {activeCharts.length === 0 ? (
-                    <div className="flex h-[calc(100vh-12rem)] items-center justify-center">
-                      <div className="text-center">
-                        <h2 className="text-2xl font-semibold text-foreground mb-2">
-                          Welcome to Medical Data Dashboard
-                        </h2>
-                        <p className="text-muted-foreground">
-                          Select a metric from the sidebar to view its data visualization
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {activeCharts.map((chart) => (
-                        <ChartCard
-                          key={chart.id}
-                          id={chart.id}
-                          title={chart.title}
-                          chartType={chart.chartType}
-                          data={chart.data}
-                          onRemove={handleRemoveChart}
-                          scrollContainerId={`chart-scroll-${chart.id}`}
-                          onBrushChange={handleBrushChange}
-                          brushStartIndex={brushRange.startIndex}
-                          brushEndIndex={brushRange.endIndex}
-                          patientCount={Math.floor(Math.random() * 5000) + 5000}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="population" className="flex-1 flex items-center justify-center mt-0 data-[state=active]:flex">
-              <div className="text-center max-w-md px-6">
-                <h2 className="text-2xl font-semibold text-foreground mb-3">
-                  Population Query
-                </h2>
-                <p className="text-muted-foreground text-lg">
-                  This feature is currently in development and will be available in the near future.
-                </p>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="pattern" className="flex-1 flex items-center justify-center mt-0 data-[state=active]:flex">
-              <div className="text-center max-w-md px-6">
-                <h2 className="text-2xl font-semibold text-foreground mb-3">
-                  Pattern Explorer
-                </h2>
-                <p className="text-muted-foreground text-lg">
-                  This feature is currently in development and will be available in the near future.
-                </p>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="export" className="flex-1 flex items-center justify-center mt-0 data-[state=active]:flex">
-              <div className="text-center max-w-md px-6">
-                <h2 className="text-2xl font-semibold text-foreground mb-3">
-                  Data Export
-                </h2>
-                <p className="text-muted-foreground text-lg">
-                  This feature is currently in development and will be available in the near future.
-                </p>
-              </div>
-            </TabsContent>
-          </Tabs>
+          {/* Active Screen */}
+          {renderActiveScreen()}
         </main>
       </div>
     </SidebarProvider>

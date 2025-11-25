@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Calendar, Users } from "lucide-react";
+import { Search, Calendar, Users, XCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +18,8 @@ interface FilterBarProps {
   timeRange: TimeRange;
   onTimeRangeChange: (range: TimeRange) => void;
   patientCount: number;
+  onCloseAll: () => void;
+  hasCharts: boolean;
 }
 
 export interface TimeRange {
@@ -43,6 +45,8 @@ export const FilterBar = ({
   timeRange,
   onTimeRangeChange,
   patientCount,
+  onCloseAll,
+  hasCharts,
 }: FilterBarProps) => {
   const [localStartDate, setLocalStartDate] = useState<Date | undefined>(timeRange.startDate);
   const [localEndDate, setLocalEndDate] = useState<Date | undefined>(timeRange.endDate);
@@ -152,6 +156,19 @@ export const FilterBar = ({
             {patientCount.toLocaleString()} Patients
           </span>
         </div>
+
+        {/* Close All Button */}
+        {hasCharts && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onCloseAll}
+            className="flex items-center gap-2 h-9"
+          >
+            <XCircle className="h-4 w-4" />
+            Close All Charts
+          </Button>
+        )}
       </div>
     </div>
   );

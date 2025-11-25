@@ -58,6 +58,11 @@ const Index = () => {
     setActiveCharts((prev) => prev.filter((chart) => chart.id !== id));
   };
 
+  const handleCloseAll = () => {
+    setActiveCharts([]);
+    setBrushRange({});
+  };
+
   const handleBrushChange = (startIndex: number, endIndex: number) => {
     setBrushRange({ startIndex, endIndex });
   };
@@ -74,6 +79,8 @@ const Index = () => {
             timeRange={timeRange}
             onTimeRangeChange={setTimeRange}
             patientCount={patientCount}
+            onCloseAll={handleCloseAll}
+            hasCharts={activeCharts.length > 0}
           />
           
           <div className="flex-1 overflow-auto">
@@ -103,6 +110,7 @@ const Index = () => {
                     onBrushChange={handleBrushChange}
                     brushStartIndex={brushRange.startIndex}
                     brushEndIndex={brushRange.endIndex}
+                    patientCount={Math.floor(Math.random() * 5000) + 5000}
                   />
                 ))}
               </div>

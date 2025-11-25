@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { Search, ChevronsUpDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
@@ -85,6 +86,22 @@ export function DashboardSidebar({ onItemClick }: DashboardSidebarProps) {
     );
   };
 
+  const collapseAll = () => {
+    setOpenSections([]);
+  };
+
+  const expandAll = () => {
+    setOpenSections(["Raw", "Context", "Gradient", "Stage", "Pattern"]);
+  };
+
+  const toggleAllSections = () => {
+    if (openSections.length > 0) {
+      collapseAll();
+    } else {
+      expandAll();
+    }
+  };
+
   const filteredMenu = menuStructure
     .map((section) => ({
       ...section,
@@ -98,9 +115,20 @@ export function DashboardSidebar({ onItemClick }: DashboardSidebarProps) {
     <Sidebar className="w-64 border-r border-primary/20 bg-primary text-primary-foreground">
       <SidebarContent className="bg-primary">
         <SidebarGroup>
-          <SidebarGroupLabel className="px-4 py-2 text-sm font-semibold text-primary-foreground">
-            Medical Data Dashboard
-          </SidebarGroupLabel>
+          <div className="flex items-center justify-between px-4 py-2">
+            <SidebarGroupLabel className="text-sm font-semibold text-primary-foreground">
+              Medical Data Dashboard
+            </SidebarGroupLabel>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleAllSections}
+              className="h-6 w-6 text-primary-foreground hover:bg-primary-foreground/10"
+              title={openSections.length > 0 ? "Collapse all" : "Expand all"}
+            >
+              <ChevronsUpDown className="h-4 w-4" />
+            </Button>
+          </div>
           <SidebarGroupContent className="px-4 py-2">
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-primary-foreground/60" />

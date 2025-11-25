@@ -117,23 +117,10 @@ export function DashboardSidebar({ onItemClick }: DashboardSidebarProps) {
     <Sidebar className="w-64 border-r border-primary/20 bg-primary text-primary-foreground">
       <SidebarContent className="bg-primary">
         <SidebarGroup>
-          <div className="flex items-center justify-between px-4 py-3 border-b border-primary-foreground/10">
+          <div className="px-4 py-3 border-b border-primary-foreground/10">
             <SidebarGroupLabel className="text-xl font-bold text-primary-foreground tracking-wider">
               VISITORS
             </SidebarGroupLabel>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setOpen(!open)}
-              className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/10"
-              title={open ? "Collapse sidebar" : "Expand sidebar"}
-            >
-              {open ? (
-                <ChevronsLeft className="h-5 w-5" />
-              ) : (
-                <ChevronsRight className="h-5 w-5" />
-              )}
-            </Button>
           </div>
           <SidebarGroupContent className="px-4 py-2">
             <div className="relative">

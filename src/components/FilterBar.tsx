@@ -149,21 +149,13 @@ export const FilterBar = ({
           </PopoverContent>
         </Popover>
 
-        {/* Patient Count */}
-        <div className="flex items-center gap-2 ml-auto bg-muted px-4 py-2 rounded-md">
-          <Users className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium">
-            {patientCount.toLocaleString()} Patients
-          </span>
-        </div>
-
         {/* Close All Button */}
         {hasCharts && (
           <Button
             variant="outline"
             size="sm"
             onClick={onCloseAll}
-            className="flex items-center gap-2 h-9"
+            className="flex items-center gap-2 h-9 ml-auto"
           >
             <XCircle className="h-4 w-4" />
             Close All Charts

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardSidebar, MenuItem } from "@/components/DashboardSidebar";
 import { ChartCard } from "@/components/ChartCard";
 import { FilterBar, TimeRange } from "@/components/FilterBar";
@@ -73,50 +74,102 @@ const Index = () => {
         <DashboardSidebar onItemClick={handleItemClick} />
         
         <main className="flex-1 flex flex-col overflow-hidden">
-          <FilterBar
-            patientId={patientId}
-            onPatientIdChange={setPatientId}
-            timeRange={timeRange}
-            onTimeRangeChange={setTimeRange}
-            patientCount={patientCount}
-            onCloseAll={handleCloseAll}
-            hasCharts={activeCharts.length > 0}
-          />
-          
-          <div className="flex-1 overflow-auto">
-          <div className="container max-w-7xl p-6">
-            {activeCharts.length === 0 ? (
-              <div className="flex h-[calc(100vh-3rem)] items-center justify-center">
-                <div className="text-center">
-                  <h2 className="text-2xl font-semibold text-foreground mb-2">
-                    Welcome to Medical Data Dashboard
-                  </h2>
-                  <p className="text-muted-foreground">
-                    Select a metric from the sidebar to view its data visualization
-                  </p>
+          <Tabs defaultValue="exploration" className="flex-1 flex flex-col">
+            <TabsList className="w-full justify-start rounded-none border-b bg-background px-6 h-12">
+              <TabsTrigger value="exploration" className="data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                Data Exploration
+              </TabsTrigger>
+              <TabsTrigger value="population" className="data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                Population Query
+              </TabsTrigger>
+              <TabsTrigger value="pattern" className="data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                Pattern Explorer
+              </TabsTrigger>
+              <TabsTrigger value="export" className="data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                Data Export
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="exploration" className="flex-1 flex flex-col mt-0 overflow-hidden">
+              <FilterBar
+                patientId={patientId}
+                onPatientIdChange={setPatientId}
+                timeRange={timeRange}
+                onTimeRangeChange={setTimeRange}
+                patientCount={patientCount}
+                onCloseAll={handleCloseAll}
+                hasCharts={activeCharts.length > 0}
+              />
+              
+              <div className="flex-1 overflow-auto">
+                <div className="container max-w-7xl p-6">
+                  {activeCharts.length === 0 ? (
+                    <div className="flex h-[calc(100vh-3rem)] items-center justify-center">
+                      <div className="text-center">
+                        <h2 className="text-2xl font-semibold text-foreground mb-2">
+                          Welcome to Medical Data Dashboard
+                        </h2>
+                        <p className="text-muted-foreground">
+                          Select a metric from the sidebar to view its data visualization
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {activeCharts.map((chart) => (
+                        <ChartCard
+                          key={chart.id}
+                          id={chart.id}
+                          title={chart.title}
+                          chartType={chart.chartType}
+                          data={chart.data}
+                          onRemove={handleRemoveChart}
+                          scrollContainerId={`chart-scroll-${chart.id}`}
+                          onBrushChange={handleBrushChange}
+                          brushStartIndex={brushRange.startIndex}
+                          brushEndIndex={brushRange.endIndex}
+                          patientCount={Math.floor(Math.random() * 5000) + 5000}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
-            ) : (
-              <div className="space-y-6">
-                {activeCharts.map((chart) => (
-                  <ChartCard
-                    key={chart.id}
-                    id={chart.id}
-                    title={chart.title}
-                    chartType={chart.chartType}
-                    data={chart.data}
-                    onRemove={handleRemoveChart}
-                    scrollContainerId={`chart-scroll-${chart.id}`}
-                    onBrushChange={handleBrushChange}
-                    brushStartIndex={brushRange.startIndex}
-                    brushEndIndex={brushRange.endIndex}
-                    patientCount={Math.floor(Math.random() * 5000) + 5000}
-                  />
-                ))}
+            </TabsContent>
+
+            <TabsContent value="population" className="flex-1 flex items-center justify-center mt-0">
+              <div className="text-center max-w-md px-6">
+                <h2 className="text-2xl font-semibold text-foreground mb-3">
+                  Population Query
+                </h2>
+                <p className="text-muted-foreground text-lg">
+                  This feature is currently in development and will be available in the near future.
+                </p>
               </div>
-            )}
-          </div>
-          </div>
+            </TabsContent>
+
+            <TabsContent value="pattern" className="flex-1 flex items-center justify-center mt-0">
+              <div className="text-center max-w-md px-6">
+                <h2 className="text-2xl font-semibold text-foreground mb-3">
+                  Pattern Explorer
+                </h2>
+                <p className="text-muted-foreground text-lg">
+                  This feature is currently in development and will be available in the near future.
+                </p>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="export" className="flex-1 flex items-center justify-center mt-0">
+              <div className="text-center max-w-md px-6">
+                <h2 className="text-2xl font-semibold text-foreground mb-3">
+                  Data Export
+                </h2>
+                <p className="text-muted-foreground text-lg">
+                  This feature is currently in development and will be available in the near future.
+                </p>
+              </div>
+            </TabsContent>
+          </Tabs>
         </main>
       </div>
     </SidebarProvider>

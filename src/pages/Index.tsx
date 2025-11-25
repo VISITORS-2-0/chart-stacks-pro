@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { DashboardSidebar, MenuItem } from "@/components/DashboardSidebar";
 import { ChartCard } from "@/components/ChartCard";
@@ -10,6 +10,31 @@ interface ActiveChart extends MenuItem {
 
 const Index = () => {
   const [activeCharts, setActiveCharts] = useState<ActiveChart[]>([]);
+  const [brushRange, setBrushRange] = useState<{ startIndex?: number; endIndex?: number }>({});
+
+  useEffect(() => {
+    // Synchronize horizontal scrolling across all chart containers
+    const scrollContainers = document.querySelectorAll('[id^="chart-scroll-"]');
+    
+    const handleScroll = (e: Event) => {
+      const scrollLeft = (e.target as HTMLElement).scrollLeft;
+      scrollContainers.forEach((container) => {
+        if (container !== e.target) {
+          (container as HTMLElement).scrollLeft = scrollLeft;
+        }
+      });
+    };
+
+    scrollContainers.forEach((container) => {
+      container.addEventListener('scroll', handleScroll);
+    });
+
+    return () => {
+      scrollContainers.forEach((container) => {
+        container.removeEventListener('scroll', handleScroll);
+      });
+    };
+  }, [activeCharts]);
 
   const handleItemClick = (item: MenuItem) => {
     // Check if chart already exists
@@ -27,6 +52,10 @@ const Index = () => {
 
   const handleRemoveChart = (id: string) => {
     setActiveCharts((prev) => prev.filter((chart) => chart.id !== id));
+  };
+
+  const handleBrushChange = (startIndex: number, endIndex: number) => {
+    setBrushRange({ startIndex, endIndex });
   };
 
   return (
@@ -57,6 +86,10 @@ const Index = () => {
                     chartType={chart.chartType}
                     data={chart.data}
                     onRemove={handleRemoveChart}
+                    scrollContainerId={`chart-scroll-${chart.id}`}
+                    onBrushChange={handleBrushChange}
+                    brushStartIndex={brushRange.startIndex}
+                    brushEndIndex={brushRange.endIndex}
                   />
                 ))}
               </div>

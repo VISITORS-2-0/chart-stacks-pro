@@ -42,6 +42,16 @@ const menuStructure = [
     ],
   },
   {
+    parent: "Context",
+    chartType: "line" as ChartType,
+    children: [],
+  },
+  {
+    parent: "Gradient",
+    chartType: "bar" as ChartType,
+    children: [],
+  },
+  {
     parent: "Stage",
     chartType: "bar" as ChartType,
     children: [
@@ -61,7 +71,7 @@ const menuStructure = [
 
 export function DashboardSidebar({ onItemClick }: DashboardSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [openSections, setOpenSections] = useState<string[]>(["Raw", "Stage", "Pattern"]);
+  const [openSections, setOpenSections] = useState<string[]>(["Raw", "Context", "Gradient", "Stage", "Pattern"]);
 
   const toggleSection = (section: string) => {
     setOpenSections((prev) =>

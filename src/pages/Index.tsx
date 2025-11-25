@@ -74,8 +74,8 @@ const Index = () => {
         <DashboardSidebar onItemClick={handleItemClick} />
         
         <main className="flex-1 flex flex-col overflow-hidden">
-          <Tabs defaultValue="exploration" className="flex-1 flex flex-col">
-            <TabsList className="w-full justify-start rounded-none border-b bg-background px-6 h-12">
+          <Tabs defaultValue="exploration" className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="w-full justify-start rounded-none border-b bg-background px-6 h-12 flex-shrink-0">
               <TabsTrigger value="exploration" className="data-[state=active]:border-b-2 data-[state=active]:border-primary">
                 Data Exploration
               </TabsTrigger>
@@ -90,7 +90,7 @@ const Index = () => {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="exploration" className="flex-1 flex flex-col mt-0 overflow-hidden">
+            <TabsContent value="exploration" className="flex-1 flex flex-col mt-0 overflow-hidden data-[state=active]:flex">
               <FilterBar
                 patientId={patientId}
                 onPatientIdChange={setPatientId}
@@ -104,7 +104,7 @@ const Index = () => {
               <div className="flex-1 overflow-auto">
                 <div className="container max-w-7xl p-6">
                   {activeCharts.length === 0 ? (
-                    <div className="flex h-[calc(100vh-3rem)] items-center justify-center">
+                    <div className="flex h-[calc(100vh-12rem)] items-center justify-center">
                       <div className="text-center">
                         <h2 className="text-2xl font-semibold text-foreground mb-2">
                           Welcome to Medical Data Dashboard
@@ -137,7 +137,7 @@ const Index = () => {
               </div>
             </TabsContent>
 
-            <TabsContent value="population" className="flex-1 flex items-center justify-center mt-0">
+            <TabsContent value="population" className="flex-1 flex items-center justify-center mt-0 data-[state=active]:flex">
               <div className="text-center max-w-md px-6">
                 <h2 className="text-2xl font-semibold text-foreground mb-3">
                   Population Query
@@ -148,7 +148,7 @@ const Index = () => {
               </div>
             </TabsContent>
 
-            <TabsContent value="pattern" className="flex-1 flex items-center justify-center mt-0">
+            <TabsContent value="pattern" className="flex-1 flex items-center justify-center mt-0 data-[state=active]:flex">
               <div className="text-center max-w-md px-6">
                 <h2 className="text-2xl font-semibold text-foreground mb-3">
                   Pattern Explorer
@@ -159,7 +159,7 @@ const Index = () => {
               </div>
             </TabsContent>
 
-            <TabsContent value="export" className="flex-1 flex items-center justify-center mt-0">
+            <TabsContent value="export" className="flex-1 flex items-center justify-center mt-0 data-[state=active]:flex">
               <div className="text-center max-w-md px-6">
                 <h2 className="text-2xl font-semibold text-foreground mb-3">
                   Data Export

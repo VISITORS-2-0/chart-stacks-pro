@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import React from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { DashboardSidebar, MenuItem } from "@/components/DashboardSidebar";
 import { ChartCard } from "@/components/ChartCard";
@@ -91,11 +92,12 @@ const Index = () => {
                 </div>
               </div>
             ) : (
-              <ResizablePanelGroup direction="vertical" className="gap-2">
+              <ResizablePanelGroup direction="vertical" className="min-h-0">
                 {activeCharts.map((chart, index) => (
-                  <>
+                  <React.Fragment key={chart.id}>
                     <ResizablePanel 
-                      key={chart.id} 
+                      id={`panel-${chart.id}`}
+                      order={index}
                       defaultSize={100 / activeCharts.length}
                       minSize={15}
                     >
@@ -112,9 +114,9 @@ const Index = () => {
                       />
                     </ResizablePanel>
                     {index < activeCharts.length - 1 && (
-                      <ResizableHandle className="h-2 bg-border hover:bg-primary/50 transition-colors" />
+                      <ResizableHandle className="h-2 bg-border hover:bg-primary/50 transition-colors my-2" />
                     )}
-                  </>
+                  </React.Fragment>
                 ))}
               </ResizablePanelGroup>
             )}

@@ -44,12 +44,16 @@ const menuStructure = [
   {
     parent: "Context",
     chartType: "line" as ChartType,
-    children: [],
+    children: [
+      { id: "test-context", title: "Test" },
+    ],
   },
   {
     parent: "Gradient",
     chartType: "bar" as ChartType,
-    children: [],
+    children: [
+      { id: "test-gradient", title: "Test" },
+    ],
   },
   {
     parent: "Stage",

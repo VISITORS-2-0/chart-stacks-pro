@@ -35,6 +35,7 @@ interface ChartCardProps {
   onBrushChange?: (startIndex: number, endIndex: number) => void;
   brushStartIndex?: number;
   brushEndIndex?: number;
+  patientCount?: number;
 }
 
 export function ChartCard({
@@ -47,6 +48,7 @@ export function ChartCard({
   onBrushChange,
   brushStartIndex,
   brushEndIndex,
+  patientCount = 10000,
 }: ChartCardProps) {
   const [zoomedData, setZoomedData] = useState(data);
   const [isRawCategory, setIsRawCategory] = useState(false);
@@ -220,7 +222,12 @@ export function ChartCard({
   return (
     <Card className="border border-border shadow-sm animate-in fade-in-50 duration-300">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-lg font-semibold">{title}</CardTitle>
+        <div className="flex flex-col gap-1">
+          <CardTitle className="text-lg font-semibold">{title}</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            {patientCount.toLocaleString()} patients
+          </p>
+        </div>
         <Button
           variant="ghost"
           size="icon"

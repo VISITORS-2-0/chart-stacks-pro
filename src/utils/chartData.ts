@@ -7,18 +7,21 @@ export function generateMockData(): ChartDataPoint[] {
   const data: ChartDataPoint[] = [];
   const today = new Date();
 
-  for (let i = 29; i >= 0; i--) {
+  // Generate ~5 years of data
+  for (let i = 365 * 5; i >= 0; i--) {
     const date = new Date(today);
     date.setDate(date.getDate() - i);
-    
+
     // Generate realistic medical data with some variation
     const baseValue = 50 + Math.random() * 50;
-    const trend = Math.sin(i / 5) * 10;
+    // Add some seasonality (yearly and monthly)
+    const yearlyTrend = Math.sin(i / 365 * 2 * Math.PI) * 10;
+    const monthlyTrend = Math.sin(i / 30 * 2 * Math.PI) * 5;
     const noise = (Math.random() - 0.5) * 15;
-    
+
     data.push({
-      date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      value: Math.round((baseValue + trend + noise) * 10) / 10,
+      date: date.toISOString(), // Use ISO string for robust parsing
+      value: Math.round((baseValue + yearlyTrend + monthlyTrend + noise) * 10) / 10,
     });
   }
 

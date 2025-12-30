@@ -2,29 +2,43 @@ import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TemporalRow, PatientStatusProcessedRow } from '../types/temporal';
 
-// NOTE: Since the data is now coming pre-processed (dummy data) from the API,
-// we are removing the client-side processing logic for this component.
-// If single patient data (TemporalRow[]) is passed, this component will currently NOT render correctly.
-// To support both, we would need to check the data type and conditionally process.
-// Assuming for this task we are fully switching to the pre-processed format.
-
 interface PatientStatusAnalyticsProps {
     data: (TemporalRow | PatientStatusProcessedRow)[];
+    zoomLevel?: 'years' | 'months' | 'days';
+    onDrillDown?: (dateStr: string) => void;
 }
 
 const CATEGORIES = ['High', 'Normal', 'Moderately_low'];
 
-export function PatientStatusAnalytics({ data }: PatientStatusAnalyticsProps) {
+export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown }: PatientStatusAnalyticsProps) {
     // Cast to processed type for rendering because we know it's coming from the mocked API
     // In a real dual-support scenario, we'd add a type guard.
     const chartData = data as PatientStatusProcessedRow[];
-    console.log(chartData);
 
     // Define specific colors for each category
     const categoryColors: Record<string, string> = {
         'High': '#ef4444', // red-500
         'Normal': '#22c55e', // green-500
         'Moderately_low': '#f59e0b', // amber-500
+    };
+
+    const handleBarClick = (data: any) => {
+        if (onDrillDown && data && data.month) {
+            // "month" field in current abstract data is YYYY-MM. 
+            // If we drill down from years, we might need a full date string or just pass what we have.
+            // For Abstract data currently:
+            // Years view -> data has "month" (or could be "year")
+            // Months view -> data has "month" (YYYY-MM)
+            // Days view -> data likely needs "day"
+
+            // Assuming the mock data structure adapts or we parse.
+            // Current mock data is strictly YYYY-MM.
+            // We need to construct a date object to drill down reliably.
+            const validDate = new Date(data.month + '-01'); // Force 1st of month
+            if (!isNaN(validDate.getTime())) {
+                onDrillDown(validDate.toISOString());
+            }
+        }
     };
 
     // Custom Tooltip to show Count (and Percentage)
@@ -39,7 +53,7 @@ export function PatientStatusAnalytics({ data }: PatientStatusAnalyticsProps) {
 
             return (
                 <div className="bg-background border border-border p-2 rounded shadow-md text-xs">
-                    <p className="font-semibold mb-1">{`Month: ${label}`}</p>
+                    <p className="font-semibold mb-1">{`Time: ${label}`}</p>
                     <p style={{ color }}>
                         {`${category.replace('_', ' ')}: ${count} patients (${Number(pct).toFixed(1)}%)`}
                     </p>
@@ -65,6 +79,11 @@ export function PatientStatusAnalytics({ data }: PatientStatusAnalyticsProps) {
                                     data={chartData}
                                     syncId="patientStatus"
                                     margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                                    onClick={(e: any) => {
+                                        if (e && e.activePayload && e.activePayload[0]) {
+                                            handleBarClick(e.activePayload[0].payload);
+                                        }
+                                    }}
                                 >
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                     <XAxis
@@ -73,6 +92,10 @@ export function PatientStatusAnalytics({ data }: PatientStatusAnalyticsProps) {
                                         tick={{ fontSize: 12 }}
                                         interval={0}
                                         height={30}
+                                        tickFormatter={(val) => {
+                                            // Format based on Zoom Level if needed, or rely on raw string
+                                            return val;
+                                        }}
                                     />
                                     <YAxis
                                         domain={[0, 100]}
@@ -84,6 +107,8 @@ export function PatientStatusAnalytics({ data }: PatientStatusAnalyticsProps) {
                                         dataKey={`${category}Pct`}
                                         fill={categoryColors[category] || "#8884d8"}
                                         radius={[4, 4, 0, 0]}
+                                        cursor="pointer"
+                                        onClick={handleBarClick}
                                     />
                                 </BarChart>
                             </ResponsiveContainer>

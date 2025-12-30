@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { TemporalRow } from '../types/temporal'; // Import the project type
+import { TemporalRow } from '../types/temporal';
 
 // Helper functions to replace lodash
 const groupBy = <T,>(array: T[], keyCallback: (item: T) => string) => {
@@ -61,18 +61,35 @@ const processData = (rawData: TemporalRow[]) => {
         return { month, representativeValue };
     });
 
-    // Step C: Aggregate these modes to get total counts per month
+    // Step C: Aggregate these modes to get total counts per month and calculate percentages
     const chartDataMap = groupBy(patientRepValues, (item) => item.month);
 
     return Object.entries(chartDataMap).map(([month, records]) => {
+        const total = records.length;
         const counts = countBy(records, (item) => item.representativeValue || 'Unknown');
+
+        const getStats = (key: string) => {
+            const count = counts[key] || 0;
+            const pct = total === 0 ? 0 : (count / total) * 100;
+            return { count, pct };
+        };
+
+        const normal = getStats('Normal');
+        const modLow = getStats('Moderately_low');
+        const high = getStats('High');
+
         return {
             month,
-            Normal: counts['Normal'] || 0,
-            Moderately_low: counts['Moderately_low'] || 0,
-            High: counts['High'] || 0,
+            // Raw counts
+            Normal: normal.count,
+            Moderately_low: modLow.count,
+            High: high.count,
+            // Percentages
+            NormalPct: normal.pct,
+            Moderately_lowPct: modLow.pct,
+            HighPct: high.pct,
         };
-    }).sort((a, b) => a.month.localeCompare(b.month)); // Sort by month
+    }).sort((a, b) => a.month.localeCompare(b.month));
 };
 
 export function PatientStatusAnalytics({ data }: PatientStatusAnalyticsProps) {
@@ -83,6 +100,28 @@ export function PatientStatusAnalytics({ data }: PatientStatusAnalyticsProps) {
         'High': '#ef4444', // red-500
         'Normal': '#22c55e', // green-500
         'Moderately_low': '#f59e0b', // amber-500
+    };
+
+    // Custom Tooltip to show Count (and Percentage)
+    const CustomTooltip = ({ active, payload, label }: any) => {
+        if (active && payload && payload.length) {
+            const dataPoint = payload[0].payload;
+            const dataKey = payload[0].dataKey as string; // e.g., 'NormalPct'
+            const category = dataKey.replace('Pct', ''); // 'Normal'
+            const count = dataPoint[category];
+            const pct = payload[0].value;
+            const color = payload[0].fill;
+
+            return (
+                <div className="bg-background border border-border p-2 rounded shadow-md text-xs">
+                    <p className="font-semibold mb-1">{`Month: ${label}`}</p>
+                    <p style={{ color }}>
+                        {`${category.replace('_', ' ')}: ${count} patients (${pct.toFixed(1)}%)`}
+                    </p>
+                </div>
+            );
+        }
+        return null;
     };
 
     return (
@@ -103,7 +142,6 @@ export function PatientStatusAnalytics({ data }: PatientStatusAnalyticsProps) {
                                     margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                                 >
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    {/* X-Axis only visible on the bottom-most chart */}
                                     <XAxis
                                         dataKey="month"
                                         hide={!isLast}
@@ -111,14 +149,15 @@ export function PatientStatusAnalytics({ data }: PatientStatusAnalyticsProps) {
                                         interval={0}
                                         height={30}
                                     />
-                                    <YAxis allowDecimals={false} fontSize={12} />
-                                    <Tooltip
-                                        labelFormatter={(label) => `Month: ${label}`}
+                                    <YAxis
+                                        domain={[0, 100]}
+                                        tickFormatter={(value) => `${value}%`}
+                                        fontSize={12}
                                     />
+                                    <Tooltip content={<CustomTooltip />} />
                                     <Bar
-                                        dataKey={category}
+                                        dataKey={`${category}Pct`}
                                         fill={categoryColors[category] || "#8884d8"}
-                                        name="Total Patients"
                                         radius={[4, 4, 0, 0]}
                                     />
                                 </BarChart>

@@ -35,25 +35,16 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown, 
         }>();
 
         scatterData.forEach(point => {
-            // Bucket Key depends on zoomLevel
-            // If Years -> Bucket by Month (as requested "Buckets for min/max to be monthly")
-            // If Months -> Bucket by Day? Or keep Month?
-            // "I want the buckets for the min and max to be monthly for now" implies constant monthly buckets.
-            // But if we zoom to Days, monthly buckets are huge. 
-            // Let's stick to Monthly buckets for Years view. 
-            // For Months view, maybe Daily buckets? 
-            // The request said "pressing a bucket would increase my resolutions".
-
             let key;
             if (zoomLevel === 'years') {
+                // Year buckets
+                key = `${point.date.getFullYear()}`;
+            } else if (zoomLevel === 'months') {
                 // Monthly buckets
                 key = `${point.date.getFullYear()}-${String(point.date.getMonth() + 1).padStart(2, '0')}`;
-            } else if (zoomLevel === 'months') {
+            } else {
                 // Daily buckets
                 key = `${point.date.getFullYear()}-${String(point.date.getMonth() + 1).padStart(2, '0')}-${String(point.date.getDate()).padStart(2, '0')}`;
-            } else {
-                // Hourly? Just keep daily for now or individual points
-                key = `${point.date.getFullYear()}-${String(point.date.getMonth() + 1).padStart(2, '0')}-${String(point.date.getDate()).padStart(2, '0')}-${point.date.getHours()}`;
             }
 
             if (!buckets.has(key)) {
@@ -101,21 +92,22 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown, 
 
         if (zoomLevel === 'years') {
             const startYear = minDate.getFullYear();
-            const endYear = maxDate.getFullYear();
+            let endYear = new Date(maxTime).getFullYear();
+
+            // Enforce minimum 5 years domain for consistent "bucket size" visual
+            if (endYear - startYear < 5) {
+                endYear = startYear + 4;
+            }
 
             domainStart = new Date(startYear, 0, 1).getTime();
             domainEnd = new Date(endYear, 11, 31, 23, 59, 59).getTime();
 
-            // Context: Years
-            for (let y = startYear; y <= endYear; y++) {
-                contextTicks.push(new Date(y, 0, 1).getTime());
-            }
+            // Context: Years -> Hidden per request
+            // contextTicks remain empty
 
-            // Detail: Months (For all years in range)
+            // Detail: Years (Show year buckets)
             for (let y = startYear; y <= endYear; y++) {
-                for (let m = 0; m < 12; m++) {
-                    detailTicks.push(new Date(y, m, 1).getTime());
-                }
+                detailTicks.push(new Date(y, 6, 1).getTime());
             }
 
         } else if (zoomLevel === 'months') {
@@ -155,7 +147,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown, 
     const detailTickFormatter = (unixTime: number) => {
         const date = new Date(unixTime);
         if (zoomLevel === 'years') {
-            return date.toLocaleDateString(undefined, { month: 'narrow' });
+            return date.getFullYear().toString();
         } else if (zoomLevel === 'months') {
             return date.toLocaleDateString(undefined, { month: 'short' });
         } else {
@@ -173,6 +165,8 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown, 
             return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
         }
     };
+
+
 
 
     return (
@@ -209,25 +203,27 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown, 
                         cursor="pointer"
                     />
 
-                    <XAxis
-                        xAxisId="context"
-                        dataKey="x"
-                        type="number"
-                        domain={xDomain as any}
-                        ticks={contextAxisTicks}
-                        tickFormatter={contextTickFormatter}
-                        scale="time"
-                        allowDuplicatedCategory={false}
-                        interval={0}
-                        orientation="bottom"
-                        dy={15}
-                        tickLine={false}
-                        axisLine={false}
-                        onClick={() => {
-                            if (onZoomOut) onZoomOut();
-                        }}
-                        cursor="pointer"
-                    />
+                    {contextAxisTicks.length > 0 && (
+                        <XAxis
+                            xAxisId="context"
+                            dataKey="x"
+                            type="number"
+                            domain={xDomain as any}
+                            ticks={contextAxisTicks}
+                            tickFormatter={contextTickFormatter}
+                            scale="time"
+                            allowDuplicatedCategory={false}
+                            interval={0}
+                            orientation="bottom"
+                            dy={15}
+                            tickLine={false}
+                            axisLine={false}
+                            onClick={() => {
+                                if (onZoomOut) onZoomOut();
+                            }}
+                            cursor="pointer"
+                        />
+                    )}
                     <YAxis dataKey="y" />
                     <Tooltip
                         labelFormatter={(label) => new Date(label).toLocaleString()}

@@ -6,9 +6,10 @@ interface PatientMultiLineChartProps {
     data: TemporalRow[];
     zoomLevel?: 'years' | 'months' | 'days';
     onDrillDown?: (dateStr: string) => void;
+    onZoomOut?: () => void;
 }
 
-export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown }: PatientMultiLineChartProps) {
+export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown, onZoomOut }: PatientMultiLineChartProps) {
     // Shared X-Axis logic: Use numeric timestamps to allow precise plotting
 
     // 1. Prepare Scatter Data (All Points)
@@ -82,16 +83,97 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown }
         }
     };
 
-    const xAxisTickFormatter = (unixTime: number) => {
+    // 3. Generate X-Axis Ticks based on Zoom Level
+    const { detailAxisTicks, contextAxisTicks, xDomain } = useMemo(() => {
+        if (!scatterData.length) return { detailAxisTicks: [], contextAxisTicks: [], xDomain: ['dataMin', 'dataMax'] };
+
+        const timestamps = scatterData.map(d => d.x);
+        const minTime = Math.min(...timestamps);
+        const maxTime = Math.max(...timestamps);
+        const minDate = new Date(minTime);
+        const maxDate = new Date(maxTime);
+
+        let domainStart = minTime;
+        let domainEnd = maxTime;
+
+        const detailTicks: number[] = [];
+        const contextTicks: number[] = [];
+
+        if (zoomLevel === 'years') {
+            const startYear = minDate.getFullYear();
+            const endYear = maxDate.getFullYear();
+
+            domainStart = new Date(startYear, 0, 1).getTime();
+            domainEnd = new Date(endYear, 11, 31, 23, 59, 59).getTime();
+
+            // Context: Years
+            for (let y = startYear; y <= endYear; y++) {
+                contextTicks.push(new Date(y, 0, 1).getTime());
+            }
+
+            // Detail: Months (For all years in range)
+            for (let y = startYear; y <= endYear; y++) {
+                for (let m = 0; m < 12; m++) {
+                    detailTicks.push(new Date(y, m, 1).getTime());
+                }
+            }
+
+        } else if (zoomLevel === 'months') {
+            const year = minDate.getFullYear();
+
+            domainStart = new Date(year, 0, 1).getTime();
+            domainEnd = new Date(year, 11, 31, 23, 59, 59).getTime();
+
+            // Context: Year
+            contextTicks.push(new Date(year, 0, 1).getTime());
+
+            // Detail: Months
+            for (let m = 0; m < 12; m++) {
+                detailTicks.push(new Date(year, m, 1).getTime());
+            }
+        } else {
+            // zoomLevel === 'days'
+            const year = minDate.getFullYear();
+            const month = minDate.getMonth();
+
+            domainStart = new Date(year, month, 1).getTime();
+            const lastDayObj = new Date(year, month + 1, 0);
+            const lastDay = lastDayObj.getDate();
+            domainEnd = new Date(year, month, lastDay, 23, 59, 59).getTime();
+
+            // Context: Month
+            contextTicks.push(new Date(year, month, 15).getTime());
+
+            // Detail: Days
+            for (let d = 1; d <= lastDay; d++) {
+                detailTicks.push(new Date(year, month, d).getTime());
+            }
+        }
+        return { detailAxisTicks: detailTicks, contextAxisTicks: contextTicks, xDomain: [domainStart, domainEnd] };
+    }, [scatterData, zoomLevel]);
+
+    const detailTickFormatter = (unixTime: number) => {
         const date = new Date(unixTime);
         if (zoomLevel === 'years') {
-            return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+            return date.toLocaleDateString(undefined, { month: 'narrow' });
         } else if (zoomLevel === 'months') {
-            return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+            return date.toLocaleDateString(undefined, { month: 'short' });
         } else {
-            return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+            return date.getDate().toString();
         }
     };
+
+    const contextTickFormatter = (unixTime: number) => {
+        const date = new Date(unixTime);
+        if (zoomLevel === 'years') {
+            return date.getFullYear().toString();
+        } else if (zoomLevel === 'months') {
+            return date.getFullYear().toString();
+        } else {
+            return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+        }
+    };
+
 
     return (
         <div className="w-full h-full p-4">
@@ -107,12 +189,44 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown }
                 >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis
+                        xAxisId="detail"
                         dataKey="x"
                         type="number"
-                        domain={['dataMin', 'dataMax']}
-                        tickFormatter={xAxisTickFormatter}
+                        domain={xDomain as any}
+                        ticks={detailAxisTicks}
+                        tickFormatter={detailTickFormatter}
                         scale="time"
                         allowDuplicatedCategory={false}
+                        interval={0}
+                        orientation="bottom"
+                        height={30}
+                        onClick={(e) => {
+                            if (onDrillDown && e && e.value) {
+                                const date = new Date(e.value);
+                                onDrillDown(date.toISOString());
+                            }
+                        }}
+                        cursor="pointer"
+                    />
+
+                    <XAxis
+                        xAxisId="context"
+                        dataKey="x"
+                        type="number"
+                        domain={xDomain as any}
+                        ticks={contextAxisTicks}
+                        tickFormatter={contextTickFormatter}
+                        scale="time"
+                        allowDuplicatedCategory={false}
+                        interval={0}
+                        orientation="bottom"
+                        dy={15}
+                        tickLine={false}
+                        axisLine={false}
+                        onClick={() => {
+                            if (onZoomOut) onZoomOut();
+                        }}
+                        cursor="pointer"
                     />
                     <YAxis dataKey="y" />
                     <Tooltip
@@ -123,6 +237,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown }
 
                     {/* Max Line - Red */}
                     <Line
+                        xAxisId="detail"
                         data={maxLineData}
                         dataKey="y"
                         stroke="#ff0000"
@@ -136,6 +251,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown }
 
                     {/* Min Line - Blue */}
                     <Line
+                        xAxisId="detail"
                         data={minLineData}
                         dataKey="y"
                         stroke="#0000ff"
@@ -149,6 +265,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown }
 
                     {/* All Points - Gray */}
                     <Scatter
+                        xAxisId="detail"
                         data={scatterData}
                         name="Patient Values"
                         fill="#888888"

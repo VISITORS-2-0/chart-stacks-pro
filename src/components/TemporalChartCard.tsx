@@ -137,6 +137,7 @@ export function TemporalChartCard({
                             data={filteredData as any}
                             zoomLevel={zoomLevel}
                             onDrillDown={handleDrillDown}
+                            onZoomOut={handleZoomOut}
                         />
                     ) : (
                         <PatientStatusAnalytics

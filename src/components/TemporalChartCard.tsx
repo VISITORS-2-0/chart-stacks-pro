@@ -1,14 +1,16 @@
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useOnePatientRaw, useMultiPatientAbstract } from "../hooks/useTemporalData";
+import { useOnePatientRaw, useMultiPatientAbstract, useMultiPatientRaw } from "../hooks/useTemporalData";
 import { PatientStatusAnalytics } from "./PatientStatusAnalytics";
+import { PatientMultiLineChart } from "./PatientMultiLineChart";
 
 interface TemporalChartCardProps {
     id: string;
     title: string;
     onRemove: (id: string) => void;
     isMultiPatient?: boolean;
+    isRaw?: boolean;
 }
 
 export function TemporalChartCard({
@@ -16,12 +18,26 @@ export function TemporalChartCard({
     title,
     onRemove,
     isMultiPatient = false,
+    isRaw = false,
 }: TemporalChartCardProps) {
     const singlePatient = useOnePatientRaw();
     const multiPatientAbstract = useMultiPatientAbstract();
-    // For the demo of the new chart system, we force the use of the abstract data
-    // which contains the Mocked PatientStatusProcessedRow[] structure.
-    const { data, loading, error } = multiPatientAbstract;
+    const multiPatientRaw = useMultiPatientRaw();
+
+    // Determine which data hook to use
+    let dataHook;
+    if (isMultiPatient) {
+        if (isRaw) {
+            dataHook = multiPatientRaw;
+        } else {
+            // Force abstract for non-raw multi-patient (as per previous logic for demo)
+            dataHook = multiPatientAbstract;
+        }
+    } else {
+        dataHook = singlePatient;
+    }
+
+    const { data, loading, error } = dataHook;
 
     return (
         <Card className="border border-border shadow-sm animate-in fade-in-50 duration-300 w-full h-[500px] flex flex-col">
@@ -50,7 +66,11 @@ export function TemporalChartCard({
                 )}
 
                 {!loading && !error && data.length > 0 && (
-                    <PatientStatusAnalytics data={data} />
+                    isRaw ? (
+                        <PatientMultiLineChart data={data as any} />
+                    ) : (
+                        <PatientStatusAnalytics data={data as any} />
+                    )
                 )}
             </CardContent>
         </Card>

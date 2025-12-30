@@ -10,6 +10,7 @@ import { Association } from "./Association";
 
 interface ActiveChart extends MenuItem {
   data: Array<{ date: string; value: number }>;
+  isRaw?: boolean;
 }
 
 interface AssociationTab {
@@ -34,6 +35,7 @@ const Index = () => {
     const newChart: ActiveChart = {
       ...item,
       data: generateMockData(),
+      isRaw: item.parent === 'Raw',
     };
 
     setActiveCharts((prev) => [...prev, newChart]);
@@ -69,25 +71,25 @@ const Index = () => {
         />
       );
     }
-    
+
     if (activeTab === "population") {
       return <PopulationQuery />;
     }
-    
+
     if (activeTab === "pattern") {
       return <PatternExplorer />;
     }
-    
+
     if (activeTab === "export") {
       return <DataExport />;
     }
-    
+
     // Check if it's an association tab
     const associationTab = associationTabs.find(tab => tab.id === activeTab);
     if (associationTab) {
       return <Association name={associationTab.name} />;
     }
-    
+
     return null;
   };
 
@@ -95,17 +97,16 @@ const Index = () => {
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">
         <DashboardSidebar onItemClick={handleItemClick} />
-        
+
         <main className="flex-1 flex flex-col overflow-hidden">
           {/* Tab Navigation */}
           <div className="w-full border-b bg-background px-6 h-12 flex items-center flex-shrink-0 overflow-x-auto">
             <button
               onClick={() => setActiveTab("exploration")}
-              className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${
-                activeTab === "exploration"
+              className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === "exploration"
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
-              }`}
+                }`}
             >
               Data Exploration
               {activeTab === "exploration" && (
@@ -114,11 +115,10 @@ const Index = () => {
             </button>
             <button
               onClick={() => setActiveTab("population")}
-              className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${
-                activeTab === "population"
+              className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === "population"
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
-              }`}
+                }`}
             >
               Population Query
               {activeTab === "population" && (
@@ -127,11 +127,10 @@ const Index = () => {
             </button>
             <button
               onClick={() => setActiveTab("pattern")}
-              className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${
-                activeTab === "pattern"
+              className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === "pattern"
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
-              }`}
+                }`}
             >
               Pattern Explorer
               {activeTab === "pattern" && (
@@ -140,28 +139,26 @@ const Index = () => {
             </button>
             <button
               onClick={() => setActiveTab("export")}
-              className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${
-                activeTab === "export"
+              className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === "export"
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
-              }`}
+                }`}
             >
               Data Export
               {activeTab === "export" && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
               )}
             </button>
-            
+
             {/* Dynamic Association Tabs */}
             {associationTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${
-                  activeTab === tab.id
+                className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === tab.id
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
-                }`}
+                  }`}
               >
                 {tab.name}
                 {activeTab === tab.id && (

@@ -7,6 +7,7 @@ import type { MenuItem } from "@/components/DashboardSidebar";
 
 interface ActiveChart extends MenuItem {
   data: Array<{ date: string; value: number }>;
+  isRaw?: boolean;
 }
 
 interface DataExplorationProps {
@@ -85,7 +86,8 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
                   id={chart.id}
                   title={chart.title}
                   onRemove={onRemoveChart}
-                  isMultiPatient={chart.chartType === 'line'}
+                  isMultiPatient={chart.chartType === 'line' || chart.chartType === 'scatter'} // 'scatter' from Raw is also multi-patient effectively for this purpose?
+                  isRaw={chart.isRaw}
                 />
               ))}
             </div>

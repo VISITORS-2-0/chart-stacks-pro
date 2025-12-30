@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useOnePatientRaw, useMultiPatientRaw } from "../hooks/useTemporalData";
+import { useOnePatientRaw, useMultiPatientAbstract } from "../hooks/useTemporalData";
 import { PatientStatusAnalytics } from "./PatientStatusAnalytics";
 
 interface TemporalChartCardProps {
@@ -18,8 +18,10 @@ export function TemporalChartCard({
     isMultiPatient = false,
 }: TemporalChartCardProps) {
     const singlePatient = useOnePatientRaw();
-    const multiPatient = useMultiPatientRaw();
-    const { data, loading, error } = isMultiPatient ? multiPatient : singlePatient;
+    const multiPatientAbstract = useMultiPatientAbstract();
+    // For the demo of the new chart system, we force the use of the abstract data
+    // which contains the Mocked PatientStatusProcessedRow[] structure.
+    const { data, loading, error } = multiPatientAbstract;
 
     return (
         <Card className="border border-border shadow-sm animate-in fade-in-50 duration-300 w-full h-[500px] flex flex-col">

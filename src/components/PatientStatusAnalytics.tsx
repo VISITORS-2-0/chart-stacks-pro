@@ -1,99 +1,24 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { TemporalRow } from '../types/temporal';
+import { TemporalRow, PatientStatusProcessedRow } from '../types/temporal';
 
-// Helper functions to replace lodash
-const groupBy = <T,>(array: T[], keyCallback: (item: T) => string) => {
-    return array.reduce((acc, item) => {
-        const key = keyCallback(item);
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(item);
-        return acc;
-    }, {} as Record<string, T[]>);
-};
-
-const countBy = <T,>(array: T[], keyCallback: (item: T) => string) => {
-    return array.reduce((acc, item) => {
-        const key = keyCallback(item);
-        acc[key] = (acc[key] || 0) + 1;
-        return acc;
-    }, {} as Record<string, number>);
-};
-
-const maxBy = <T,>(array: T[], valueCallback: (item: T) => number): T | undefined => {
-    if (array.length === 0) return undefined;
-    let maxItem = array[0];
-    let maxValue = valueCallback(maxItem);
-
-    for (let i = 1; i < array.length; i++) {
-        const value = valueCallback(array[i]);
-        if (value > maxValue) {
-            maxItem = array[i];
-            maxValue = value;
-        }
-    }
-    return maxItem;
-};
+// NOTE: Since the data is now coming pre-processed (dummy data) from the API,
+// we are removing the client-side processing logic for this component.
+// If single patient data (TemporalRow[]) is passed, this component will currently NOT render correctly.
+// To support both, we would need to check the data type and conditionally process.
+// Assuming for this task we are fully switching to the pre-processed format.
 
 interface PatientStatusAnalyticsProps {
-    data: TemporalRow[];
+    data: (TemporalRow | PatientStatusProcessedRow)[];
 }
 
 const CATEGORIES = ['High', 'Normal', 'Moderately_low'];
 
-const processData = (rawData: TemporalRow[]) => {
-    // Step A: Group data by PatientID and Month
-    const patientMonthlyGroups = groupBy(rawData, (item) => {
-        const month = item.StartTime.substring(0, 7); // 'YYYY-MM'
-        return `${item.PatientID}_${month}`;
-    });
-
-    // Step B: For each Patient/Month bucket, find the most frequent Value (the Mode)
-    const patientRepValues = Object.entries(patientMonthlyGroups).map(([key, logs]) => {
-        const [_, month] = key.split('_');
-
-        // Coerce Value to string to handle categorical values safely
-        const counts = countBy(logs, (item) => String(item.Value));
-        const keys = Object.keys(counts);
-
-        // Find key with max count
-        const representativeValue = maxBy(keys, (v) => counts[v]);
-        return { month, representativeValue };
-    });
-
-    // Step C: Aggregate these modes to get total counts per month and calculate percentages
-    const chartDataMap = groupBy(patientRepValues, (item) => item.month);
-
-    return Object.entries(chartDataMap).map(([month, records]) => {
-        const total = records.length;
-        const counts = countBy(records, (item) => item.representativeValue || 'Unknown');
-
-        const getStats = (key: string) => {
-            const count = counts[key] || 0;
-            const pct = total === 0 ? 0 : (count / total) * 100;
-            return { count, pct };
-        };
-
-        const normal = getStats('Normal');
-        const modLow = getStats('Moderately_low');
-        const high = getStats('High');
-
-        return {
-            month,
-            // Raw counts
-            Normal: normal.count,
-            Moderately_low: modLow.count,
-            High: high.count,
-            // Percentages
-            NormalPct: normal.pct,
-            Moderately_lowPct: modLow.pct,
-            HighPct: high.pct,
-        };
-    }).sort((a, b) => a.month.localeCompare(b.month));
-};
-
 export function PatientStatusAnalytics({ data }: PatientStatusAnalyticsProps) {
-    const chartData = useMemo(() => processData(data), [data]);
+    // Cast to processed type for rendering because we know it's coming from the mocked API
+    // In a real dual-support scenario, we'd add a type guard.
+    const chartData = data as PatientStatusProcessedRow[];
+    console.log(chartData);
 
     // Define specific colors for each category
     const categoryColors: Record<string, string> = {
@@ -116,7 +41,7 @@ export function PatientStatusAnalytics({ data }: PatientStatusAnalyticsProps) {
                 <div className="bg-background border border-border p-2 rounded shadow-md text-xs">
                     <p className="font-semibold mb-1">{`Month: ${label}`}</p>
                     <p style={{ color }}>
-                        {`${category.replace('_', ' ')}: ${count} patients (${pct.toFixed(1)}%)`}
+                        {`${category.replace('_', ' ')}: ${count} patients (${Number(pct).toFixed(1)}%)`}
                     </p>
                 </div>
             );

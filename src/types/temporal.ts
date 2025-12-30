@@ -9,3 +9,13 @@ export interface TemporalRow {
 export type TemporalMode = 'absolute' | 'relative';
 
 export type ZoomLevel = 'years' | 'months' | 'days' | 'hours';
+
+export interface PatientStatusProcessedRow {
+    month: string;
+    Normal: number;
+    Moderately_low: number;
+    High: number;
+    NormalPct: number;
+    Moderately_lowPct: number;
+    HighPct: number;
+}

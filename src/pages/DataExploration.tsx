@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { ChartCard } from "@/components/ChartCard";
+
+import { TemporalChartCard } from "@/components/TemporalChartCard";
 import { FilterBar, TimeRange } from "@/components/FilterBar";
 import { generateMockData } from "@/utils/chartData";
 import type { MenuItem } from "@/components/DashboardSidebar";
@@ -25,7 +26,7 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
   useEffect(() => {
     // Synchronize horizontal scrolling across all chart containers
     const scrollContainers = document.querySelectorAll('[id^="chart-scroll-"]');
-    
+
     const handleScroll = (e: Event) => {
       const scrollLeft = (e.target as HTMLElement).scrollLeft;
       scrollContainers.forEach((container) => {
@@ -62,7 +63,7 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
         hasCharts={activeCharts.length > 0}
         onCreateAssociation={onCreateAssociation}
       />
-      
+
       <div className="flex-1 overflow-auto">
         <div className="container max-w-7xl p-6">
           {activeCharts.length === 0 ? (
@@ -79,18 +80,12 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
           ) : (
             <div className="space-y-6">
               {activeCharts.map((chart) => (
-                <ChartCard
+                <TemporalChartCard
                   key={chart.id}
                   id={chart.id}
                   title={chart.title}
-                  chartType={chart.chartType}
-                  data={chart.data}
                   onRemove={onRemoveChart}
-                  scrollContainerId={`chart-scroll-${chart.id}`}
-                  onBrushChange={handleBrushChange}
-                  brushStartIndex={brushRange.startIndex}
-                  brushEndIndex={brushRange.endIndex}
-                  patientCount={Math.floor(Math.random() * 5000) + 5000}
+                  isMultiPatient={chart.chartType === 'line'}
                 />
               ))}
             </div>

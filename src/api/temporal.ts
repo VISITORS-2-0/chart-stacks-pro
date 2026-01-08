@@ -19,52 +19,31 @@ export const getAllMultiPatientRaw = async (): Promise<TemporalRow[]> => {
 };
 
 export const getAllMultiPatientAbstract = async (): Promise<PatientStatusProcessedRow[]> => {
-    // Return dummy data for now as requested
-    return [
-        {
-            "month": "1991-01",
-            "Normal": 15,
-            "Moderately_low": 5,
-            "High": 2,
-            "NormalPct": 68.2,
-            "Moderately_lowPct": 22.7,
-            "HighPct": 9.1
-        },
-        {
-            "month": "1991-02",
-            "Normal": 18,
-            "Moderately_low": 3,
-            "High": 5,
-            "NormalPct": 69.2,
-            "Moderately_lowPct": 11.5,
-            "HighPct": 19.3
-        },
-        {
-            "month": "1991-03",
-            "Normal": 12,
-            "Moderately_low": 8,
-            "High": 1,
-            "NormalPct": 57.1,
-            "Moderately_lowPct": 38.1,
-            "HighPct": 4.8
-        },
-        {
-            "month": "1991-04",
-            "Normal": 20,
-            "Moderately_low": 2,
-            "High": 8,
-            "NormalPct": 66.7,
-            "Moderately_lowPct": 6.7,
-            "HighPct": 26.6
-        },
-        {
-            "month": "1991-05",
-            "Normal": 22,
-            "Moderately_low": 4,
-            "High": 4,
-            "NormalPct": 73.3,
-            "Moderately_lowPct": 13.3,
-            "HighPct": 13.4
-        }
-    ];
+    // Generate daily data for 3 years (2021-2023)
+    const startDate = new Date('2021-01-01');
+    const endDate = new Date('2023-12-31');
+    const data: PatientStatusProcessedRow[] = [];
+
+    const currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+        // Generate random counts
+        const normal = Math.floor(Math.random() * 50) + 10;
+        const low = Math.floor(Math.random() * 20);
+        const high = Math.floor(Math.random() * 15);
+        const total = normal + low + high;
+
+        data.push({
+            date: currentDate.toISOString().split('T')[0],
+            Normal: normal,
+            Moderately_low: low,
+            High: high,
+            NormalPct: (normal / total) * 100,
+            Moderately_lowPct: (low / total) * 100,
+            HighPct: (high / total) * 100
+        });
+
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return data;
 };

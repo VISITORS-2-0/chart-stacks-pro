@@ -61,7 +61,7 @@ export function TemporalChartCard({
             // Abstract data only has month 'YYYY-MM'. 
             // Raw data has StartTime ISO.
 
-            const rowDate = row.StartTime ? new Date(row.StartTime) : (row.month ? new Date(row.month + '-01') : null);
+            const rowDate = row.StartTime ? new Date(row.StartTime) : (row.date ? new Date(row.date) : null);
             if (!rowDate) return false;
 
             if (zoomLevel === 'months') {

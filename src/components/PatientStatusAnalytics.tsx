@@ -13,8 +13,6 @@ const CATEGORIES = ['High', 'Normal', 'Moderately_low'];
 export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown }: PatientStatusAnalyticsProps) {
     // Cast to processed type for rendering because we know it's coming from the mocked API
     // In a real dual-support scenario, we'd add a type guard.
-    const chartData = data as PatientStatusProcessedRow[];
-
     // Define specific colors for each category
     const categoryColors: Record<string, string> = {
         'High': '#ef4444', // red-500
@@ -22,19 +20,82 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown 
         'Moderately_low': '#f59e0b', // amber-500
     };
 
-    const handleBarClick = (data: any) => {
-        if (onDrillDown && data && data.month) {
-            // "month" field in current abstract data is YYYY-MM. 
-            // If we drill down from years, we might need a full date string or just pass what we have.
-            // For Abstract data currently:
-            // Years view -> data has "month" (or could be "year")
-            // Months view -> data has "month" (YYYY-MM)
-            // Days view -> data likely needs "day"
+    // Aggregation Logic
+    const aggregatedData = React.useMemo(() => {
+        if (!data || data.length === 0) return [];
 
-            // Assuming the mock data structure adapts or we parse.
-            // Current mock data is strictly YYYY-MM.
-            // We need to construct a date object to drill down reliably.
-            const validDate = new Date(data.month + '-01'); // Force 1st of month
+        const buckets = new Map<string, {
+            Normal: number;
+            Moderately_low: number;
+            High: number;
+            count: number;
+            dateStr: string;
+        }>();
+
+        data.forEach(row => {
+            const rowData = row as PatientStatusProcessedRow;
+            const date = new Date(rowData.date);
+            if (isNaN(date.getTime())) return;
+
+            // Determine bucket key based on zoom level
+            let key = '';
+            let dateStr = '';
+
+            if (zoomLevel === 'years') {
+                key = date.getFullYear().toString();
+                dateStr = key;
+            } else if (zoomLevel === 'months') {
+                key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                dateStr = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+            } else {
+                key = rowData.date;
+                dateStr = date.getDate().toString();
+            }
+
+            if (!buckets.has(key)) {
+                buckets.set(key, { Normal: 0, Moderately_low: 0, High: 0, count: 0, dateStr });
+            }
+
+            const entry = buckets.get(key)!;
+            entry.Normal += rowData.Normal;
+            entry.Moderately_low += rowData.Moderately_low;
+            entry.High += rowData.High;
+            entry.count += 1;
+        });
+
+        // Convert to array and calculate percentages
+        return Array.from(buckets.entries())
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .map(([key, value]) => {
+                const total = value.Normal + value.Moderately_low + value.High;
+                return {
+                    date: key, // Use key as date identifier
+                    displayDate: value.dateStr,
+                    Normal: value.Normal,
+                    Moderately_low: value.Moderately_low,
+                    High: value.High,
+                    NormalPct: total > 0 ? (value.Normal / total) * 100 : 0,
+                    Moderately_lowPct: total > 0 ? (value.Moderately_low / total) * 100 : 0,
+                    HighPct: total > 0 ? (value.High / total) * 100 : 0
+                };
+            });
+    }, [data, zoomLevel]);
+
+    const handleBarClick = (data: any) => {
+        if (onDrillDown && data && data.date) {
+            // data.date is the key (Year '2022', Month '2022-01', Day '2022-01-01')
+            let dateStr = data.date;
+
+            // If it's a year, append Jan 1st
+            if (zoomLevel === 'years') {
+                dateStr += '-01-01';
+            }
+            // If it's a month, append 1st
+            else if (zoomLevel === 'months') {
+                dateStr += '-01';
+            }
+
+            const validDate = new Date(dateStr);
             if (!isNaN(validDate.getTime())) {
                 onDrillDown(validDate.toISOString());
             }
@@ -47,20 +108,20 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown 
             const dataPoint = payload[0].payload;
             const dataKey = payload[0].dataKey as string; // e.g., 'NormalPct'
             const category = dataKey.replace('Pct', ''); // 'Normal'
-            const count = dataPoint[category];
+            const count = dataPoint[category]; // This is total count for the period
             const pct = payload[0].value;
             const color = payload[0].fill;
 
             return (
                 <div className="bg-background border border-border p-2 rounded shadow-md text-xs">
-                    <p className="font-semibold mb-1">{`Time: ${label}`}</p>
+                    <p className="font-semibold mb-1">{`Time: ${dataPoint.displayDate}`}</p>
                     <p style={{ color }}>
                         {`${category.replace('_', ' ')}: ${count} patients (${Number(pct).toFixed(1)}%)`}
                     </p>
                 </div>
             );
         }
-        return null;
+        return null; // Return null if not active or missing payload
     };
 
     return (
@@ -76,7 +137,7 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown 
                         <div className="w-full h-[calc(100%-1.5rem)]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart
-                                    data={chartData}
+                                    data={aggregatedData}
                                     syncId="patientStatus"
                                     margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                                     onClick={(e: any) => {
@@ -87,15 +148,11 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown 
                                 >
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                     <XAxis
-                                        dataKey="month"
+                                        dataKey="displayDate"
                                         hide={!isLast}
                                         tick={{ fontSize: 12 }}
                                         interval={0}
                                         height={30}
-                                        tickFormatter={(val) => {
-                                            // Format based on Zoom Level if needed, or rely on raw string
-                                            return val;
-                                        }}
                                     />
                                     <YAxis
                                         domain={[0, 100]}

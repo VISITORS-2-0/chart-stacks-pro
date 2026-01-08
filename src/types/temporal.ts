@@ -11,7 +11,7 @@ export type TemporalMode = 'absolute' | 'relative';
 export type ZoomLevel = 'years' | 'months' | 'days' | 'hours';
 
 export interface PatientStatusProcessedRow {
-    month: string;
+    date: string; // ISO-8601 Date "YYYY-MM-DD"
     Normal: number;
     Moderately_low: number;
     High: number;

@@ -2,11 +2,12 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { format, subDays, subHours, subMinutes } from "date-fns";
 
 import { TemporalChartCard } from "@/components/TemporalChartCard";
-import { SinglePatientAbstractionPanel, AbstractionInterval } from "@/components/SinglePatientAbstractionPanel";
+import { SinglePatientAbstractionPanel, AbstractionInterval, ValueLevel } from "@/components/SinglePatientAbstractionPanel";
 import { FilterBar, TimeRange } from "@/components/FilterBar";
 import { generateMockData } from "@/utils/chartData";
-import { MOCK_VALUE_LEVELS } from "@/utils/mockAbstractionData";
+// import { MOCK_VALUE_LEVELS } from "@/utils/mockAbstractionData"; // Removed in favor of dynamic
 import { fetchAbstractionData } from "@/services/abstractionService";
+import { generateDynamicValueLevels } from "@/utils/abstractionUtils";
 import type { MenuItem } from "@/components/DashboardSidebar";
 import { useToast } from "@/hooks/use-toast";
 
@@ -32,8 +33,8 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
   const [patientCount] = useState(10000);
   const { toast } = useToast();
 
-  // State to store real API data
-  const [apiDataMap, setApiDataMap] = useState<Record<string, AbstractionInterval[]>>({});
+  // State to store real API data and its derived levels
+  const [apiDataMap, setApiDataMap] = useState<Record<string, { intervals: AbstractionInterval[], levels: ValueLevel[] }>>({});
   const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({});
 
   // Helper to calculate date range
@@ -74,14 +75,24 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
         
         try {
             const dates = calculateDateRange();
-            const data = await fetchAbstractionData({
+            const rawData = await fetchAbstractionData({
                 patients_list: [currentPatientId],
                 concept_name: chart.title, 
                 start_date: format(dates.start, "yyyy-MM-dd'T'HH:mm:ss"),
                 end_date: format(dates.end, "yyyy-MM-dd'T'HH:mm:ss")
             });
             
-            setApiDataMap(prev => ({ ...prev, [chart.id]: data }));
+            // Map raw backend items to frontend components
+            const rawIntervals = rawData.intervals.map(mapToAbstractionInterval);
+            
+            // Generate dynamic levels and re-index intervals using Metadata if available
+            const { levels, processedIntervals } = generateDynamicValueLevels(rawIntervals, rawData.concept_data);
+
+            setApiDataMap(prev => ({ 
+                ...prev, 
+                [chart.id]: { intervals: processedIntervals, levels } 
+            }));
+
         } catch (err) {
             console.error("Fetch failed", err);
             toast({ 
@@ -162,7 +173,8 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
               {activeCharts.map((chart) => {
                 if (chart.parent === "State") {
                     const isLoading = loadingMap[chart.id];
-                    const data = apiDataMap[chart.id] || [];
+                    // Get data and levels from map, default to empty
+                    const chartData = apiDataMap[chart.id] || { intervals: [], levels: [] };
 
                     return (
                         <div key={chart.id} className="relative">
@@ -192,8 +204,8 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
                                         patientId={patientIds[0]}
                                         conceptId={chart.id}
                                         conceptDisplayName={chart.title}
-                                        intervals={data}
-                                        valueLevels={MOCK_VALUE_LEVELS} // We can update this when API returns metadata
+                                        intervals={chartData.intervals}
+                                        valueLevels={chartData.levels} 
                                         className="w-full"
                                     />
                                     <button

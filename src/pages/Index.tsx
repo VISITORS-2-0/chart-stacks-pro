@@ -59,6 +59,12 @@ const Index = () => {
     setAssociationCounter((prev) => prev + 1);
   };
 
+  const handleToggleRaw = (id: string, isRaw: boolean) => {
+    setActiveCharts((prev) =>
+      prev.map((chart) => (chart.id === id ? { ...chart, isRaw } : chart))
+    );
+  };
+
   const renderActiveScreen = () => {
     if (activeTab === "exploration") {
       return (
@@ -66,6 +72,7 @@ const Index = () => {
           activeCharts={activeCharts}
           onAddChart={handleItemClick}
           onRemoveChart={handleRemoveChart}
+          onToggleRaw={handleToggleRaw}
           onCloseAll={handleCloseAll}
           onCreateAssociation={handleCreateAssociation}
         />

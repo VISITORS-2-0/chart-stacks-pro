@@ -26,10 +26,13 @@ export const fetchRawData = async (payload: RawDataRequest): Promise<TemporalRow
             throw new Error(`API Error: ${response.status} ${response.statusText}`);
         }
 
-        const data: any[] = await response.json();
+        const json = await response.json();
         
+        // Handle both old (array) and new (object with result key) formats
+        const dataArr = Array.isArray(json) ? json : (json.result || json.data || []);
+
         // Map to ensure types are correct (parsing numbers if possible)
-        return data.map(item => ({
+        return dataArr.map((item: any) => ({
             StartTime: item.StartTime,
             EndTime: item.EndTime,
             // Try to parse number, fallback to string if NaN

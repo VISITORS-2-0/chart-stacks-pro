@@ -97,6 +97,9 @@ export const fetchAbstractionData = async (payload: AbstractionGeneratorRequest)
             // It MUST be a root object now.
             
              if (json.intervals) intervals = json.intervals;
+             else if (json.result) intervals = json.result; // Added result fallback
+             else if (json.data) intervals = json.data;
+
              if (json.concept_data) concept_data = json.concept_data;
         }
 

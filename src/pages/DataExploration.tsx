@@ -25,11 +25,12 @@ interface DataExplorationProps {
   activeCharts: ActiveChart[];
   onAddChart: (item: MenuItem) => void;
   onRemoveChart: (id: string) => void;
+  onToggleRaw: (id: string, isRaw: boolean) => void;
   onCloseAll: () => void;
   onCreateAssociation: () => void;
 }
 
-export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onCloseAll, onCreateAssociation }: DataExplorationProps) {
+export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onToggleRaw, onCloseAll, onCreateAssociation }: DataExplorationProps) {
   const [brushRange, setBrushRange] = useState<{ startIndex?: number; endIndex?: number }>({});
   const [patientIds, setPatientIds] = useState<string[]>([]); // Assuming single patient for now for abstraction panel
   const [timeRange, setTimeRange] = useState<TimeRange>({ type: "relative", relative: "30d" });
@@ -185,7 +186,7 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
           ) : (
             <div className="space-y-6">
               {activeCharts.map((chart) => {
-                if (chart.parent === "State") {
+                if (chart.parent === "State" && !chart.isRaw) {
                     const isLoading = loadingMap[chart.id];
                     // Get data and levels from map, default to empty
                     const chartData = apiDataMap[chart.id] || { intervals: [], levels: [] };
@@ -221,6 +222,17 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
                                         intervals={chartData.intervals}
                                         valueLevels={chartData.levels} 
                                         className="w-full"
+                                        onIntervalClick={(interval) => {
+                                            // 1. Zoom the global time range to this interval
+                                            setTimeRange({
+                                                type: "absolute",
+                                                startDate: new Date(interval.start),
+                                                endDate: new Date(interval.end)
+                                            });
+                                            
+                                            // 2. Toggle this specific chart to "Raw" view
+                                            onToggleRaw(chart.id, true);
+                                        }}
                                     />
                                     <button
                                         onClick={() => onRemoveChart(chart.id)}
@@ -249,6 +261,7 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
                     isRaw={chart.isRaw}
                     externalData={rawData}
                     isLoading={isRawLoading}
+                    onToggleRaw={chart.parent === "State" ? (isRaw: boolean) => onToggleRaw(chart.id, isRaw) : undefined}
                     />
                 );
               })}

@@ -1,5 +1,6 @@
-import { X, ZoomIn, ZoomOut } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { X, ZoomIn, ZoomOut, ArrowLeft } from "lucide-react";
+import { Button as ButtonOriginal } from "@/components/ui/button";
+const Button = ButtonOriginal as any;
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOnePatientRaw, useMultiPatientAbstract, useMultiPatientRaw } from "../hooks/useTemporalData";
 import { PatientStatusAnalytics } from "./PatientStatusAnalytics";
@@ -18,6 +19,7 @@ interface TemporalChartCardProps {
     isRaw?: boolean;
     externalData?: TemporalRow[];
     isLoading?: boolean;
+    onToggleRaw?: (isRaw: boolean) => void;
 }
 
 export function TemporalChartCard({
@@ -27,7 +29,8 @@ export function TemporalChartCard({
     isMultiPatient = false,
     isRaw = false,
     externalData,
-    isLoading = false
+    isLoading = false,
+    onToggleRaw
 }: TemporalChartCardProps) {
     const singlePatient = useOnePatientRaw();
     const multiPatientAbstract = useMultiPatientAbstract();
@@ -127,6 +130,18 @@ export function TemporalChartCard({
                             <ZoomOut className="h-3 w-3" />
                             Drop Frame
                         </Button>
+                    )}
+                    {onToggleRaw && (
+                         <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1 border-primary text-primary hover:bg-primary/5 shadow-sm transition-all"
+                            onClick={() => onToggleRaw(false)}
+                            title="Return to Abstraction View"
+                         >
+                            <ArrowLeft className="h-3 w-3" />
+                            Back to Abstraction
+                         </Button>
                     )}
                     <Button
                         variant="ghost"

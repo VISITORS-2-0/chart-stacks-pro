@@ -1,6 +1,6 @@
 import { TemporalRow, PatientStatusProcessedRow } from '../types/temporal';
 
-const API_TARGET = import.meta.env.VITE_API_TARGET || 'http://127.0.0.1:8000';
+const API_TARGET = import.meta.env.VITE_API_TARGET || '';
 
 export interface ConceptData {
     name: string;

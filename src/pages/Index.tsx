@@ -86,11 +86,9 @@ const Index = () => {
         const response = await fetchRawData(params);
         console.log("Received Raw Data Response:", JSON.stringify(response, null, 2));
 
-        toast({
-          title: "Raw Data Fetched",
-          description: "Check console for request/response details.",
-        });
-        return; // Stop here, do not create chart
+        resultData = response.result;
+        conceptData = response.concept_data;
+
       } else {
         const response = await fetchAbstractionData(params);
         resultData = response.result;

@@ -30,7 +30,7 @@ export interface QueryParams {
 }
 
 export const fetchAbstractionData = async (params: QueryParams): Promise<AbstractionResponse> => {
-    const response = await fetch(`${DATA_SERVICE_URL}/api/v1/visitors-queries/abstraction`, {
+    const response = await fetch(`http://localhost:8000/api/v1/visitors-queries/abstraction`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -44,13 +44,13 @@ export const fetchAbstractionData = async (params: QueryParams): Promise<Abstrac
         throw new Error(`Failed to fetch abstraction data: ${response.statusText} - ${errorText}`);
     }
 
-    return response.json();
+    const data = await response.json();
+    return data;
 };
 
 export const fetchRawData = async (params: QueryParams): Promise<RawDataResponse> => {
     console.log("fetchRawData");
     console.log(params);
-    // const response = await fetch(`${DATA_SERVICE_URL}/api/v1/visitors-queries/raw-data`, {
     const response = await fetch(`http://localhost:8000/api/v1/visitors-queries/raw-data`, {
         method: 'POST',
 
@@ -66,10 +66,11 @@ export const fetchRawData = async (params: QueryParams): Promise<RawDataResponse
         throw new Error(`Failed to fetch raw data: ${response.statusText} - ${errorText}`);
     }
 
+    const data = await response.json();
     console.log("fetchRawData response");
-    console.log(response.json());
+    console.log(data);
 
-    return response.json();
+    return data;
 };
 
 export const getAllOnePatientRaw = async (): Promise<TemporalRow[]> => {

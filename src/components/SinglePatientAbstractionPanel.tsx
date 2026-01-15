@@ -498,7 +498,7 @@ export function SinglePatientAbstractionPanel({
                             <ComposedChart
                                 data={chartData}
                                 layout="vertical"
-                                margin={{ top: 20, right: 30, left: 40, bottom: 20 }}
+                                margin={{ top: 20, right: 30, left: 40, bottom: 30 }}
                             >
                             <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} stroke="hsl(var(--border))" />
                             
@@ -518,9 +518,11 @@ export function SinglePatientAbstractionPanel({
                                 dataKey="y" 
                                 width={100}
                                 stroke="hsl(var(--foreground))"
-                                fontSize={12}
+                                tick={{ fontSize: 12 }}
+                                interval={0}
                                 allowDuplicatedCategory={false}
                                 domain={yDomain}
+                                padding={{ top: 10, bottom: 20 }}
                             />
 
                             {/* Intervals as custom shapes */}

@@ -8,36 +8,23 @@ import {
     Tooltip, 
     ResponsiveContainer, 
     Cell,
-    ReferenceLine as ReferenceLineOriginal,
     Brush as BrushOriginal
 } from 'recharts';
-const ReferenceLine = ReferenceLineOriginal as any;
 const Brush = BrushOriginal as any;
 import {
     Info,
     ZoomIn,
     ZoomOut,
-    Calendar,
-    Settings2,
     Maximize2
 } from "lucide-react";
 import { Button as ButtonOriginal } from "@/components/ui/button";
 const Button = ButtonOriginal as any;
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-    Select, 
-    SelectContent, 
-    SelectItem, 
-    SelectTrigger, 
-    SelectValue 
-} from "@/components/ui/select";
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 
 // --- Types ---
 export interface AbstractionInterval {
@@ -134,7 +121,6 @@ export function SinglePatientAbstractionPanel({
     className
 }: SinglePatientAbstractionPanelProps) {
     // --- State ---
-    const [selectedRefEventId, setSelectedRefEventId] = useState<string>(referenceEvents[0]?.id || "");
     const [zoomLevel, setZoomLevel] = useState<ZoomGranularity>('years');
     const [viewDurationLabel, setViewDurationLabel] = useState<string>("Viewing: 1 Year");
     const [brushIndexes, setBrushIndexes] = useState<{ startIndex?: number; endIndex?: number }>({});
@@ -148,8 +134,7 @@ export function SinglePatientAbstractionPanel({
 
     // --- Data Processing ---
     
-    // Sort levels safely
-    // Sort levels safely. 
+    // Sort levels safely.  
     // We want "Very High" at the Top and "Very Low" at the Bottom.
     // In Recharts Vertical Layout (Category Axis as Y), the first item in domain is rendered at the BOTTOM.
     // So we should sort Ascending (0=Very Low -> Bottom, 4=Very High -> Top).

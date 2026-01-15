@@ -20,7 +20,7 @@ interface DataExplorationProps {
 
 export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onCloseAll, onCreateAssociation }: DataExplorationProps) {
   const [brushRange, setBrushRange] = useState<{ startIndex?: number; endIndex?: number }>({});
-  const [patientId, setPatientId] = useState("");
+  const [patientIds, setPatientIds] = useState<string[]>([]);
   const [timeRange, setTimeRange] = useState<TimeRange>({ type: "relative", relative: "30d" });
   const [patientCount] = useState(10000);
 
@@ -55,8 +55,8 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <FilterBar
-        patientId={patientId}
-        onPatientIdChange={setPatientId}
+        patientIds={patientIds}
+        onPatientIdsChange={setPatientIds}
         timeRange={timeRange}
         onTimeRangeChange={setTimeRange}
         patientCount={patientCount}

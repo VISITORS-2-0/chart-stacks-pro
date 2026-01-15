@@ -1,6 +1,7 @@
 import { TemporalRow, PatientStatusProcessedRow } from '../types/temporal';
 
-const API_TARGET = import.meta.env.VITE_API_TARGET || '';
+
+const DATA_SERVICE_URL = import.meta.env.VITE_DATA_SERVICE_URL || '';
 
 export interface ConceptData {
     name: string;
@@ -29,7 +30,7 @@ export interface QueryParams {
 }
 
 export const fetchAbstractionData = async (params: QueryParams): Promise<AbstractionResponse> => {
-    const response = await fetch(`${API_TARGET}/api/v1/visitors-queries/abstraction`, {
+    const response = await fetch(`${DATA_SERVICE_URL}/api/v1/visitors-queries/abstraction`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -38,15 +39,21 @@ export const fetchAbstractionData = async (params: QueryParams): Promise<Abstrac
     });
 
     if (!response.ok) {
-        throw new Error(`Failed to fetch abstraction data: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('Fetch Abstraction Failed:', response.status, response.statusText, errorText);
+        throw new Error(`Failed to fetch abstraction data: ${response.statusText} - ${errorText}`);
     }
 
     return response.json();
 };
 
 export const fetchRawData = async (params: QueryParams): Promise<RawDataResponse> => {
-    const response = await fetch(`${API_TARGET}/api/v1/visitors-queries/raw-data`, {
+    console.log("fetchRawData");
+    console.log(params);
+    // const response = await fetch(`${DATA_SERVICE_URL}/api/v1/visitors-queries/raw-data`, {
+    const response = await fetch(`http://localhost:8000/api/v1/visitors-queries/raw-data`, {
         method: 'POST',
+
         headers: {
             'Content-Type': 'application/json',
         },
@@ -54,8 +61,13 @@ export const fetchRawData = async (params: QueryParams): Promise<RawDataResponse
     });
 
     if (!response.ok) {
-        throw new Error(`Failed to fetch raw data: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('Fetch Raw Data Failed:', response.status, response.statusText, errorText);
+        throw new Error(`Failed to fetch raw data: ${response.statusText} - ${errorText}`);
     }
+
+    console.log("fetchRawData response");
+    console.log(response.json());
 
     return response.json();
 };

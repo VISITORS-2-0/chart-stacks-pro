@@ -102,6 +102,10 @@ const IntervalBar = (props: any) => {
             onMouseEnter={(e) => props.onHover?.(payload, { x: e.clientX, y: e.clientY })}
             onMouseMove={(e) => props.onHover?.(payload, { x: e.clientX, y: e.clientY })}
             onMouseLeave={() => props.onLeave?.()}
+            onClick={(e: any) => {
+                e.stopPropagation();
+                props.onClick?.(payload);
+            }}
         />
     );
 };
@@ -201,8 +205,14 @@ export function SinglePatientAbstractionPanel({
                 setZoomLevel('days');
             }
 
-            // Zoom EXACTLY to this item
+            // Zoom EXACTLY to this item's time range
             setBrushIndexes({ startIndex: index, endIndex: index });
+            
+            // Update virtual domain to precise interval times
+            setVirtualDomain({
+                start: interval.start as number,
+                end: interval.end as number
+            });
         }
     };
 
@@ -210,7 +220,12 @@ export function SinglePatientAbstractionPanel({
     const xDomain = useMemo(() => {
         if (chartData.length === 0) return [0, 100];
 
-        // Determine visible data slice
+        // If we have a virtual domain (set by specific zooms/pans), prioritize it for precision
+        if (virtualDomain) {
+            return [virtualDomain.start, virtualDomain.end];
+        }
+
+        // Determine visible data slice based on Brush
         const startIdx = brushIndexes.startIndex ?? 0;
         const endIdx = brushIndexes.endIndex ?? chartData.length - 1;
         
@@ -233,7 +248,7 @@ export function SinglePatientAbstractionPanel({
         // Add padding otherwise
         const padding = (max - min) * 0.05;
         return [min - padding, max + padding];
-    }, [chartData, brushIndexes]);
+    }, [chartData, brushIndexes, virtualDomain]);
 
     // Dynamic Zoom Level Effect
     const durationMs = xDomain[1] - xDomain[0];
@@ -410,8 +425,13 @@ export function SinglePatientAbstractionPanel({
     const handleResetZoom = () => {
         if (chartData.length > 0) {
             setBrushIndexes({ startIndex: 0, endIndex: chartData.length - 1 });
+            setVirtualDomain({
+                start: chartData[0].start as number,
+                end: chartData[chartData.length - 1].end as number
+            });
         } else {
              setBrushIndexes({});
+             setVirtualDomain(null);
         }
         setZoomLevel('years');
     };
@@ -484,6 +504,10 @@ export function SinglePatientAbstractionPanel({
                                 data={chartData}
                                 layout="vertical"
                                 margin={{ top: 20, right: 30, left: 40, bottom: 30 }}
+                                onMouseLeave={() => {
+                                    setHoveredInterval(null);
+                                    setTooltipPos(null);
+                                }}
                             >
                             <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} stroke="hsl(var(--border))" />
                             
@@ -510,16 +534,25 @@ export function SinglePatientAbstractionPanel({
                                 padding={{ top: 10, bottom: 20 }}
                             />
 
+                            
                             {/* Intervals as custom shapes */}
                             <Scatter 
-                                shape={<IntervalBar onHover={(d: any, pos: any) => {
-                                    setHoveredInterval(d);
-                                    setTooltipPos(pos);
-                                }} onLeave={() => {
-                                    setHoveredInterval(null);
-                                    setTooltipPos(null);
-                                }} />} 
-                                onClick={(data) => handleIntervalClick(data.payload)}
+                                name={conceptDisplayName}
+                                data={chartData}
+                                shape={(props: any) => (
+                                    <IntervalBar 
+                                        {...props} 
+                                        onHover={(d: any, pos: any) => {
+                                            setHoveredInterval(d);
+                                            setTooltipPos(pos);
+                                        }}
+                                        onLeave={() => {
+                                            setHoveredInterval(null);
+                                            setTooltipPos(null);
+                                        }}
+                                        onClick={handleIntervalClick}
+                                    />
+                                )}
                             />
 
 

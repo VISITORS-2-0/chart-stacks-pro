@@ -207,6 +207,20 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
                                         intervals={chartData.intervals}
                                         valueLevels={chartData.levels} 
                                         className="w-full"
+                                        onIntervalClick={(interval) => {
+                                            // 1. Zoom the global time range to this interval
+                                            setTimeRange({
+                                                type: "absolute",
+                                                startDate: new Date(interval.start),
+                                                endDate: new Date(interval.end)
+                                            });
+                                            
+                                            // 2. We can also toggle this specific chart to "Raw" view
+                                            // if you want it to drill down automatically.
+                                            // For now, let's just zoom. If you want it to change 
+                                            // what data is shown (e.g. switch to raw), we do:
+                                            // handleToggleRaw(chart.id, true);
+                                        }}
                                     />
                                     <button
                                         onClick={() => onRemoveChart(chart.id)}

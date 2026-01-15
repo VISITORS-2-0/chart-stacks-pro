@@ -1,12 +1,15 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { format, subDays, subHours, subMinutes } from "date-fns";
 
+import { fetchRawData } from "@/services/rawDataService";
+import { TemporalRow } from "@/types/temporal";
+
 import { TemporalChartCard } from "@/components/TemporalChartCard";
 import { SinglePatientAbstractionPanel, AbstractionInterval, ValueLevel } from "@/components/SinglePatientAbstractionPanel";
 import { FilterBar, TimeRange } from "@/components/FilterBar";
 import { generateMockData } from "@/utils/chartData";
 // import { MOCK_VALUE_LEVELS } from "@/utils/mockAbstractionData"; // Removed in favor of dynamic
-import { fetchAbstractionData } from "@/services/abstractionService";
+import { fetchAbstractionData, mapToAbstractionInterval } from "@/services/abstractionService";
 import { generateDynamicValueLevels } from "@/utils/abstractionUtils";
 import type { MenuItem } from "@/components/DashboardSidebar";
 import { useToast } from "@/hooks/use-toast";
@@ -33,8 +36,10 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
   const [patientCount] = useState(10000);
   const { toast } = useToast();
 
-  // State to store real API data and its derived levels
+
+// ... inside component ...
   const [apiDataMap, setApiDataMap] = useState<Record<string, { intervals: AbstractionInterval[], levels: ValueLevel[] }>>({});
+  const [apiRawDataMap, setApiRawDataMap] = useState<Record<string, TemporalRow[]>>({}); // New state for raw data
   const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({});
 
   // Helper to calculate date range
@@ -55,48 +60,55 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
     return { start, end };
   }, [timeRange]);
 
-
-  // Fetch Data Effect
-  useEffect(() => {
+// ... inside fetchForChart ...
     const fetchForChart = async (chart: ActiveChart) => {
-        // Only fetch for State charts
-        if (chart.parent !== "State") return;
-        
-        // Skip if no patient selected (Abstraction panel needs a patient)
-        if (patientIds.length === 0) return;
-
-        // Use the first selected patient ID
+        console.log("fetchForChart called for:", chart.title, "Parent:", chart.parent);
+        // Skip if no patient selected
+        if (patientIds.length === 0) {
+            console.log("No patient selected, skipping fetch");
+            return;
+        }
         const currentPatientId = patientIds[0];
         
-        // Key to prevent re-fetching if nothing changed (simplified)
-        // ideally we check if data already exists for this config
-        
         setLoadingMap(prev => ({ ...prev, [chart.id]: true }));
+        const dates = calculateDateRange(); // Calculate once based on current timeRange
+        console.log("Fetch dates:", dates);
         
         try {
-            const dates = calculateDateRange();
-            const rawData = await fetchAbstractionData({
-                patients_list: [currentPatientId],
-                concept_name: chart.title, 
-                start_date: format(dates.start, "yyyy-MM-dd'T'HH:mm:ss"),
-                end_date: format(dates.end, "yyyy-MM-dd'T'HH:mm:ss")
-            });
-            
-            // Map raw backend items to frontend components
-            const rawIntervals = rawData.intervals.map(mapToAbstractionInterval);
-            
-            // Generate dynamic levels and re-index intervals using Metadata if available
-            const { levels, processedIntervals } = generateDynamicValueLevels(rawIntervals, rawData.concept_data);
+            if (chart.parent === "State") {
+                 // Abstraction Logic
+                const rawData = await fetchAbstractionData({
+                    patients_list: [currentPatientId],
+                    concept_name: chart.title, 
+                    start_date: format(dates.start, "yyyy-MM-dd'T'HH:mm:ss"),
+                    end_date: format(dates.end, "yyyy-MM-dd'T'HH:mm:ss")
+                });
+                
+                const rawIntervals = rawData.intervals.map(mapToAbstractionInterval);
+                const { levels, processedIntervals } = generateDynamicValueLevels(rawIntervals, rawData.concept_data);
+    
+                setApiDataMap(prev => ({ 
+                    ...prev, 
+                    [chart.id]: { intervals: processedIntervals, levels } 
+                }));
+            } else {
+                // Raw Data Logic (assuming non-State is Raw for now)
+                console.log("Fetching RAW data for:", chart.title);
+                const rawData = await fetchRawData({
+                    patients_list: [currentPatientId],
+                    concept_name: chart.title,
+                    start_date: format(dates.start, "yyyy-MM-dd'T'HH:mm:ss"),
+                    end_date: format(dates.end, "yyyy-MM-dd'T'HH:mm:ss")
+                });
+                console.log("Raw Data result:", rawData);
 
-            setApiDataMap(prev => ({ 
-                ...prev, 
-                [chart.id]: { intervals: processedIntervals, levels } 
-            }));
+                setApiRawDataMap(prev => ({ ...prev, [chart.id]: rawData }));
+            }
 
         } catch (err) {
             console.error("Fetch failed", err);
             toast({ 
-                title: "Error fetching abstraction data", 
+                title: "Error fetching data", 
                 description: "Could not load data for " + chart.title,
                 variant: "destructive"
             });
@@ -105,13 +117,7 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
         }
     };
 
-    activeCharts.forEach(chart => {
-        // Re-fetch logic or check if data exists
-        // simplified: fetch whenever dependencies change
-        fetchForChart(chart);
-    });
 
-  }, [activeCharts, patientIds, timeRange, calculateDateRange, toast]);
 
 
   useEffect(() => {
@@ -137,6 +143,14 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
       });
     };
   }, [activeCharts]);
+
+  // Fetch Data Effect
+  useEffect(() => {
+    console.log("Fetch Effect Run. ActiveCharts:", activeCharts.length);
+    activeCharts.forEach(chart => {
+        fetchForChart(chart);
+    });
+  }, [activeCharts, patientIds, timeRange, calculateDateRange, toast]);
 
   const handleBrushChange = (startIndex: number, endIndex: number) => {
     setBrushRange({ startIndex, endIndex });
@@ -221,6 +235,10 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
                     );
                 }
                 
+                // Raw Card Render
+                const isRawLoading = loadingMap[chart.id];
+                const rawData = apiRawDataMap[chart.id];
+
                 return (
                     <TemporalChartCard
                     key={chart.id}
@@ -229,6 +247,8 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
                     onRemove={onRemoveChart}
                     isMultiPatient={chart.chartType === 'line' || chart.chartType === 'scatter'} 
                     isRaw={chart.isRaw}
+                    externalData={rawData}
+                    isLoading={isRawLoading}
                     />
                 );
               })}

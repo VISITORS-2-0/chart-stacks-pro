@@ -8,12 +8,16 @@ import { useState, useMemo } from "react";
 
 type ZoomLevel = 'years' | 'months' | 'days';
 
+import { TemporalRow } from "../types/temporal";
+
 interface TemporalChartCardProps {
     id: string;
     title: string;
     onRemove: (id: string) => void;
     isMultiPatient?: boolean;
     isRaw?: boolean;
+    externalData?: TemporalRow[];
+    isLoading?: boolean;
 }
 
 export function TemporalChartCard({
@@ -22,6 +26,8 @@ export function TemporalChartCard({
     onRemove,
     isMultiPatient = false,
     isRaw = false,
+    externalData,
+    isLoading = false
 }: TemporalChartCardProps) {
     const singlePatient = useOnePatientRaw();
     const multiPatientAbstract = useMultiPatientAbstract();
@@ -31,20 +37,30 @@ export function TemporalChartCard({
     const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('years');
     const [focusDate, setFocusDate] = useState<Date | null>(null);
 
-    // Determine which data hook to use
-    let dataHook;
-    if (isMultiPatient) {
-        if (isRaw) {
-            dataHook = multiPatientRaw;
-        } else {
-            // Force abstract for non-raw multi-patient (as per previous logic for demo)
-            dataHook = multiPatientAbstract;
-        }
-    } else {
-        dataHook = singlePatient;
-    }
+    // Determine data source
+    let data: TemporalRow[] | any[] = [];
+    let loading = false;
+    let error = null;
 
-    const { data, loading, error } = dataHook;
+    if (externalData) {
+        data = externalData;
+        loading = isLoading;
+    } else {
+        // Fallback to internal hooks
+        let dataHook;
+        if (isMultiPatient) {
+            if (isRaw) {
+                dataHook = multiPatientRaw;
+            } else {
+                dataHook = multiPatientAbstract;
+            }
+        } else {
+            dataHook = singlePatient;
+        }
+        data = dataHook.data;
+        loading = dataHook.loading;
+        error = dataHook.error;
+    }
 
     // Filter Data based on Zoom Level
     const filteredData = useMemo(() => {

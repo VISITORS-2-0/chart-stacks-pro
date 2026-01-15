@@ -136,8 +136,12 @@ export function SinglePatientAbstractionPanel({
     // --- State ---
     const [selectedRefEventId, setSelectedRefEventId] = useState<string>(referenceEvents[0]?.id || "");
     const [zoomLevel, setZoomLevel] = useState<ZoomGranularity>('years');
+    const [viewDurationLabel, setViewDurationLabel] = useState<string>("Viewing: 1 Year");
     const [brushIndexes, setBrushIndexes] = useState<{ startIndex?: number; endIndex?: number }>({});
     
+    // Virtual Domain State for Zoom Consistency (Float Timestamps)
+    const [virtualDomain, setVirtualDomain] = useState<{ start: number, end: number } | null>(null);
+
     // Custom Tooltip State
     const [hoveredInterval, setHoveredInterval] = useState<any | null>(null);
     const [tooltipPos, setTooltipPos] = useState<{ x: number, y: number } | null>(null);
@@ -184,7 +188,17 @@ export function SinglePatientAbstractionPanel({
                 color
             };
         });
+
     }, [intervals, referenceEvents, sortedValueLevels]);
+
+    // Initialize Virtual Domain when data loads
+    useEffect(() => {
+        if (chartData.length > 0 && !virtualDomain) {
+             const start = chartData[0].start as number;
+             const end = chartData[chartData.length - 1].end as number;
+             setVirtualDomain({ start, end });
+        }
+    }, [chartData, virtualDomain]);
 
     // Handle Click to Zoom
     const handleIntervalClick = (data: any) => {
@@ -250,6 +264,14 @@ export function SinglePatientAbstractionPanel({
             if (prev !== targetLevel) return targetLevel;
             return prev;
         });
+
+        // Update readable label
+        let label = "";
+        if (days > 365) label = `Viewing: ${(days / 365).toFixed(1)} Years`;
+        else if (days > 30) label = `Viewing: ${(days / 30).toFixed(1)} Months`;
+        else label = `Viewing: ${Math.round(days)} Days`;
+        setViewDurationLabel(label);
+
     }, [durationMs]);
     
 
@@ -295,56 +317,109 @@ export function SinglePatientAbstractionPanel({
     // --- Handlers ---
     
     const handleZoomIn = () => {
-        const currentStart = brushIndexes.startIndex ?? 0;
-        const currentEnd = brushIndexes.endIndex ?? chartData.length - 1;
-        const range = currentEnd - currentStart;
-        
-        if (range <= 4) return; // Max Zoom
+        if (chartData.length === 0) return;
 
-        const newRange = Math.floor(range / 2);
-        const center = currentStart + Math.floor(range / 2);
+        // Use Virtual Domain if available, fallback to current brush
+        let currentStart = virtualDomain?.start;
+        let currentEnd = virtualDomain?.end;
         
-        let newStart = center - Math.floor(newRange / 2);
-        let newEnd = center + Math.floor(newRange / 2);
-
-        // Clamp
-        if (newStart < 0) { 
-            newEnd = Math.min(chartData.length - 1, newEnd + (-newStart)); 
-            newStart = 0; 
-        }
-        if (newEnd >= chartData.length) { 
-            newStart = Math.max(0, newStart - (newEnd - (chartData.length - 1))); 
-            newEnd = chartData.length - 1; 
+        // If not set/init yet, derive from brush
+        if (currentStart === undefined || currentEnd === undefined) {
+             const sIdx = brushIndexes.startIndex ?? 0;
+             const eIdx = brushIndexes.endIndex ?? chartData.length - 1;
+             currentStart = chartData[sIdx].start as number;
+             currentEnd = chartData[eIdx].end as number;
         }
 
-        setBrushIndexes({ startIndex: newStart, endIndex: newEnd });
+        const duration = currentEnd - currentStart;
+        const MIN_DURATION = 1000 * 60 * 60 * 24; // 1 Day
+        if (duration <= MIN_DURATION) return;
 
-        // Update Label approximation
-        if (range < 30) setZoomLevel('days');
-        else if (range < 365) setZoomLevel('months');
+        const newDuration = duration / 2;
+        const center = currentStart + duration / 2;
+        
+        // Calculate target times
+        const newStart = center - newDuration / 2;
+        const newEnd = center + newDuration / 2;
+
+        setVirtualDomain({ start: newStart, end: newEnd });
+        
+        // Map to indices
+        let newStartIdx = chartData.findIndex((d) => (d.end as number) >= newStart);
+        if (newStartIdx === -1) newStartIdx = 0;
+
+        let newEndIdx = chartData.length - 1;
+        for (let i = chartData.length - 1; i >= 0; i--) {
+            if ((chartData[i].start as number) <= newEnd) {
+                newEndIdx = i;
+                break;
+            }
+        }
+        
+        if (newStartIdx > newEndIdx) {
+            const centerIdx = chartData.findIndex((d) => (d.end as number) >= center);
+            newStartIdx = Math.max(0, centerIdx);
+            newEndIdx = Math.min(chartData.length - 1, centerIdx);
+        }
+
+        setBrushIndexes({ startIndex: newStartIdx, endIndex: newEndIdx });
     };
 
     const handleZoomOut = () => {
-        const currentStart = brushIndexes.startIndex ?? 0;
-        const currentEnd = brushIndexes.endIndex ?? chartData.length - 1;
-        const range = currentEnd - currentStart;
+        if (chartData.length === 0) return;
 
-        if (range >= chartData.length - 1) return; // Max Zoom Out
+        let currentStart = virtualDomain?.start;
+        let currentEnd = virtualDomain?.end;
+         
+        if (currentStart === undefined || currentEnd === undefined) {
+             const sIdx = brushIndexes.startIndex ?? 0;
+             const eIdx = brushIndexes.endIndex ?? chartData.length - 1;
+             currentStart = chartData[sIdx].start as number;
+             currentEnd = chartData[eIdx].end as number;
+        }
 
-        const newRange = Math.min(chartData.length, range * 2);
-        const center = currentStart + Math.floor(range / 2);
+        const duration = currentEnd - currentStart;
+        const totalDuration = (chartData[chartData.length - 1].end as number) - (chartData[0].start as number);
+        const minTime = chartData[0].start as number;
+        const maxTime = chartData[chartData.length - 1].end as number;
+
+        if (duration >= totalDuration * 0.99) return; 
+
+        const newDuration = duration * 2;
+        const center = currentStart + duration / 2;
         
-        let newStart = center - Math.floor(newRange / 2);
-        let newEnd = center + Math.floor(newRange / 2);
-
-        if (newStart < 0) { newStart = 0; newEnd = Math.min(chartData.length - 1, newRange); }
-        if (newEnd >= chartData.length) { newEnd = chartData.length - 1; newStart = Math.max(0, chartData.length - 1 - newRange); }
-
-        setBrushIndexes({ startIndex: newStart, endIndex: newEnd });
+        let newStart = center - newDuration / 2;
+        let newEnd = center + newDuration / 2;
         
-        // Update Label approximation
-        if (newRange > 365) setZoomLevel('years');
-        else if (newRange > 30) setZoomLevel('months');
+        // Clamp
+        if (newStart < minTime) {
+            newEnd = Math.min(maxTime, newEnd + (minTime - newStart));
+            newStart = minTime;
+        }
+        if (newEnd > maxTime) {
+            newStart = Math.max(minTime, newStart - (newEnd - maxTime));
+            newEnd = maxTime;
+        }
+
+        setVirtualDomain({ start: newStart, end: newEnd });
+
+        let newStartIdx = chartData.findIndex((d) => (d.end as number) >= newStart);
+        if (newStartIdx === -1) newStartIdx = 0;
+
+        let newEndIdx = chartData.length - 1;
+        for (let i = chartData.length - 1; i >= 0; i--) {
+            if ((chartData[i].start as number) <= newEnd) {
+                newEndIdx = i;
+                break;
+            }
+        }
+        
+        if (newStartIdx === (brushIndexes.startIndex ?? 0) && newEndIdx === (brushIndexes.endIndex ?? chartData.length - 1)) {
+             newStartIdx = Math.max(0, newStartIdx - 1);
+             newEndIdx = Math.min(chartData.length - 1, newEndIdx + 1);
+        }
+
+        setBrushIndexes({ startIndex: newStartIdx, endIndex: newEndIdx });
     };
 
     const handleResetZoom = () => {
@@ -374,11 +449,18 @@ export function SinglePatientAbstractionPanel({
                     
                     {/* Zoom Controls */}
                     <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleZoomOut} disabled={zoomLevel === 'years'}>
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8" 
+                            onClick={handleZoomOut} 
+                            disabled={(brushIndexes.startIndex === 0 || brushIndexes.startIndex === undefined) && (brushIndexes.endIndex === undefined || brushIndexes.endIndex >= chartData.length - 1)}
+                        >
                             <ZoomOut className="w-4 h-4" />
                         </Button>
-                        <span className="text-xs font-mono w-12 text-center capitalize">{zoomLevel}</span>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleZoomIn} disabled={zoomLevel === 'days'}>
+
+                        <span className="text-xs font-mono w-32 text-center text-muted-foreground whitespace-nowrap">{viewDurationLabel}</span>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleZoomIn} disabled={viewDurationLabel.includes("Days") && zoomLevel === 'days' && brushIndexes.endIndex === brushIndexes.startIndex}>
                             <ZoomIn className="w-4 h-4" />
                         </Button>
                     </div>
@@ -463,7 +545,14 @@ export function SinglePatientAbstractionPanel({
                                 startIndex={brushIndexes.startIndex}
                                 endIndex={brushIndexes.endIndex}
                                 onChange={(e: any) => {
-                                    if (e) setBrushIndexes({ startIndex: e.startIndex, endIndex: e.endIndex });
+                                    if (e && e.startIndex !== undefined && e.endIndex !== undefined && chartData.length > 0) {
+                                        setBrushIndexes({ startIndex: e.startIndex, endIndex: e.endIndex });
+                                        // Sync virtual domain to manual brush
+                                        setVirtualDomain({
+                                            start: chartData[Math.min(e.startIndex, chartData.length-1)].start as number,
+                                            end: chartData[Math.min(e.endIndex, chartData.length-1)].end as number
+                                        });
+                                    }
                                 }}
                             />
                         </ComposedChart>

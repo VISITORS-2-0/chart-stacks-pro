@@ -22,7 +22,7 @@ export interface RawDataResponse {
 }
 
 export interface QueryParams {
-    patients_list: number[];
+    patients_list: string[];
     concept_name: string;
     start_date: string;
     end_date: string;

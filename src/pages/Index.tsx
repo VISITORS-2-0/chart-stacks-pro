@@ -57,7 +57,7 @@ const Index = () => {
     // 2. Prepare Params
     const { start_date, end_date } = calculateDateRange(timeRange);
     const params: QueryParams = {
-      patients_list: patientIds.map(id => parseInt(id)),
+      patients_list: patientIds,
       concept_name: item.title,
       start_date,
       end_date
@@ -82,9 +82,15 @@ const Index = () => {
           conceptData = response.concept_data;
         }
       } else if (parentSection === "Raw") {
+        console.log("Sending Raw Data Request with params:", JSON.stringify(params, null, 2));
         const response = await fetchRawData(params);
-        resultData = response.result;
-        conceptData = response.concept_data;
+        console.log("Received Raw Data Response:", JSON.stringify(response, null, 2));
+
+        toast({
+          title: "Raw Data Fetched",
+          description: "Check console for request/response details.",
+        });
+        return; // Stop here, do not create chart
       } else {
         const response = await fetchAbstractionData(params);
         resultData = response.result;

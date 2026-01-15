@@ -6,11 +6,12 @@ interface PatientStatusAnalyticsProps {
     data: (TemporalRow | PatientStatusProcessedRow)[];
     zoomLevel?: 'years' | 'months' | 'days';
     onDrillDown?: (dateStr: string) => void;
+    conceptData?: any;
 }
 
 const CATEGORIES = ['High', 'Normal', 'Moderately_low'];
 
-export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown }: PatientStatusAnalyticsProps) {
+export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown, conceptData }: PatientStatusAnalyticsProps) {
     // Cast to processed type for rendering because we know it's coming from the mocked API
     // In a real dual-support scenario, we'd add a type guard.
     const chartData = data as PatientStatusProcessedRow[];

@@ -37,7 +37,7 @@ interface DashboardSidebarProps {
 
 export function DashboardSidebar({ onItemClick }: DashboardSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [openSections, setOpenSections] = useState<string[]>(["Raw", "Context", "State", "Pattern", "Event"]);
+  const [openSections, setOpenSections] = useState<string[]>([]);
   const { open, setOpen } = useSidebar();
   const { data, loading, error } = useTakMenu();
 

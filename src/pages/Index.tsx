@@ -8,8 +8,15 @@ import { PatternExplorer } from "./PatternExplorer";
 import { DataExport } from "./DataExport";
 import { Association } from "./Association";
 
+import { TimeRange } from "@/components/FilterBar";
+import { fetchAbstractionData, fetchRawData, QueryParams } from "@/api/temporal";
+import { calculateDateRange } from "@/utils/dateUtils";
+import { useToast } from "@/components/ui/use-toast";
+
 interface ActiveChart extends MenuItem {
-  data: Array<{ date: string; value: number }>;
+  // data: Array<{ date: string; value: number }>;
+  externalData?: any[];
+  conceptData?: any;
   isRaw?: boolean;
 }
 
@@ -26,19 +33,82 @@ const Index = () => {
   const [associationTabs, setAssociationTabs] = useState<AssociationTab[]>([]);
   const [associationCounter, setAssociationCounter] = useState(1);
 
-  const handleItemClick = (item: MenuItem) => {
+  // Lifted State
+  const [patientIds, setPatientIds] = useState<string[]>([]);
+  const [timeRange, setTimeRange] = useState<TimeRange>({ type: "relative", relative: "30d" });
+  const [patientCount] = useState(10000);
+  const { toast } = useToast();
+
+  const handleItemClick = async (item: MenuItem) => {
     // Check if chart already exists
     const exists = activeCharts.some((chart) => chart.id === item.id);
     if (exists) return;
 
-    // Generate new chart with mock data
-    const newChart: ActiveChart = {
-      ...item,
-      data: generateMockData(),
-      isRaw: item.parent === 'Raw',
+    // 1. Validation
+    if (patientIds.length === 0) {
+      toast({
+        title: "No Patient Selected",
+        description: "Please select at least one patient before adding a chart.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // 2. Prepare Params
+    const { start_date, end_date } = calculateDateRange(timeRange);
+    const params: QueryParams = {
+      patients_list: patientIds.map(id => parseInt(id)),
+      concept_name: item.title,
+      start_date,
+      end_date
     };
 
-    setActiveCharts((prev) => [...prev, newChart]);
+    try {
+      let resultData;
+      let conceptData;
+
+      // 3. Call API based on type
+      const parentSection = item.parent as string;
+
+      if (parentSection === "State" || parentSection === "Pattern" || parentSection === "Context") {
+        if (parentSection === "State") {
+          const response = await fetchAbstractionData(params);
+          resultData = response.result;
+          conceptData = response.concept_data;
+        } else {
+          // Fallback to abstract (Pattern/Context)
+          const response = await fetchAbstractionData(params);
+          resultData = response.result;
+          conceptData = response.concept_data;
+        }
+      } else if (parentSection === "Raw") {
+        const response = await fetchRawData(params);
+        resultData = response.result;
+        conceptData = response.concept_data;
+      } else {
+        const response = await fetchAbstractionData(params);
+        resultData = response.result;
+        conceptData = response.concept_data;
+      }
+
+      // Generate new chart with REAL data
+      const newChart: ActiveChart = {
+        ...item,
+        externalData: resultData,
+        conceptData: conceptData,
+        isRaw: item.parent === 'Raw',
+      };
+
+      setActiveCharts((prev) => [...prev, newChart]);
+
+    } catch (error) {
+      console.error("Failed to fetch data", error);
+      toast({
+        title: "Error fetching data",
+        description: String(error),
+        variant: "destructive"
+      });
+    }
   };
 
   const handleRemoveChart = (id: string) => {
@@ -64,10 +134,16 @@ const Index = () => {
       return (
         <DataExploration
           activeCharts={activeCharts}
-          onAddChart={handleItemClick}
+          onAddChart={handleItemClick} // This prop might be unused if sidebar handles clicks directly, check Usage
           onRemoveChart={handleRemoveChart}
           onCloseAll={handleCloseAll}
           onCreateAssociation={handleCreateAssociation}
+          // New Props
+          patientIds={patientIds}
+          setPatientIds={setPatientIds}
+          timeRange={timeRange}
+          setTimeRange={setTimeRange}
+          patientCount={patientCount}
         />
       );
     }
@@ -104,8 +180,8 @@ const Index = () => {
             <button
               onClick={() => setActiveTab("exploration")}
               className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === "exploration"
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
                 }`}
             >
               Data Exploration
@@ -116,8 +192,8 @@ const Index = () => {
             <button
               onClick={() => setActiveTab("population")}
               className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === "population"
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
                 }`}
             >
               Population Query
@@ -128,8 +204,8 @@ const Index = () => {
             <button
               onClick={() => setActiveTab("pattern")}
               className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === "pattern"
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
                 }`}
             >
               Pattern Explorer
@@ -140,8 +216,8 @@ const Index = () => {
             <button
               onClick={() => setActiveTab("export")}
               className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === "export"
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
                 }`}
             >
               Data Export
@@ -156,8 +232,8 @@ const Index = () => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === tab.id
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
                   }`}
               >
                 {tab.name}

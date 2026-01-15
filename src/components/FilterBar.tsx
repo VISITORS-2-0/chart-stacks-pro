@@ -100,7 +100,7 @@ export const FilterBar = ({
               <span className="text-sm">{getTimeRangeLabel()}</span>
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[400px] p-0" align="start">
+          <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[400px] p-0" align="start">
             <Tabs defaultValue={timeRange.type} className="w-full">
               <TabsList className="w-full grid grid-cols-2">
                 <TabsTrigger value="relative">Relative</TabsTrigger>

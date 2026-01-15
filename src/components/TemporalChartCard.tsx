@@ -14,6 +14,8 @@ interface TemporalChartCardProps {
     onRemove: (id: string) => void;
     isMultiPatient?: boolean;
     isRaw?: boolean;
+    externalData?: any[];
+    conceptData?: any;
 }
 
 export function TemporalChartCard({
@@ -22,6 +24,8 @@ export function TemporalChartCard({
     onRemove,
     isMultiPatient = false,
     isRaw = false,
+    externalData,
+    conceptData,
 }: TemporalChartCardProps) {
     const singlePatient = useOnePatientRaw();
     const multiPatientAbstract = useMultiPatientAbstract();
@@ -31,7 +35,7 @@ export function TemporalChartCard({
     const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('years');
     const [focusDate, setFocusDate] = useState<Date | null>(null);
 
-    // Determine which data hook to use
+    // Determine which data hook to use (only if no externalData)
     let dataHook;
     if (isMultiPatient) {
         if (isRaw) {
@@ -44,7 +48,12 @@ export function TemporalChartCard({
         dataHook = singlePatient;
     }
 
-    const { data, loading, error } = dataHook;
+    const { data: hookData, loading: hookLoading, error: hookError } = dataHook;
+
+    // prioritized external data if available
+    const data = externalData || hookData;
+    const loading = externalData ? false : hookLoading;
+    const error = externalData ? null : hookError;
 
     // Filter Data based on Zoom Level
     const filteredData = useMemo(() => {
@@ -144,6 +153,7 @@ export function TemporalChartCard({
                             data={filteredData as any}
                             zoomLevel={zoomLevel}
                             onDrillDown={handleDrillDown}
+                            conceptData={conceptData}
                         />
                     )
                 )}

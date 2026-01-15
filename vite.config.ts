@@ -9,23 +9,23 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     proxy: {
-      "/api": {
+      "/api/menu": {
         target: "http://localhost:3000",
         changeOrigin: true,
         secure: false,
       },
       "/getAllOnePatientRaw": {
-        target: "http://localhost:3000",
+        target: "http://localhost:8000",
         changeOrigin: true,
         secure: false,
       },
-      "/getAllMultiPatientRaw": {
-        target: "http://localhost:3000",
+      "/api/v1/visitors-queries/": {
+        target: "http://localhost:8000",
         changeOrigin: true,
         secure: false,
       },
-      "/getAllMultiPatientAbstract": {
-        target: "http://localhost:3000",
+      "/api/v1/visitors-queries/multiple-patients-abstraction": {
+        target: "http://localhost:8000",
         changeOrigin: true,
         secure: false,
       },

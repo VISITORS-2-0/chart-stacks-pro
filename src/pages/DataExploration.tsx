@@ -2,11 +2,17 @@ import { useState, useEffect } from "react";
 
 import { TemporalChartCard } from "@/components/TemporalChartCard";
 import { FilterBar, TimeRange } from "@/components/FilterBar";
-import { generateMockData } from "@/utils/chartData";
+// import { generateMockData } from "@/utils/chartData"; // Deprecated
 import type { MenuItem } from "@/components/DashboardSidebar";
+// import { fetchAbstractionData, fetchRawData, QueryParams } from "@/api/temporal"; // Moved to Index
+// import { calculateDateRange } from "@/utils/dateUtils"; // Moved to Index
+// import { toast } from "sonner"; 
+// import { useToast } from "@/components/ui/use-toast"; // Moved logic to Index
 
 interface ActiveChart extends MenuItem {
-  data: Array<{ date: string; value: number }>;
+  // data: Array<{ date: string; value: number }>; // Old structure
+  externalData?: any[];
+  conceptData?: any;
   isRaw?: boolean;
 }
 
@@ -16,13 +22,27 @@ interface DataExplorationProps {
   onRemoveChart: (id: string) => void;
   onCloseAll: () => void;
   onCreateAssociation: () => void;
+  // Lifted Props
+  patientIds: string[];
+  setPatientIds: (ids: string[]) => void;
+  timeRange: TimeRange;
+  setTimeRange: (range: TimeRange) => void;
+  patientCount: number;
 }
 
-export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onCloseAll, onCreateAssociation }: DataExplorationProps) {
+export function DataExploration({
+  activeCharts,
+  onAddChart,
+  onRemoveChart,
+  onCloseAll,
+  onCreateAssociation,
+  patientIds,
+  setPatientIds,
+  timeRange,
+  setTimeRange,
+  patientCount
+}: DataExplorationProps) {
   const [brushRange, setBrushRange] = useState<{ startIndex?: number; endIndex?: number }>({});
-  const [patientIds, setPatientIds] = useState<string[]>([]);
-  const [timeRange, setTimeRange] = useState<TimeRange>({ type: "relative", relative: "30d" });
-  const [patientCount] = useState(10000);
 
   useEffect(() => {
     // Synchronize horizontal scrolling across all chart containers
@@ -88,6 +108,8 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
                   onRemove={onRemoveChart}
                   isMultiPatient={chart.chartType === 'line' || chart.chartType === 'scatter'} // 'scatter' from Raw is also multi-patient effectively for this purpose?
                   isRaw={chart.isRaw}
+                  externalData={chart.externalData}
+                  conceptData={chart.conceptData}
                 />
               ))}
             </div>

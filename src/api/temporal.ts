@@ -1,5 +1,65 @@
 import { TemporalRow, PatientStatusProcessedRow } from '../types/temporal';
 
+const API_TARGET = import.meta.env.VITE_API_TARGET || 'http://127.0.0.1:8000';
+
+export interface ConceptData {
+    name: string;
+    type: string;
+    allowed_values?: {
+        values: string[];
+        ordering: string;
+    };
+}
+
+export interface AbstractionResponse {
+    concept_data: ConceptData;
+    result: any[]; // The result array containing temporal data
+}
+
+export interface RawDataResponse {
+    concept_data: ConceptData;
+    result: TemporalRow[];
+}
+
+export interface QueryParams {
+    patients_list: number[];
+    concept_name: string;
+    start_date: string;
+    end_date: string;
+}
+
+export const fetchAbstractionData = async (params: QueryParams): Promise<AbstractionResponse> => {
+    const response = await fetch(`${API_TARGET}/api/v1/visitors-queries/abstraction`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch abstraction data: ${response.statusText}`);
+    }
+
+    return response.json();
+};
+
+export const fetchRawData = async (params: QueryParams): Promise<RawDataResponse> => {
+    const response = await fetch(`${API_TARGET}/api/v1/visitors-queries/raw-data`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch raw data: ${response.statusText}`);
+    }
+
+    return response.json();
+};
+
 export const getAllOnePatientRaw = async (): Promise<TemporalRow[]> => {
     const response = await fetch('/getAllOnePatientRaw');
     if (!response.ok) {

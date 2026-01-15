@@ -26,7 +26,7 @@ export const useTakMenu = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await fetch('/api/menu');
+                const response = await fetch('/api/v1/visitors-queries/tak_structure');
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }

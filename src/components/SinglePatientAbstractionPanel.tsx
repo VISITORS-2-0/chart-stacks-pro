@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { 
     ComposedChart, 
     Scatter, 
@@ -112,6 +112,9 @@ const IntervalBar = (props: any) => {
             rx={2}
             ry={2}
             className="transition-opacity hover:opacity-80 cursor-pointer"
+            onMouseEnter={(e) => props.onHover?.(payload, { x: e.clientX, y: e.clientY })}
+            onMouseMove={(e) => props.onHover?.(payload, { x: e.clientX, y: e.clientY })}
+            onMouseLeave={() => props.onLeave?.()}
         />
     );
 };
@@ -134,6 +137,10 @@ export function SinglePatientAbstractionPanel({
     const [selectedRefEventId, setSelectedRefEventId] = useState<string>(referenceEvents[0]?.id || "");
     const [zoomLevel, setZoomLevel] = useState<ZoomGranularity>('years');
     const [brushIndexes, setBrushIndexes] = useState<{ startIndex?: number; endIndex?: number }>({});
+    
+    // Custom Tooltip State
+    const [hoveredInterval, setHoveredInterval] = useState<any | null>(null);
+    const [tooltipPos, setTooltipPos] = useState<{ x: number, y: number } | null>(null);
 
     // --- Data Processing ---
     
@@ -187,6 +194,14 @@ export function SinglePatientAbstractionPanel({
         // Find index of this interval in chartData
         const index = chartData.findIndex(d => d.start === data.start && d.end === data.end && d.valueLabel === data.valueLabel);
         if (index !== -1) {
+            // Check duration to auto-switch zoom context
+            const interval = chartData[index];
+            const durationDays = interval.durationMs / (1000 * 60 * 60 * 24);
+            
+            if (durationDays < 60) {
+                setZoomLevel('days');
+            }
+
             // Zoom EXACTLY to this item
             setBrushIndexes({ startIndex: index, endIndex: index });
         }
@@ -221,6 +236,23 @@ export function SinglePatientAbstractionPanel({
         return [min - padding, max + padding];
     }, [chartData, brushIndexes]);
 
+    // Dynamic Zoom Level Effect
+    const durationMs = xDomain[1] - xDomain[0];
+    
+    useEffect(() => {
+        const days = durationMs / (1000 * 60 * 60 * 24);
+        let targetLevel: ZoomGranularity = 'years';
+        
+        if (days < 90) targetLevel = 'days';
+        else if (days < 365 * 3) targetLevel = 'months';
+        
+        setZoomLevel(prev => {
+            if (prev !== targetLevel) return targetLevel;
+            return prev;
+        });
+    }, [durationMs]);
+    
+
 
     // --- Formatters ---
     
@@ -234,36 +266,23 @@ export function SinglePatientAbstractionPanel({
     const CustomTooltip = ({ active, payload }: any) => {
         if (active && payload && payload.length) {
             const data = payload[0].payload;
-            
-            // data.start is absolute timestamp now
-            
-            
-            // We need to fetch the original absolute time for display even in relative mode,
-            // Or just re-calculate it. 
-            // Better: 'data' has the original props merged in? 
-            // Yes, we spread ...interval into chartData.
-            // But wait, interval.start was Date|string. 
-            // Let's rely on the original interval data we passed through.
-            
-            const rawStart = new Date(data.start as any); // This is what comes from chartData, which might be relative offset
-            
-            // Actually, let's just use the original fields we passed:
-            // But we stored displayStart in 'start'.
-            // Let's look at passed props. 
-            // We should trust the 'data' object which contains everything from chartData map.
-            // We need to be careful: payload[0].payload is the object from chartData.
-            
-            // Let's recalculate absolute times for display just to be safe/clear
-            // Actually, we should probably pass 'originalStart' and 'originalEnd' in chartData to avoid confusion.
-            // But we can just use the provided formatted dates if we want.
-            
+            const startDate = new Date(data.start);
+            const endDate = new Date(data.end);
+
+            const fmt = (d: Date) => d.toLocaleDateString(undefined, { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
             return (
                 <div className="bg-popover border border-border text-popover-foreground rounded-md shadow-md p-3 text-sm">
                    <div className="font-semibold mb-1">{data.valueLabel}</div>
                    <div className="text-muted-foreground text-xs grid gap-1">
-                        <div>Start: {data.start}</div> 
-                        <div>End: {data.end}</div>
-                        {/* Note: The above are raw numeric/relative values. Ideally we format them nice. */}
+                        <div><span className="font-medium">Start:</span> {fmt(startDate)}</div> 
+                        <div><span className="font-medium">End:</span> {fmt(endDate)}</div>
                         {data.contextId && <div>Context: {data.contextId}</div>}
                         {data.provenance && <div>Source: {data.provenance}</div>}
                    </div>
@@ -407,7 +426,7 @@ export function SinglePatientAbstractionPanel({
                                 dataKey="start" 
                                 domain={xDomain} 
                                 tickFormatter={xTickFormatter}
-                                stroke="hsl(var(--muted-foreground))"
+                        stroke="hsl(var(--muted-foreground))"
                                 fontSize={12}
                             />
                             
@@ -422,12 +441,15 @@ export function SinglePatientAbstractionPanel({
                                 domain={yDomain}
                             />
 
-                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
-
-                            {/* Intervals as custom shapes */}
                             {/* Intervals as custom shapes */}
                             <Scatter 
-                                shape={<IntervalBar />} 
+                                shape={<IntervalBar onHover={(d: any, pos: any) => {
+                                    setHoveredInterval(d);
+                                    setTooltipPos(pos);
+                                }} onLeave={() => {
+                                    setHoveredInterval(null);
+                                    setTooltipPos(null);
+                                }} />} 
                                 onClick={(data) => handleIntervalClick(data.payload)}
                             />
 
@@ -447,6 +469,27 @@ export function SinglePatientAbstractionPanel({
                         </ComposedChart>
                     </ResponsiveContainer>
                 </div>
+
+                {/* Manual Tooltip Portal */}
+                {hoveredInterval && tooltipPos && (
+                    <div 
+                        className="fixed z-50 pointer-events-none"
+                        style={{ 
+                            left: tooltipPos.x + 10, 
+                            top: tooltipPos.y + 10 
+                        }}
+                    >
+                        <div className="bg-popover border border-border text-popover-foreground rounded-md shadow-md p-3 text-sm animate-in fade-in-0 zoom-in-95">
+                            <div className="font-semibold mb-1">{hoveredInterval.valueLabel}</div>
+                            <div className="text-muted-foreground text-xs grid gap-1">
+                                <div><span className="font-medium">Start:</span> {new Date(hoveredInterval.start).toLocaleDateString()}</div> 
+                                <div><span className="font-medium">End:</span> {new Date(hoveredInterval.end).toLocaleDateString()}</div>
+                                {hoveredInterval.contextId && <div>Context: {hoveredInterval.contextId}</div>}
+                                {hoveredInterval.provenance && <div>Source: {hoveredInterval.provenance}</div>}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Optional: Navigation/Brush could go here if we want the 'mini-map' style */}
                 <div className="absolute bottom-5 right-5 z-10">

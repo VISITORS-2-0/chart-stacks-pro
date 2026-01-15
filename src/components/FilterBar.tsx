@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Search, Calendar, Users, XCircle, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { PatientMultiSelect } from "@/components/PatientMultiSelect";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -13,8 +14,8 @@ import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 
 interface FilterBarProps {
-  patientId: string;
-  onPatientIdChange: (id: string) => void;
+  patientIds: string[];
+  onPatientIdsChange: (ids: string[]) => void;
   timeRange: TimeRange;
   onTimeRangeChange: (range: TimeRange) => void;
   patientCount: number;
@@ -41,8 +42,8 @@ const relativeOptions = [
 ];
 
 export const FilterBar = ({
-  patientId,
-  onPatientIdChange,
+  patientIds,
+  onPatientIdsChange,
   timeRange,
   onTimeRangeChange,
   patientCount,
@@ -78,18 +79,18 @@ export const FilterBar = ({
   };
 
   return (
-    <div className="bg-card border-b border-border px-6 py-4">
+    <div className="bg-card border-b border-border px-6 py-4 space-y-4">
+
+      {/* Row 1: Patient Selection */}
+      <div className="w-full">
+        <PatientMultiSelect
+          selectedIds={patientIds}
+          onChange={onPatientIdsChange}
+        />
+      </div>
+
+      {/* Row 2: Controls */}
       <div className="flex items-center gap-4 flex-wrap">
-        {/* Patient ID Search */}
-        <div className="flex items-center gap-2 min-w-[250px]">
-          <Search className="h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search Patient ID..."
-            value={patientId}
-            onChange={(e) => onPatientIdChange(e.target.value)}
-            className="h-9"
-          />
-        </div>
 
         {/* Time Picker */}
         <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -105,7 +106,7 @@ export const FilterBar = ({
                 <TabsTrigger value="relative">Relative</TabsTrigger>
                 <TabsTrigger value="absolute">Absolute</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="relative" className="p-4 space-y-2">
                 {relativeOptions.map((option) => (
                   <Button
@@ -118,7 +119,7 @@ export const FilterBar = ({
                   </Button>
                 ))}
               </TabsContent>
-              
+
               <TabsContent value="absolute" className="p-4 space-y-4">
                 <div className="space-y-2">
                   <Label>Start Date</Label>
@@ -139,8 +140,8 @@ export const FilterBar = ({
                     className="pointer-events-auto"
                   />
                 </div>
-                <Button 
-                  onClick={handleAbsoluteApply} 
+                <Button
+                  onClick={handleAbsoluteApply}
                   className="w-full"
                   disabled={!localStartDate || !localEndDate}
                 >

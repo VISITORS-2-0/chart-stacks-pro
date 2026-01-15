@@ -28,7 +28,7 @@ export interface AbstractionResponseItem {
 }
 
 export interface AbstractionApiResponse {
-    intervals: AbstractionResponseItem[];
+    result: AbstractionResponseItem[];
     concept_data?: ConceptData;
 }
 
@@ -74,34 +74,20 @@ export const fetchAbstractionData = async (payload: AbstractionGeneratorRequest)
 
         const json = await response.json();
         
-        // Handle both old (array) and new (object) formats for robustness
-        let intervals: AbstractionResponseItem[] = [];
+        let result: AbstractionResponseItem[] = [];
         let concept_data: ConceptData | undefined = undefined;
 
         if (Array.isArray(json)) {
-            intervals = json;
+            result = json;
         } else {
-            intervals = json.intervals || json.data || []; // Adjust based on actual key for intervals if it changed from root
-            // If the user said "in addition to the jsons array", maybe it's: { ...jsonArray, concept_data } (mixed) or { intervals: [], concept_data: {} }
-            // Let's assume standard JSON response { intervals: [...], concept_data: {...} } or similar logic. 
-            // Wait, the user said "in addition to the jsons array, it returns the below object". 
-            // Usually this implies { intervals: [], concept_data: {} }. 
-            // But if previously it was returning root array, the structure MUST have changed to a root object.
-            
-            // Let's assume:
-            // {
-            //   "intervals": [...], 
-            //   "concept_data": {...}
-            // }
-            // OR if the user meant "merged", that's invalid JSON for array + key.
-            // It MUST be a root object now.
-            
-             if (json.intervals) intervals = json.intervals;
+             if (json.result) result = json.result;
+             else if (json.intervals) result = json.intervals; // Fallback
+             
              if (json.concept_data) concept_data = json.concept_data;
         }
 
         return {
-            intervals,
+            result,
             concept_data
         };
 
@@ -110,3 +96,4 @@ export const fetchAbstractionData = async (payload: AbstractionGeneratorRequest)
         throw error;
     }
 };
+

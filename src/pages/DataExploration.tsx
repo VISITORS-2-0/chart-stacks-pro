@@ -6,7 +6,7 @@ import { SinglePatientAbstractionPanel, AbstractionInterval, ValueLevel } from "
 import { FilterBar, TimeRange } from "@/components/FilterBar";
 import { generateMockData } from "@/utils/chartData";
 // import { MOCK_VALUE_LEVELS } from "@/utils/mockAbstractionData"; // Removed in favor of dynamic
-import { fetchAbstractionData } from "@/services/abstractionService";
+import { fetchAbstractionData, mapToAbstractionInterval } from "@/services/abstractionService";
 import { generateDynamicValueLevels } from "@/utils/abstractionUtils";
 import type { MenuItem } from "@/components/DashboardSidebar";
 import { useToast } from "@/hooks/use-toast";
@@ -83,7 +83,7 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
             });
             
             // Map raw backend items to frontend components
-            const rawIntervals = rawData.intervals.map(mapToAbstractionInterval);
+            const rawIntervals = rawData.result.map(mapToAbstractionInterval);
             
             // Generate dynamic levels and re-index intervals using Metadata if available
             const { levels, processedIntervals } = generateDynamicValueLevels(rawIntervals, rawData.concept_data);

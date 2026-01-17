@@ -38,7 +38,9 @@ const relativeOptions = [
   { label: "Last 24 hours", value: "24h" },
   { label: "Last 7 days", value: "7d" },
   { label: "Last 30 days", value: "30d" },
-  { label: "Last 90 days", value: "90d" },
+  { label: "Last 1 year", value: "1y" },
+  { label: "Last 5 years", value: "5y" },
+  { label: "Last 10 years", value: "10y" },
 ];
 
 export const FilterBar = ({
@@ -63,7 +65,7 @@ export const FilterBar = ({
     if (timeRange.type === "absolute" && timeRange.startDate && timeRange.endDate) {
       return `${format(timeRange.startDate, "MMM d, yyyy")} - ${format(timeRange.endDate, "MMM d, yyyy")}`;
     }
-    return "Last 30 days";
+    return "Last 5 years";
   };
 
   const handleRelativeSelect = (value: string) => {
@@ -73,7 +75,11 @@ export const FilterBar = ({
 
   const handleAbsoluteApply = () => {
     if (localStartDate && localEndDate) {
-      onTimeRangeChange({ type: "absolute", startDate: localStartDate, endDate: localEndDate });
+      // Ensure start is before end
+      const start = localStartDate > localEndDate ? localEndDate : localStartDate;
+      const end = localStartDate > localEndDate ? localStartDate : localEndDate;
+
+      onTimeRangeChange({ type: "absolute", startDate: start, endDate: end });
       setIsOpen(false);
     }
   };
@@ -100,7 +106,7 @@ export const FilterBar = ({
               <span className="text-sm">{getTimeRangeLabel()}</span>
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[400px] p-0" align="start">
+          <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[400px] p-0 max-h-[80vh] overflow-y-auto" align="start">
             <Tabs defaultValue={timeRange.type} className="w-full">
               <TabsList className="w-full grid grid-cols-2">
                 <TabsTrigger value="relative">Relative</TabsTrigger>

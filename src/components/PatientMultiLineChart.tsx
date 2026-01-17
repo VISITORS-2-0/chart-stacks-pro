@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { ComposedChart, Line, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import React, { useMemo, useState } from 'react';
+import { ComposedChart, Line, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceArea } from 'recharts';
 import { TemporalRow } from '../types/temporal';
 
 interface PatientMultiLineChartProps {
@@ -11,6 +11,7 @@ interface PatientMultiLineChartProps {
 
 export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown, onZoomOut }: PatientMultiLineChartProps) {
     // Shared X-Axis logic: Use numeric timestamps to allow precise plotting
+    const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
 
     // 1. Prepare Scatter Data (All Points)
     const scatterData = useMemo(() => {
@@ -102,10 +103,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown, 
             domainStart = new Date(startYear, 0, 1).getTime();
             domainEnd = new Date(endYear, 11, 31, 23, 59, 59).getTime();
 
-            // Context: Years -> Hidden per request
-            // contextTicks remain empty
-
-            // Detail: Years (Show year buckets)
+            // Detail: Years
             for (let y = startYear; y <= endYear; y++) {
                 detailTicks.push(new Date(y, 6, 1).getTime());
             }
@@ -166,14 +164,36 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown, 
         }
     };
 
+    const handleMouseMove = (e: any) => {
+        if (!e || !e.activeLabel) {
+            setHoveredRange(null);
+            return;
+        }
 
+        const date = new Date(e.activeLabel);
+        let start, end;
 
+        if (zoomLevel === 'years') {
+            start = new Date(date.getFullYear(), 0, 1).getTime();
+            end = new Date(date.getFullYear(), 11, 31, 23, 59, 59).getTime();
+        } else if (zoomLevel === 'months') {
+            start = new Date(date.getFullYear(), date.getMonth(), 1).getTime();
+            end = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59).getTime();
+        } else {
+            // Days
+            start = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+            end = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59).getTime();
+        }
+        setHoveredRange({ start, end });
+    };
 
     return (
         <div className="w-full h-full p-4">
             <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                     margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    onMouseMove={handleMouseMove}
+                    onMouseLeave={() => setHoveredRange(null)}
                     onClick={(e: any) => {
                         // Attempt to capture clicks on the chart area if specific element click fails
                         if (e && e.activePayload && e.activePayload[0]) {
@@ -203,6 +223,18 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown, 
                         cursor="pointer"
                     />
 
+                    {/* Hover Highlight */}
+                    {hoveredRange && (
+                        <ReferenceArea
+                            xAxisId="detail"
+                            x1={hoveredRange.start}
+                            x2={hoveredRange.end}
+                            fill="#9ca3af" // tailwind gray-400
+                            fillOpacity={0.3}
+                            ifOverflow="extendDomain"
+                        />
+                    )}
+
                     {contextAxisTicks.length > 0 && (
                         <XAxis
                             xAxisId="context"
@@ -228,6 +260,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown, 
                     <Tooltip
                         labelFormatter={(label) => new Date(label).toLocaleString()}
                         formatter={(value, name) => [value, name === 'y' ? 'Value' : name]}
+                        cursor={false} // Disable default cursor line since we use ReferenceArea
                     />
                     <Legend />
 

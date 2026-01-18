@@ -47,6 +47,7 @@ const GanttBar = (props: any) => {
 export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate }: PatientStateGanttProps) {
     const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const [visibleWindow, setVisibleWindow] = useState<{ start: number, end: number } | null>(null);
 
     // 1. Process Categories (Y-Axis)
     const categories = useMemo(() => {
@@ -72,8 +73,8 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
         return map;
     }, [categories]);
 
-    // 3. Process Data for Chart
-    const chartData = useMemo(() => {
+    // 3. Process Full Data
+    const fullChartData = useMemo(() => {
         return data.map((d, i) => {
             const start = new Date(d.StartTime).getTime();
             let end = d.EndTime ? new Date(d.EndTime).getTime() : start;
@@ -95,93 +96,144 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
         });
     }, [data, colorMap, categories]);
 
-    // 4. Calculate Dynamic X-Axis Domain & Width based on Full Range
-    const { xDomain, ticks, chartWidth } = useMemo(() => {
-        if (!chartData.length) return { xDomain: ['dataMin', 'dataMax'], ticks: [], chartWidth: '100%' };
+    // 4. Transform Constants & Global Domain
+    const { xDomain, pixelsPerMs, globalStart, globalEnd, chartWidth } = useMemo(() => {
+        if (!fullChartData.length) return { xDomain: [0, 100], pixelsPerMs: 1, globalStart: 0, globalEnd: 100, chartWidth: '100%' };
 
-        const allPoints = chartData.flatMap(d => [d.start, d.end]);
+        const allPoints = fullChartData.flatMap(d => [d.start, d.end]);
         const minTime = Math.min(...allPoints);
         const maxTime = Math.max(...allPoints);
 
         const minDate = new Date(minTime);
         const maxDate = new Date(maxTime);
-        // Start from start of year to end of end year for cleanliness
-        const globalStart = new Date(minDate.getFullYear(), 0, 1).getTime();
-        const globalEnd = new Date(maxDate.getFullYear(), 11, 31, 23, 59, 59).getTime();
+        // Clean Boundaries
+        const gStart = new Date(minDate.getFullYear(), 0, 1).getTime();
+        const gEnd = new Date(maxDate.getFullYear(), 11, 31, 23, 59, 59).getTime();
 
-        const totalDuration = globalEnd - globalStart;
+        const totalDuration = gEnd - gStart;
         const DAYS = 1000 * 60 * 60 * 24;
         const totalDays = totalDuration / DAYS;
 
-        // Define Pixels per Day based on Zoom
-        let pixelsPerDay = 0.5; // Default (Years view - compressed)
-
+        // Pixels Per Day
+        let ppd = 0.5;
         if (zoomLevel === 'years') {
-            // Ensure whole range fits or is reasonable.
-            // If range > 10 years, maybe scroll? 
-            // 365 days * 10 = 3650 days. * 0.2 px = 700px. Fits.
-            pixelsPerDay = totalDays > 3650 ? 0.2 : (1000 / totalDays); // Fit roughly 1000px
-            if (pixelsPerDay < 0.1) pixelsPerDay = 0.1;
+            ppd = totalDays > 3650 ? 0.2 : (1000 / totalDays);
+            if (ppd < 0.1) ppd = 0.1;
         } else if (zoomLevel === 'months') {
-            // ~50px per month -> 1.6 px per day
-            pixelsPerDay = 3;
+            ppd = 3;
         } else {
-            // Days view: ~30px per day
-            pixelsPerDay = 40;
+            ppd = 40;
         }
 
-        let calculatedWidth = totalDays * pixelsPerDay;
-        // Ensure Min Width of 100% of container (which is usually ~800px)
-        if (calculatedWidth < 800) calculatedWidth = 800; // Simplified min width
+        let width = totalDays * ppd;
+        if (width < 800) width = 800; // Min width
 
-        // Generate Ticks
-        const generatedTicks = [];
-        let curr = new Date(globalStart);
-        const end = new Date(globalEnd);
-
-        // Tick Granularity
-        while (curr.getTime() <= end.getTime()) {
-            generatedTicks.push(curr.getTime());
-            if (zoomLevel === 'years') curr.setFullYear(curr.getFullYear() + 1);
-            else if (zoomLevel === 'months') curr.setMonth(curr.getMonth() + 1);
-            else curr.setDate(curr.getDate() + 1);
-        }
+        const ppms = width / totalDuration;
 
         return {
-            xDomain: [globalStart, globalEnd],
-            ticks: generatedTicks,
-            chartWidth: calculatedWidth
+            xDomain: [gStart, gEnd],
+            pixelsPerMs: ppms,
+            globalStart: gStart,
+            globalEnd: gEnd,
+            chartWidth: width
         };
+    }, [fullChartData, zoomLevel]);
 
-    }, [chartData, zoomLevel]);
+    // 5. Scroll Handling & Window calculation
+    const handleScroll = () => {
+        if (!containerRef.current) return;
 
-    // 5. Auto Scroll to Focus Date
+        const scrollLeft = containerRef.current.scrollLeft;
+        const containerWidth = containerRef.current.clientWidth;
+
+        // Calculate Visible Time Range
+        const visibleStart = globalStart + (scrollLeft / pixelsPerMs);
+        const visibleEnd = visibleStart + (containerWidth / pixelsPerMs);
+
+        // Define Buffer (2 "buckets" worth approx)
+        // Years: Buffer 5 years. Months: 1 year. Days: 2 months.
+        let bufferMs = 0;
+        const YEAR_MS = 31536000000;
+        if (zoomLevel === 'years') bufferMs = 5 * YEAR_MS;
+        else if (zoomLevel === 'months') bufferMs = 1 * YEAR_MS;
+        else bufferMs = 60 * 24 * 60 * 60 * 1000; // ~2 months
+
+        setVisibleWindow({
+            start: visibleStart - bufferMs,
+            end: visibleEnd + bufferMs
+        });
+    };
+
+    // Initialize Window on first data load
+    useLayoutEffect(() => {
+        if (!visibleWindow && chartWidth) {
+            handleScroll();
+        }
+    }, [chartWidth, pixelsPerMs]);
+
+
+    // Auto-Scroll to focusDate needs to update BEFORE window calculation logic for smoothness
+    // Or simpler: Auto-scroll triggers scroll event, which triggers window update.
     useLayoutEffect(() => {
         if (!containerRef.current || !focusDate) return;
 
-        // Find position of focusDate
-        const startDomain = (xDomain as any)[0];
-        const endDomain = (xDomain as any)[1];
-        if (typeof startDomain !== 'number') return;
-
         const focusTime = focusDate.getTime();
-        if (focusTime < startDomain || focusTime > endDomain) return;
+        if (focusTime < globalStart || focusTime > globalEnd) return;
 
-        const ratio = (focusTime - startDomain) / (endDomain - startDomain);
-
-        // Width is numeric (pixels)
+        const ratio = (focusTime - globalStart) / (globalEnd - globalStart);
         const contentWidth = Number(chartWidth);
         if (isNaN(contentWidth)) return;
 
         const targetX = contentWidth * ratio;
         const containerWidth = containerRef.current.clientWidth;
-
-        // Center it
         const scrollLeft = targetX - (containerWidth / 2);
 
-        containerRef.current.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+        containerRef.current.scrollTo({ left: scrollLeft, behavior: 'instant' }); // Instant to avoid painting wrong window during scroll
 
-    }, [focusDate, zoomLevel, chartWidth, xDomain]);
+        // Manually trigger update immediately after scroll
+        // handleScroll() will use the NEW scroll position
+        // We might need to wait for layout?
+        // Force a mini timeout to let DOM update scrollLeft property?
+        setTimeout(() => handleScroll(), 0);
+
+    }, [focusDate, zoomLevel, chartWidth, globalStart, globalEnd]);
+
+    // 6. Virtualized Data Filtering
+    const { virtualData, virtualTicks } = useMemo(() => {
+        // If no window yet, show nothing or everything? Show everything if small, nothing if huge?
+        // Let's safe-guard: if no window, show everything (initial render might be glitchy but ok)
+        // Actually, if we wait for first scroll event, chart might be empty.
+        // Better: Default window = full range if not set.
+
+        const windowStart = visibleWindow ? visibleWindow.start : globalStart;
+        const windowEnd = visibleWindow ? visibleWindow.end : globalEnd;
+
+        // Filter Data
+        const vData = fullChartData.filter(d => d.end >= windowStart && d.start <= windowEnd);
+
+        // Generate Ticks (Only for window)
+        // We still need to follow the Zoom Level cadence
+        const vTicks = [];
+        let curr = new Date(Math.max(globalStart, windowStart));
+        // Align 'curr' to nice boundary?
+        if (zoomLevel === 'years') curr = new Date(curr.getFullYear(), 0, 1);
+        else if (zoomLevel === 'months') curr = new Date(curr.getFullYear(), curr.getMonth(), 1);
+        else curr = new Date(curr.getFullYear(), curr.getMonth(), curr.getDate());
+
+        const endTs = Math.min(globalEnd, windowEnd);
+
+        while (curr.getTime() <= endTs) {
+            const t = curr.getTime();
+            if (t >= windowStart) vTicks.push(t);
+
+            if (zoomLevel === 'years') curr.setFullYear(curr.getFullYear() + 1);
+            else if (zoomLevel === 'months') curr.setMonth(curr.getMonth() + 1);
+            else curr.setDate(curr.getDate() + 1);
+        }
+
+        return { virtualData: vData, virtualTicks: vTicks };
+
+    }, [fullChartData, visibleWindow, zoomLevel, globalStart, globalEnd]);
 
 
     // Handlers
@@ -222,6 +274,18 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
         }
     };
 
+    // Throttle Scroll helper
+    // We can use a simple flag ref
+    const isScrolling = useRef(false);
+    const onContainerScroll = () => {
+        if (isScrolling.current) return;
+        isScrolling.current = true;
+        requestAnimationFrame(() => {
+            handleScroll();
+            isScrolling.current = false;
+        });
+    };
+
     const tickFormatter = (time: number) => {
         const d = new Date(time);
         if (zoomLevel === 'years') return d.getFullYear().toString();
@@ -248,19 +312,20 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
     };
 
     const interactionLayerData = useMemo(() => {
-        return ticks.map(t => ({
+        return virtualTicks.map(t => ({ // Only interaction points for visible ticks
             time: t,
             y: 0,
             dummy: true
         }));
-    }, [ticks]);
+    }, [virtualTicks]);
 
     return (
         <div className="w-full h-full p-4 relative select-none flex flex-col">
             <div
                 ref={containerRef}
                 className="flex-1 w-full overflow-x-auto overflow-y-hidden"
-                style={{ scrollBehavior: 'smooth' }}
+                style={{ scrollBehavior: 'auto' }} // Set to auto to prevent smooth scroll fighting with drag
+                onScroll={onContainerScroll}
             >
                 {/* Dynamically Sized Container */}
                 <div style={{ height: '100%', width: chartWidth, minWidth: '100%' }}>
@@ -276,8 +341,8 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
                             <XAxis
                                 dataKey="time"
                                 type="number"
-                                domain={xDomain as any}
-                                ticks={ticks}
+                                domain={xDomain as any} // Global Domain
+                                ticks={virtualTicks}    // Local Ticks
                                 tickFormatter={tickFormatter}
                                 scale="time"
                                 interval={0}
@@ -319,7 +384,7 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
                             )}
 
                             <Scatter
-                                data={chartData}
+                                data={virtualData}
                                 shape={<GanttBar />}
                                 isAnimationActive={false}
                                 legendType="none"

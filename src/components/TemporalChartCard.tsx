@@ -185,10 +185,11 @@ export function TemporalChartCard({
                         />
                     ) : chartType === 'bar' ? (
                         <PatientStateGantt
-                            data={filteredData as any}
+                            data={data as any}
                             zoomLevel={zoomLevel}
                             onDrillDown={handleDrillDown}
                             conceptData={conceptData}
+                            focusDate={focusDate}
                         />
                     ) : (
                         <PatientStatusAnalytics

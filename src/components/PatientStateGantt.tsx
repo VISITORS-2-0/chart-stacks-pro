@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+
+import React, { useMemo, useState, useLayoutEffect, useRef } from 'react';
 import { ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, Scatter } from 'recharts';
 import { TemporalRow } from '../types/temporal';
 
@@ -8,26 +9,20 @@ interface PatientStateGanttProps {
     onDrillDown?: (dateStr: string) => void;
     conceptData?: any;
     onZoomOut?: () => void;
+    focusDate?: Date | null;
 }
 
 // Custom Shape to render the "Gantt" bars using Scatter points
-// We use the start/end time from the payload to draw the rect
 const GanttBar = (props: any) => {
     const { cx, cy, payload, xAxis, yAxis } = props;
     if (!xAxis || !yAxis || !payload) return null;
 
-    // Calculate Coordinates
-    // cx, cy are the coordinates of the "point" (start time, category center)
-    // We need to calculate the width based on duration
-
-    // xAxis scale maps timestamp -> pixel x
     const xStart = xAxis.scale(payload.start);
     const xEnd = xAxis.scale(payload.end);
 
-    const width = Math.max(Math.abs(xEnd - xStart), 3); // Min width 3px for visibility
-    const height = 26; // Bar height
+    const width = Math.max(Math.abs(xEnd - xStart), 3);
+    const height = 26;
 
-    // Center bar vertically around cy
     const y = cy - (height / 2);
 
     return (
@@ -43,21 +38,21 @@ const GanttBar = (props: any) => {
                 stroke={payload.stroke}
                 strokeWidth={1}
                 className="transition-opacity hover:opacity-80"
-                style={{ pointerEvents: 'none' }} // Let mouse events pass to chart for zoom logic
+                style={{ pointerEvents: 'none' }}
             />
         </g>
     );
 };
 
-export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conceptData }: PatientStateGanttProps) {
+export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate }: PatientStateGanttProps) {
     const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
 
     // 1. Process Categories (Y-Axis)
     const categories = useMemo(() => {
         if (conceptData?.allowed_values?.values) {
             return conceptData.allowed_values.values;
         }
-        // Fallback: Derived from data
         const vals = new Set(data.map(d => String(d.Value)));
         return Array.from(vals).sort();
     }, [conceptData, data]);
@@ -66,17 +61,13 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
     const colorMap = useMemo(() => {
         const map: Record<string, string> = {};
         const len = categories.length;
-
-        // Gradient Strategy: HSL from startHue to endHue
-        // User requested "gradient colors by the order of the values"
-        // Let's go from Purple/Blue (Cool) to Red/Orange (Warm)
-        const startHue = 260; // Purple
-        const endHue = 0;     // Red
+        const startHue = 260;
+        const endHue = 0;
 
         categories.forEach((cat: string, i: number) => {
             const ratio = len > 1 ? i / (len - 1) : 0;
             const hue = startHue - (ratio * (startHue - endHue));
-            map[cat] = `hsl(${hue}, 70%, 55%)`; // Moderate saturation/lightness
+            map[cat] = `hsl(${hue}, 70%, 55%)`;
         });
         return map;
     }, [categories]);
@@ -89,12 +80,12 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
             if (end < start) end = start;
 
             const val = String(d.Value);
-            const yIndex = categories.indexOf(val); // Map to numeric index
+            const yIndex = categories.indexOf(val);
 
             return {
                 id: i,
                 x: start,
-                y: yIndex,   // Numeric Y for Scatter placement
+                y: yIndex,
                 start: start,
                 end: end,
                 value: val,
@@ -104,57 +95,100 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
         });
     }, [data, colorMap, categories]);
 
-    // 4. Calculate X-Axis Domain & Ticks (Logic copied from PatientMultiLineChart)
-    // We must generate ticks that cover the full range for the "Grid" trick
-    const { xDomain, ticks } = useMemo(() => {
-        if (!chartData.length) return { xDomain: ['dataMin', 'dataMax'], ticks: [] };
+    // 4. Calculate Dynamic X-Axis Domain & Width based on Full Range
+    const { xDomain, ticks, chartWidth } = useMemo(() => {
+        if (!chartData.length) return { xDomain: ['dataMin', 'dataMax'], ticks: [], chartWidth: '100%' };
 
-        // ... (Same domain logic as before) ...
         const allPoints = chartData.flatMap(d => [d.start, d.end]);
         const minTime = Math.min(...allPoints);
         const maxTime = Math.max(...allPoints);
 
         const minDate = new Date(minTime);
-        let startDomain = minTime;
-        let endDomain = maxTime;
+        const maxDate = new Date(maxTime);
+        // Start from start of year to end of end year for cleanliness
+        const globalStart = new Date(minDate.getFullYear(), 0, 1).getTime();
+        const globalEnd = new Date(maxDate.getFullYear(), 11, 31, 23, 59, 59).getTime();
+
+        const totalDuration = globalEnd - globalStart;
+        const DAYS = 1000 * 60 * 60 * 24;
+        const totalDays = totalDuration / DAYS;
+
+        // Define Pixels per Day based on Zoom
+        let pixelsPerDay = 0.5; // Default (Years view - compressed)
 
         if (zoomLevel === 'years') {
-            const startYear = minDate.getFullYear();
-            let endYear = new Date(maxTime).getFullYear();
-            if (endYear - startYear < 5) endYear = startYear + 4;
-            startDomain = new Date(startYear, 0, 1).getTime();
-            endDomain = new Date(endYear, 11, 31, 23, 59, 59).getTime();
+            // Ensure whole range fits or is reasonable.
+            // If range > 10 years, maybe scroll? 
+            // 365 days * 10 = 3650 days. * 0.2 px = 700px. Fits.
+            pixelsPerDay = totalDays > 3650 ? 0.2 : (1000 / totalDays); // Fit roughly 1000px
+            if (pixelsPerDay < 0.1) pixelsPerDay = 0.1;
         } else if (zoomLevel === 'months') {
-            const y = minDate.getFullYear();
-            startDomain = new Date(y, 0, 1).getTime();
-            endDomain = new Date(y, 11, 31, 23, 59, 59).getTime();
+            // ~50px per month -> 1.6 px per day
+            pixelsPerDay = 3;
         } else {
-            const y = minDate.getFullYear();
-            const m = minDate.getMonth();
-            startDomain = new Date(y, m, 1).getTime();
-            const lastDay = new Date(y, m + 1, 0).getDate();
-            endDomain = new Date(y, m, lastDay, 23, 59, 59).getTime();
+            // Days view: ~30px per day
+            pixelsPerDay = 40;
         }
 
-        // Generate Ticks for Interaction
+        let calculatedWidth = totalDays * pixelsPerDay;
+        // Ensure Min Width of 100% of container (which is usually ~800px)
+        if (calculatedWidth < 800) calculatedWidth = 800; // Simplified min width
+
+        // Generate Ticks
         const generatedTicks = [];
-        let curr = new Date(startDomain);
-        const end = new Date(endDomain);
+        let curr = new Date(globalStart);
+        const end = new Date(globalEnd);
+
+        // Tick Granularity
         while (curr.getTime() <= end.getTime()) {
             generatedTicks.push(curr.getTime());
             if (zoomLevel === 'years') curr.setFullYear(curr.getFullYear() + 1);
             else if (zoomLevel === 'months') curr.setMonth(curr.getMonth() + 1);
             else curr.setDate(curr.getDate() + 1);
         }
-        return { xDomain: [startDomain, endDomain], ticks: generatedTicks };
+
+        return {
+            xDomain: [globalStart, globalEnd],
+            ticks: generatedTicks,
+            chartWidth: calculatedWidth
+        };
+
     }, [chartData, zoomLevel]);
 
-    // 5. Interaction Handlers
+    // 5. Auto Scroll to Focus Date
+    useLayoutEffect(() => {
+        if (!containerRef.current || !focusDate) return;
+
+        // Find position of focusDate
+        const startDomain = (xDomain as any)[0];
+        const endDomain = (xDomain as any)[1];
+        if (typeof startDomain !== 'number') return;
+
+        const focusTime = focusDate.getTime();
+        if (focusTime < startDomain || focusTime > endDomain) return;
+
+        const ratio = (focusTime - startDomain) / (endDomain - startDomain);
+
+        // Width is numeric (pixels)
+        const contentWidth = Number(chartWidth);
+        if (isNaN(contentWidth)) return;
+
+        const targetX = contentWidth * ratio;
+        const containerWidth = containerRef.current.clientWidth;
+
+        // Center it
+        const scrollLeft = targetX - (containerWidth / 2);
+
+        containerRef.current.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+
+    }, [focusDate, zoomLevel, chartWidth, xDomain]);
+
+
+    // Handlers
     const handleMouseMove = (e: any) => {
         if (e && e.activeLabel) {
             const time = Number(e.activeLabel);
             if (!isNaN(time)) {
-                // Calculate range based on active tick
                 const date = new Date(time);
                 let start, end;
                 const year = date.getFullYear();
@@ -188,7 +222,6 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
         }
     };
 
-    // Formatters
     const tickFormatter = (time: number) => {
         const d = new Date(time);
         if (zoomLevel === 'years') return d.getFullYear().toString();
@@ -196,17 +229,9 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
         return d.getDate().toString();
     };
 
-    // Tooltip
-    // We only want to show the tool tip for the CHART ITEMS (the Gantt bars)
-    // But Recharts Shared Tooltip shows for everything active.
-    // We can filter inside content.
     const CustomTooltip = ({ active, payload }: any) => {
         if (active && payload && payload.length) {
-            // Find the payload item corresponding to the Gantt Bar (from "chartData")
-            // The "interaction" scatter layer has empty payload mostly or just time.
-            // Filter dummy interaction
             const ganttItem = payload.find((p: any) => p.payload && p.payload.value);
-
             if (ganttItem) {
                 const d = ganttItem.payload;
                 return (
@@ -222,11 +247,7 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
         return null;
     };
 
-    // Dummy Data for Interaction Layer
-    // We need points at every tick to ensure the mouse move triggers 'activeLabel' everywhere
     const interactionLayerData = useMemo(() => {
-        // use -0.5 or 0 as Y to ensure it's in view? 
-        // With numeric axis, we can just use 0.
         return ticks.map(t => ({
             time: t,
             y: 0,
@@ -235,74 +256,80 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
     }, [ticks]);
 
     return (
-        <div className="w-full h-full p-4 relative select-none">
-            <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart
-                    margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                    onMouseMove={handleMouseMove}
-                    onMouseLeave={() => setHoveredRange(null)}
-                    onClick={handleClick}
-                >
-                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} strokeOpacity={0.2} />
+        <div className="w-full h-full p-4 relative select-none flex flex-col">
+            <div
+                ref={containerRef}
+                className="flex-1 w-full overflow-x-auto overflow-y-hidden"
+                style={{ scrollBehavior: 'smooth' }}
+            >
+                {/* Dynamically Sized Container */}
+                <div style={{ height: '100%', width: chartWidth, minWidth: '100%' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart
+                            margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                            onMouseMove={handleMouseMove}
+                            onMouseLeave={() => setHoveredRange(null)}
+                            onClick={handleClick}
+                        >
+                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} strokeOpacity={0.2} />
 
-                    <XAxis
-                        dataKey="time"
-                        type="number"
-                        domain={xDomain as any}
-                        ticks={ticks}
-                        tickFormatter={tickFormatter}
-                        scale="time"
-                        interval={0}
-                        cursor="pointer"
-                    />
+                            <XAxis
+                                dataKey="time"
+                                type="number"
+                                domain={xDomain as any}
+                                ticks={ticks}
+                                tickFormatter={tickFormatter}
+                                scale="time"
+                                interval={0}
+                                cursor="pointer"
+                            />
 
-                    <YAxis
-                        dataKey="y"
-                        type="number"
-                        domain={[-0.5, categories.length - 0.5]} // Pad the domain
-                        tickCount={categories.length}
-                        ticks={categories.map((_, i) => i)} // Explicit ticks for each index
-                        tickFormatter={(i) => categories[i] || ''} // Map index back to label
-                        width={90}
-                        tick={{ fontSize: 13, fontWeight: 500 }}
-                        interval={0}
-                    />
+                            <YAxis
+                                dataKey="y"
+                                type="number"
+                                domain={[-0.5, categories.length - 0.5]}
+                                tickCount={categories.length}
+                                ticks={categories.map((_, i) => i)}
+                                tickFormatter={(i) => categories[i] || ''}
+                                width={90}
+                                tick={{ fontSize: 13, fontWeight: 500 }}
+                                interval={0}
+                            />
 
-                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'transparent' }} />
+                            <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'transparent' }} />
 
-                    {/* Interaction Layer: Invisible points to capture hover */}
-                    <Scatter
-                        data={interactionLayerData}
-                        dataKey="time" // We map time->x, need category->y
-                        name="hidden-interaction"
-                        opacity={0}
-                        shape="circle"
-                        isAnimationActive={false}
-                    />
+                            <Scatter
+                                data={interactionLayerData}
+                                dataKey="time"
+                                name="hidden-interaction"
+                                opacity={0}
+                                shape="circle"
+                                isAnimationActive={false}
+                            />
 
-                    {/* Highlight Layer */}
-                    {hoveredRange && (
-                        <ReferenceArea
-                            x1={hoveredRange.start}
-                            x2={hoveredRange.end}
-                            fill="currentColor"
-                            className="text-muted-foreground"
-                            fillOpacity={0.1}
-                            ifOverflow="extendDomain"
-                        />
-                    )}
+                            {hoveredRange && (
+                                <ReferenceArea
+                                    x1={hoveredRange.start}
+                                    x2={hoveredRange.end}
+                                    fill="currentColor"
+                                    className="text-muted-foreground"
+                                    fillOpacity={0.1}
+                                    ifOverflow="extendDomain"
+                                />
+                            )}
 
-                    {/* Main Data Layer: Gantt Bars */}
-                    <Scatter
-                        data={chartData}
-                        shape={<GanttBar />}
-                        isAnimationActive={false}
-                        legendType="none"
-                        cursor="pointer"
-                    />
+                            <Scatter
+                                data={chartData}
+                                shape={<GanttBar />}
+                                isAnimationActive={false}
+                                legendType="none"
+                                cursor="pointer"
+                            />
 
-                </ComposedChart>
-            </ResponsiveContainer>
+                        </ComposedChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
         </div>
     );
 }

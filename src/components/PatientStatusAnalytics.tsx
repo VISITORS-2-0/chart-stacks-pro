@@ -9,19 +9,93 @@ interface PatientStatusAnalyticsProps {
     conceptData?: any;
 }
 
-const CATEGORIES = ['High', 'Normal', 'Moderately_low'];
-
 export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown, conceptData }: PatientStatusAnalyticsProps) {
-    // Cast to processed type for rendering because we know it's coming from the mocked API
-    // In a real dual-support scenario, we'd add a type guard.
-    const chartData = data as PatientStatusProcessedRow[];
+    // Determine Categories from conceptData or fallback
+    const categories = React.useMemo(() => {
+        if (conceptData && conceptData.allowed_values && conceptData.allowed_values.values) {
+            return conceptData.allowed_values.values;
+        }
+        return ['High', 'Normal', 'Moderately_low']; // Fallback
+    }, [conceptData]);
 
-    // Define specific colors for each category
-    const categoryColors: Record<string, string> = {
-        'High': '#ef4444', // red-500
-        'Normal': '#22c55e', // green-500
-        'Moderately_low': '#f59e0b', // amber-500
-    };
+    const categoryColors: Record<string, string> = React.useMemo(() => {
+        const colors: Record<string, string> = {
+            'High': '#ef4444', // red-500
+            'Normal': '#22c55e', // green-500
+            'Moderately_low': '#f59e0b', // amber-500
+            'Low': '#3b82f6', // blue-500
+            'Medium': '#f59e0b', // amber-500
+        };
+        // Auto-assign colors if not present?
+        // For now rely on defaults and extended palette
+        const palette = ['#ef4444', '#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
+        categories.forEach((cat: string, index: number) => {
+            if (!colors[cat as any]) { // Cast to avoid index error in TS if cat is string
+                colors[cat] = palette[index % palette.length];
+            }
+        });
+        return colors;
+    }, [categories]);
+
+    // Aggregate Data if it is Raw TemporalRow[]
+    const chartData = React.useMemo(() => {
+        if (!data || data.length === 0) return [];
+
+        // Detect if already processed
+        if ('NormalPct' in data[0] || 'month' in data[0]) {
+            return data as PatientStatusProcessedRow[];
+        }
+
+        // Processing Raw Data (TemporalRow[])
+        const rawData = data as TemporalRow[];
+        const buckets = new Map<string, Record<string, number>>();
+
+        rawData.forEach(row => {
+            const date = new Date(row.StartTime);
+            if (isNaN(date.getTime())) return;
+
+            let key;
+            if (zoomLevel === 'years') {
+                key = `${date.getFullYear()}`;
+            } else if (zoomLevel === 'months') {
+                key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            } else {
+                // Days
+                key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            }
+
+            if (!buckets.has(key)) {
+                buckets.set(key, { total: 0 });
+                categories.forEach((c: string) => buckets.get(key)![c] = 0);
+            }
+
+            const entry = buckets.get(key)!;
+            const val = String(row.Value); // Ensure string matching
+            if (categories.includes(val)) {
+                entry[val] = (entry[val] || 0) + 1;
+                entry.total += 1;
+            }
+        });
+
+        // Convert buckets to rows with Percentages
+        const processed: any[] = [];
+        // Sort keys to ensure chronological order
+        const sortedKeys = Array.from(buckets.keys()).sort();
+
+        sortedKeys.forEach(key => {
+            const entry = buckets.get(key)!;
+            const row: any = { month: key }; // Using 'month' as XAxis key for compatibility
+
+            categories.forEach((cat: string) => {
+                row[cat] = entry[cat];
+                row[`${cat}Pct`] = entry.total > 0 ? (entry[cat] / entry.total) * 100 : 0;
+            });
+            processed.push(row);
+        });
+
+        return processed;
+
+    }, [data, categories, zoomLevel]);
 
     const handleBarClick = (data: any) => {
         if (onDrillDown && data && data.month) {
@@ -66,8 +140,8 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
 
     return (
         <div className="w-full h-full flex flex-col space-y-4 p-4">
-            {CATEGORIES.map((category, index) => {
-                const isLast = index === CATEGORIES.length - 1;
+            {categories.map((category: string, index: number) => {
+                const isLast = index === categories.length - 1;
 
                 return (
                     <div key={category} className="flex-1 min-h-0 relative">

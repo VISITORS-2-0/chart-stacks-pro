@@ -3,7 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOnePatientRaw, useMultiPatientAbstract, useMultiPatientRaw } from "../hooks/useTemporalData";
 import { PatientStatusAnalytics } from "./PatientStatusAnalytics";
+import { PatientStateGantt } from "./PatientStateGantt";
 import { PatientMultiLineChart } from "./PatientMultiLineChart";
+import { SinglePatientAbstractionPanel, AbstractionInterval, ValueLevel } from "./SinglePatientAbstractionPanel";
 import { useState, useMemo } from "react";
 
 type ZoomLevel = 'years' | 'months' | 'days';
@@ -14,6 +16,7 @@ interface TemporalChartCardProps {
     onRemove: (id: string) => void;
     isMultiPatient?: boolean;
     isRaw?: boolean;
+    chartType?: string;
     externalData?: any[];
     conceptData?: any;
 }
@@ -24,6 +27,7 @@ export function TemporalChartCard({
     onRemove,
     isMultiPatient = false,
     isRaw = false,
+    chartType,
     externalData,
     conceptData,
 }: TemporalChartCardProps) {
@@ -83,6 +87,37 @@ export function TemporalChartCard({
             return true;
         });
     }, [data, zoomLevel, focusDate]);
+
+    // Data Transformation for SinglePatientAbstractionPanel
+    const { abstractionIntervals, valueLevels } = useMemo(() => {
+        if (!conceptData || !filteredData || chartType !== 'bar') {
+            return { abstractionIntervals: [], valueLevels: [] };
+        }
+
+        // 1. Value Levels
+        const values = conceptData.allowed_values?.values || [];
+        const levels: ValueLevel[] = values.map((val: string, index: number) => ({
+            label: val,
+            order: index,
+            color: ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'][index % 5]
+        }));
+
+        // 2. Intervals
+        const intervals: AbstractionInterval[] = filteredData.map((row: any) => {
+            const val = String(row.Value);
+            const level = levels.find(l => l.label === val);
+            return {
+                start: row.StartTime,
+                end: row.EndTime,
+                valueLabel: val,
+                valueOrderIndex: level ? level.order : 0,
+                contextId: String(row.PatientID), // showing patient ID as context
+            };
+        });
+
+        return { abstractionIntervals: intervals, valueLevels: levels };
+
+    }, [filteredData, conceptData, chartType]);
 
     const handleDrillDown = (dateStr: string) => {
         const clickedDate = new Date(dateStr);
@@ -147,6 +182,13 @@ export function TemporalChartCard({
                             zoomLevel={zoomLevel}
                             onDrillDown={handleDrillDown}
                             onZoomOut={handleZoomOut}
+                        />
+                    ) : chartType === 'bar' ? (
+                        <PatientStateGantt
+                            data={filteredData as any}
+                            zoomLevel={zoomLevel}
+                            onDrillDown={handleDrillDown}
+                            conceptData={conceptData}
                         />
                     ) : (
                         <PatientStatusAnalytics

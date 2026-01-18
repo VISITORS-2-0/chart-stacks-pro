@@ -108,6 +108,7 @@ export function DataExploration({
                   onRemove={onRemoveChart}
                   isMultiPatient={chart.chartType === 'line' || chart.chartType === 'scatter'} // 'scatter' from Raw is also multi-patient effectively for this purpose?
                   isRaw={chart.isRaw}
+                  chartType={chart.chartType}
                   externalData={chart.externalData}
                   conceptData={chart.conceptData}
                 />

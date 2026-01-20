@@ -107,8 +107,18 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
         const minDate = new Date(minTime);
         const maxDate = new Date(maxTime);
         // Clean Boundaries
-        const gStart = new Date(minDate.getFullYear(), 0, 1).getTime();
-        const gEnd = new Date(maxDate.getFullYear(), 11, 31, 23, 59, 59).getTime();
+
+
+        let gStart, gEnd;
+        if (zoomLevel === 'days') {
+            // For monthly view (days zoom), respect the month boundaries of the data
+            gStart = new Date(minDate.getFullYear(), minDate.getMonth(), 1).getTime();
+            gEnd = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 0, 23, 59, 59).getTime(); // Last day of month
+        } else {
+            // Default to full year for other views
+            gStart = new Date(minDate.getFullYear(), 0, 1).getTime();
+            gEnd = new Date(maxDate.getFullYear(), 11, 31, 23, 59, 59).getTime();
+        }
 
         const totalDuration = gEnd - gStart;
         const DAYS = 1000 * 60 * 60 * 24;

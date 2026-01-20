@@ -131,6 +131,9 @@ export function TemporalChartCard({
         const clickedDate = new Date(dateStr);
         if (isNaN(clickedDate.getTime())) return;
 
+        // Always set local focus reference for child components
+        setFocusDate(clickedDate);
+
         if (onDrillDown) {
             onDrillDown(clickedDate, zoomLevel);
             // Manually advance local zoom state to match what we expect?
@@ -146,8 +149,6 @@ export function TemporalChartCard({
 
             return;
         }
-
-        setFocusDate(clickedDate);
         if (zoomLevel === 'years') setZoomLevel('months');
         else if (zoomLevel === 'months') setZoomLevel('days');
     };

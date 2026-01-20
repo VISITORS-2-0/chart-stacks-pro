@@ -4,6 +4,7 @@ import { TemporalChartCard } from "@/components/TemporalChartCard";
 import { FilterBar, TimeRange } from "@/components/FilterBar";
 // import { generateMockData } from "@/utils/chartData"; // Deprecated
 import type { MenuItem } from "@/components/DashboardSidebar";
+import type { ZoomLevel } from "@/components/TemporalChartCard";
 // import { fetchAbstractionData, fetchRawData, QueryParams } from "@/api/temporal"; // Moved to Index
 // import { calculateDateRange } from "@/utils/dateUtils"; // Moved to Index
 // import { toast } from "sonner"; 
@@ -28,6 +29,7 @@ interface DataExplorationProps {
   timeRange: TimeRange;
   setTimeRange: (range: TimeRange) => void;
   patientCount: number;
+  onChartDrillDown?: (chartId: string, date: Date, currentZoomLevel: ZoomLevel) => void;
 }
 
 export function DataExploration({
@@ -40,7 +42,8 @@ export function DataExploration({
   setPatientIds,
   timeRange,
   setTimeRange,
-  patientCount
+  patientCount,
+  onChartDrillDown
 }: DataExplorationProps) {
   const [brushRange, setBrushRange] = useState<{ startIndex?: number; endIndex?: number }>({});
 
@@ -111,6 +114,7 @@ export function DataExploration({
                   chartType={chart.chartType}
                   externalData={chart.externalData}
                   conceptData={chart.conceptData}
+                  onDrillDown={(date, level) => onChartDrillDown && onChartDrillDown(chart.id, date, level)}
                 />
               ))}
             </div>

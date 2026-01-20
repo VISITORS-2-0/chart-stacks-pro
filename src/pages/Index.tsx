@@ -18,6 +18,7 @@ interface ActiveChart extends MenuItem {
   externalData?: any[];
   conceptData?: any;
   isRaw?: boolean;
+  currentInterval?: string; // Track current interval for Pattern charts (YE, ME, D)
 }
 
 interface AssociationTab {
@@ -145,6 +146,89 @@ const Index = () => {
     }
   };
 
+  const processPatternResult = (result: any[], intervalStr: string) => {
+    const transformed = result.map(item => {
+      // For key, if YE -> YYYY. If ME -> YYYY-MM. If D -> YYYY-MM-DD.
+      let key = new Date(item.StartTime).toISOString().slice(0, 4);
+      if (intervalStr === 'ME') key = new Date(item.StartTime).toISOString().slice(0, 7);
+      else if (intervalStr === 'D') key = new Date(item.StartTime).toISOString().slice(0, 10);
+
+      const row: any = {
+        month: key, // Using 'month' as common x-axis key for now
+      };
+
+      if (item.Value_Dict) {
+        Object.entries(item.Value_Dict).forEach(([k, v]: [string, any]) => {
+          row[k] = v;
+          row[`${k}Pct`] = item.TotalPatientsWithData > 0 ? (v / item.TotalPatientsWithData) * 100 : 0;
+        });
+      }
+      return row;
+    });
+    return transformed.sort((a: any, b: any) => a.month.localeCompare(b.month));
+  };
+
+  const handleChartDrillDown = async (chartId: string, date: Date, currentZoomLevel: string) => {
+    const chartIndex = activeCharts.findIndex(c => c.id === chartId);
+    if (chartIndex === -1) return;
+
+    const chart = activeCharts[chartIndex];
+    // Only for Pattern charts for now
+    if (chart.parent !== 'Pattern') return;
+
+    const currentInterval = chart.currentInterval || 'YE';
+    let nextInterval = 'YE';
+    let startDateStr = '';
+    let endDateStr = '';
+
+    if (currentInterval === 'YE') {
+      nextInterval = 'ME';
+      // Start of selected year
+      const y = date.getFullYear();
+      startDateStr = `${y}-01-01`;
+      endDateStr = `${y}-12-31`;
+    } else if (currentInterval === 'ME') {
+      nextInterval = 'D';
+      // Start of selected month
+      const y = date.getFullYear();
+      const m = date.getMonth() + 1; // 0-indexed
+      const lastDay = new Date(y, m, 0).getDate();
+      startDateStr = `${y}-${String(m).padStart(2, '0')}-01`;
+      endDateStr = `${y}-${String(m).padStart(2, '0')}-${lastDay}`;
+    } else {
+      // Already at D, no further drill down (or handle D view if needed, but user said YE->ME->D)
+      return;
+    }
+
+    // Fetch new data
+    try {
+      const params: PatternQueryParams = {
+        patients_list: patientIds,
+        concept_name: chart.title,
+        start_date: startDateStr,
+        end_date: endDateStr,
+        interval_str: nextInterval,
+        method: 'most_time_spent'
+      };
+
+      const response = await fetchMultiplePatientsAbstraction(params);
+
+      // Update Chart
+      const updatedCharts = [...activeCharts];
+      updatedCharts[chartIndex] = {
+        ...chart,
+        externalData: processPatternResult(response.result, nextInterval),
+        currentInterval: nextInterval,
+        conceptData: response.concept_data, // Update concept data if it changes (e.g. allowed values?)
+      };
+      setActiveCharts(updatedCharts);
+
+    } catch (error) {
+      console.error("Failed to drill down", error);
+      toast({ title: "Error drilling down", description: String(error), variant: "destructive" });
+    }
+  };
+
   const handleRemoveChart = (id: string) => {
     setActiveCharts((prev) => prev.filter((chart) => chart.id !== id));
   };
@@ -178,6 +262,7 @@ const Index = () => {
           timeRange={timeRange}
           setTimeRange={setTimeRange}
           patientCount={patientCount}
+          onChartDrillDown={handleChartDrillDown}
         />
       );
     }

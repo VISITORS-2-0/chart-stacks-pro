@@ -8,7 +8,7 @@ import { PatientMultiLineChart } from "./PatientMultiLineChart";
 import { SinglePatientAbstractionPanel, AbstractionInterval, ValueLevel } from "./SinglePatientAbstractionPanel";
 import { useState, useMemo } from "react";
 
-type ZoomLevel = 'years' | 'months' | 'days';
+export type ZoomLevel = 'years' | 'months' | 'days';
 
 interface TemporalChartCardProps {
     id: string;
@@ -19,6 +19,7 @@ interface TemporalChartCardProps {
     chartType?: string;
     externalData?: any[];
     conceptData?: any;
+    onDrillDown?: (date: Date, currentLevel: ZoomLevel) => void;
 }
 
 export function TemporalChartCard({
@@ -30,6 +31,7 @@ export function TemporalChartCard({
     chartType,
     externalData,
     conceptData,
+    onDrillDown,
 }: TemporalChartCardProps) {
     const singlePatient = useOnePatientRaw();
     const multiPatientAbstract = useMultiPatientAbstract();
@@ -62,6 +64,10 @@ export function TemporalChartCard({
     // Filter Data based on Zoom Level
     const filteredData = useMemo(() => {
         if (!data) return [];
+
+        // If external drill-down is provided, assume parent manages filtering/data
+        if (onDrillDown) return data;
+
         // If 'years', show everything (charts handle aggregation)
         // If 'months', filter by focusDate year
         // If 'days', filter by focusDate month
@@ -86,7 +92,7 @@ export function TemporalChartCard({
             }
             return true;
         });
-    }, [data, zoomLevel, focusDate]);
+    }, [data, zoomLevel, focusDate, onDrillDown]);
 
     // Data Transformation for SinglePatientAbstractionPanel
     const { abstractionIntervals, valueLevels } = useMemo(() => {
@@ -122,12 +128,33 @@ export function TemporalChartCard({
     const handleDrillDown = (dateStr: string) => {
         const clickedDate = new Date(dateStr);
         if (isNaN(clickedDate.getTime())) return;
+
+        if (onDrillDown) {
+            onDrillDown(clickedDate, zoomLevel);
+            // Manually advance local zoom state to match what we expect?
+            // Or rely on parent to update data.
+            // If we rely on parent, we still might want to update local 'zoomLevel' for display purposes 
+            // (e.g., tick formatting relies on it in PatientStatusAnalytics?).
+            // Actually, `PatientStatusAnalytics` takes `zoomLevel` prop.
+            // We should update local state IF the parent doesn't control `zoomLevel` prop.
+            // But `zoomLevel` is local state here.
+
+            if (zoomLevel === 'years') setZoomLevel('months');
+            else if (zoomLevel === 'months') setZoomLevel('days');
+
+            return;
+        }
+
         setFocusDate(clickedDate);
         if (zoomLevel === 'years') setZoomLevel('months');
         else if (zoomLevel === 'months') setZoomLevel('days');
     };
 
     const handleZoomOut = () => {
+        // If server-side, simple zoom out might be complex if we don't have history.
+        // For now, let's keep local logic or maybe disable zoom out for pattern?
+        // User didn't specify zoom out behavior. I'll leave it local for now.
+
         if (zoomLevel === 'days') setZoomLevel('months');
         else if (zoomLevel === 'months') {
             setZoomLevel('years');

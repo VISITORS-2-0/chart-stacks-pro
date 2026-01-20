@@ -30,6 +30,7 @@ interface DataExplorationProps {
   setTimeRange: (range: TimeRange) => void;
   patientCount: number;
   onChartDrillDown?: (chartId: string, date: Date, currentZoomLevel: ZoomLevel) => void;
+  onChartZoomOut?: (chartId: string) => void;
 }
 
 export function DataExploration({
@@ -43,7 +44,8 @@ export function DataExploration({
   timeRange,
   setTimeRange,
   patientCount,
-  onChartDrillDown
+  onChartDrillDown,
+  onChartZoomOut
 }: DataExplorationProps) {
   const [brushRange, setBrushRange] = useState<{ startIndex?: number; endIndex?: number }>({});
 
@@ -115,6 +117,7 @@ export function DataExploration({
                   externalData={chart.externalData}
                   conceptData={chart.conceptData}
                   onDrillDown={(date, level) => onChartDrillDown && onChartDrillDown(chart.id, date, level)}
+                  onZoomOut={() => onChartZoomOut && onChartZoomOut(chart.id)}
                 />
               ))}
             </div>

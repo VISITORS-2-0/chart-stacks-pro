@@ -20,6 +20,7 @@ interface TemporalChartCardProps {
     externalData?: any[];
     conceptData?: any;
     onDrillDown?: (date: Date, currentLevel: ZoomLevel) => void;
+    onZoomOut?: (currentLevel: ZoomLevel) => void;
 }
 
 export function TemporalChartCard({
@@ -32,6 +33,7 @@ export function TemporalChartCard({
     externalData,
     conceptData,
     onDrillDown,
+    onZoomOut,
 }: TemporalChartCardProps) {
     const singlePatient = useOnePatientRaw();
     const multiPatientAbstract = useMultiPatientAbstract();
@@ -151,9 +153,19 @@ export function TemporalChartCard({
     };
 
     const handleZoomOut = () => {
-        // If server-side, simple zoom out might be complex if we don't have history.
-        // For now, let's keep local logic or maybe disable zoom out for pattern?
-        // User didn't specify zoom out behavior. I'll leave it local for now.
+        if (onZoomOut) {
+            onZoomOut(zoomLevel);
+            // Manually revert local zoom state?
+            // If parent manages data, we should probably follow suit or trust data update.
+            // But we might need to sync local zoom for display reasons if not controlled.
+            // Assuming strict hierarchy YE -> ME -> D.
+            if (zoomLevel === 'days') setZoomLevel('months');
+            else if (zoomLevel === 'months') {
+                setZoomLevel('years');
+                setFocusDate(null);
+            }
+            return;
+        }
 
         if (zoomLevel === 'days') setZoomLevel('months');
         else if (zoomLevel === 'months') {

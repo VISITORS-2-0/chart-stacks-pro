@@ -19,6 +19,8 @@ interface ActiveChart extends MenuItem {
   conceptData?: any;
   isRaw?: boolean;
   currentInterval?: string; // Track current interval for Pattern charts (YE, ME, D)
+  currentStart?: string;
+  currentEnd?: string;
 }
 
 interface AssociationTab {
@@ -132,6 +134,9 @@ const Index = () => {
         externalData: resultData,
         conceptData: conceptData,
         isRaw: item.parent === 'Raw',
+        currentInterval: item.parent === 'Pattern' ? 'YE' : undefined,
+        currentStart: params.start_date,
+        currentEnd: params.end_date,
       };
 
       setActiveCharts((prev) => [...prev, newChart]);
@@ -191,16 +196,16 @@ const Index = () => {
       nextInterval = 'D';
       // Start of selected month
       const y = date.getFullYear();
-      const m = date.getMonth() + 1; // 0-indexed
+      const m = date.getMonth() + 1; // getMonth() is 0-indexed
+      startDateStr = `${y}-${m.toString().padStart(2, '0')}-01`;
+      // End of selected month
       const lastDay = new Date(y, m, 0).getDate();
-      startDateStr = `${y}-${String(m).padStart(2, '0')}-01`;
-      endDateStr = `${y}-${String(m).padStart(2, '0')}-${lastDay}`;
+      endDateStr = `${y}-${m.toString().padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`;
     } else {
-      // Already at D, no further drill down (or handle D view if needed, but user said YE->ME->D)
+      // Already at 'D', no further drill down
       return;
     }
 
-    // Fetch new data
     try {
       const params: PatternQueryParams = {
         patients_list: patientIds,
@@ -219,13 +224,77 @@ const Index = () => {
         ...chart,
         externalData: processPatternResult(response.result, nextInterval),
         currentInterval: nextInterval,
-        conceptData: response.concept_data, // Update concept data if it changes (e.g. allowed values?)
+        currentStart: startDateStr,
+        currentEnd: endDateStr,
+        conceptData: response.concept_data,
       };
       setActiveCharts(updatedCharts);
 
     } catch (error) {
       console.error("Failed to drill down", error);
       toast({ title: "Error drilling down", description: String(error), variant: "destructive" });
+    }
+  };
+
+  const handleChartZoomOut = async (chartId: string) => {
+    const chartIndex = activeCharts.findIndex(c => c.id === chartId);
+    if (chartIndex === -1) {
+      return;
+    }
+
+    const chart = activeCharts[chartIndex];
+    if (chart.parent !== 'Pattern' || !chart.currentInterval) return;
+
+    let prevInterval = '';
+    let startDateStr = '';
+    let endDateStr = '';
+
+    if (chart.currentInterval === 'D') {
+      prevInterval = 'ME';
+      // Extract year from currentStart (e.g., "2023-01-15")
+      if (chart.currentStart) {
+        const date = new Date(chart.currentStart);
+        const y = date.getFullYear();
+        startDateStr = `${y}-01-01`;
+        endDateStr = `${y}-12-31`;
+      }
+    } else if (chart.currentInterval === 'ME') {
+      prevInterval = 'YE';
+      // Revert to global time range
+      const { start_date, end_date } = calculateDateRange(timeRange);
+      startDateStr = start_date;
+      endDateStr = end_date;
+    } else {
+      // Already at YE, no further zoom out
+      return;
+    }
+
+    try {
+      const params: PatternQueryParams = {
+        patients_list: patientIds,
+        concept_name: chart.title,
+        start_date: startDateStr,
+        end_date: endDateStr,
+        interval_str: prevInterval,
+        method: 'most_time_spent'
+      };
+
+      const response = await fetchMultiplePatientsAbstraction(params);
+
+      const updatedCharts = [...activeCharts];
+      updatedCharts[chartIndex] = {
+        ...chart,
+        externalData: processPatternResult(response.result, prevInterval),
+        currentInterval: prevInterval,
+        currentStart: startDateStr,
+        currentEnd: endDateStr,
+        conceptData: response.concept_data,
+      };
+      setActiveCharts(updatedCharts);
+
+    } catch (error) {
+      console.error("Failed to zoom out", error);
+      toast({ title: "Error zooming out", description: String(error), variant: "destructive" });
     }
   };
 
@@ -263,6 +332,7 @@ const Index = () => {
           setTimeRange={setTimeRange}
           patientCount={patientCount}
           onChartDrillDown={handleChartDrillDown}
+          onChartZoomOut={handleChartZoomOut}
         />
       );
     }

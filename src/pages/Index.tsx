@@ -9,7 +9,7 @@ import { DataExport } from "./DataExport";
 import { Association } from "./Association";
 
 import { TimeRange } from "@/components/FilterBar";
-import { fetchAbstractionData, fetchRawData, QueryParams } from "@/api/temporal";
+import { fetchAbstractionData, fetchRawData, fetchMultiplePatientsAbstraction, QueryParams, PatternQueryParams } from "@/api/temporal";
 import { calculateDateRange } from "@/utils/dateUtils";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -75,8 +75,38 @@ const Index = () => {
           const response = await fetchAbstractionData(params);
           resultData = response.result;
           conceptData = response.concept_data;
+        } else if (parentSection === "Pattern") {
+          const patternParams: PatternQueryParams = {
+            ...params,
+            interval_str: 'YE',
+            method: 'most_time_spent'
+          };
+          const response = await fetchMultiplePatientsAbstraction(patternParams);
+          conceptData = response.concept_data;
+
+          // Transform Pattern Result to PatientStatusProcessedRow format
+          resultData = response.result.map(item => {
+            const row: any = {
+              month: new Date(item.StartTime).toISOString().slice(0, 4), // Using YYYY as key as we default to 'YE'
+              // Also add a "year" property or similar if needed, but "month" is what PatientStatusAnalytics expects for x-axis key currently
+            };
+
+            // Flatted Value_Dict
+            if (item.Value_Dict) {
+              Object.entries(item.Value_Dict).forEach(([key, val]) => {
+                row[key] = val;
+                // Calculate percentage
+                row[`${key}Pct`] = item.TotalPatientsWithData > 0 ? (val / item.TotalPatientsWithData) * 100 : 0;
+              });
+            }
+            return row;
+          });
+
+          // Sort by time
+          resultData.sort((a: any, b: any) => a.month.localeCompare(b.month));
+
         } else {
-          // Fallback to abstract (Pattern/Context)
+          // Fallback to abstract (Context)
           const response = await fetchAbstractionData(params);
           resultData = response.result;
           conceptData = response.concept_data;

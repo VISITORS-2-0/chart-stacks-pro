@@ -73,6 +73,41 @@ export const fetchRawData = async (params: QueryParams): Promise<RawDataResponse
     return data;
 };
 
+export interface PatternResponse {
+    concept_data: ConceptData;
+    result: {
+        StartTime: string;
+        EndTime: string;
+        ConceptName: string;
+        Value_Dict: Record<string, number>;
+        TotalPatientsWithData: number;
+    }[];
+}
+
+export interface PatternQueryParams extends QueryParams {
+    interval_str: string;
+    method: string;
+}
+
+export const fetchMultiplePatientsAbstraction = async (params: PatternQueryParams): Promise<PatternResponse> => {
+    const response = await fetch(`http://localhost:8000/api/v1/visitors-queries/multiple-patients-abstraction`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Fetch Multiple Patients Abstraction Failed:', response.status, response.statusText, errorText);
+        throw new Error(`Failed to fetch pattern data: ${response.statusText} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data;
+};
+
 export const getAllOnePatientRaw = async (): Promise<TemporalRow[]> => {
     const response = await fetch('/getAllOnePatientRaw');
     if (!response.ok) {

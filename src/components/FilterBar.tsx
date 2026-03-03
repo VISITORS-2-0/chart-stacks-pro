@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Search, Calendar, Users, XCircle, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { PatientMultiSelect } from "@/components/PatientMultiSelect";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -13,8 +14,8 @@ import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 
 interface FilterBarProps {
-  patientId: string;
-  onPatientIdChange: (id: string) => void;
+  patientIds: string[];
+  onPatientIdsChange: (ids: string[]) => void;
   timeRange: TimeRange;
   onTimeRangeChange: (range: TimeRange) => void;
   patientCount: number;
@@ -37,12 +38,14 @@ const relativeOptions = [
   { label: "Last 24 hours", value: "24h" },
   { label: "Last 7 days", value: "7d" },
   { label: "Last 30 days", value: "30d" },
-  { label: "Last 90 days", value: "90d" },
+  { label: "Last 1 year", value: "1y" },
+  { label: "Last 5 years", value: "5y" },
+  { label: "Last 10 years", value: "10y" },
 ];
 
 export const FilterBar = ({
-  patientId,
-  onPatientIdChange,
+  patientIds,
+  onPatientIdsChange,
   timeRange,
   onTimeRangeChange,
   patientCount,
@@ -62,7 +65,7 @@ export const FilterBar = ({
     if (timeRange.type === "absolute" && timeRange.startDate && timeRange.endDate) {
       return `${format(timeRange.startDate, "MMM d, yyyy")} - ${format(timeRange.endDate, "MMM d, yyyy")}`;
     }
-    return "Last 30 days";
+    return "Last 5 years";
   };
 
   const handleRelativeSelect = (value: string) => {
@@ -72,24 +75,28 @@ export const FilterBar = ({
 
   const handleAbsoluteApply = () => {
     if (localStartDate && localEndDate) {
-      onTimeRangeChange({ type: "absolute", startDate: localStartDate, endDate: localEndDate });
+      // Ensure start is before end
+      const start = localStartDate > localEndDate ? localEndDate : localStartDate;
+      const end = localStartDate > localEndDate ? localStartDate : localEndDate;
+
+      onTimeRangeChange({ type: "absolute", startDate: start, endDate: end });
       setIsOpen(false);
     }
   };
 
   return (
-    <div className="bg-card border-b border-border px-6 py-4">
+    <div className="bg-card border-b border-border px-6 py-4 space-y-4">
+
+      {/* Row 1: Patient Selection */}
+      <div className="w-full">
+        <PatientMultiSelect
+          selectedIds={patientIds}
+          onChange={onPatientIdsChange}
+        />
+      </div>
+
+      {/* Row 2: Controls */}
       <div className="flex items-center gap-4 flex-wrap">
-        {/* Patient ID Search */}
-        <div className="flex items-center gap-2 min-w-[250px]">
-          <Search className="h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search Patient ID..."
-            value={patientId}
-            onChange={(e) => onPatientIdChange(e.target.value)}
-            className="h-9"
-          />
-        </div>
 
         {/* Time Picker */}
         <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -99,13 +106,13 @@ export const FilterBar = ({
               <span className="text-sm">{getTimeRangeLabel()}</span>
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[400px] p-0" align="start">
+          <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[400px] p-0 max-h-[80vh] overflow-y-auto" align="start">
             <Tabs defaultValue={timeRange.type} className="w-full">
               <TabsList className="w-full grid grid-cols-2">
                 <TabsTrigger value="relative">Relative</TabsTrigger>
                 <TabsTrigger value="absolute">Absolute</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="relative" className="p-4 space-y-2">
                 {relativeOptions.map((option) => (
                   <Button
@@ -118,7 +125,7 @@ export const FilterBar = ({
                   </Button>
                 ))}
               </TabsContent>
-              
+
               <TabsContent value="absolute" className="p-4 space-y-4">
                 <div className="space-y-2">
                   <Label>Start Date</Label>
@@ -139,8 +146,8 @@ export const FilterBar = ({
                     className="pointer-events-auto"
                   />
                 </div>
-                <Button 
-                  onClick={handleAbsoluteApply} 
+                <Button
+                  onClick={handleAbsoluteApply}
                   className="w-full"
                   disabled={!localStartDate || !localEndDate}
                 >

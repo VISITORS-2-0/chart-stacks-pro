@@ -1,11 +1,20 @@
 import { useState, useEffect } from "react";
-import { ChartCard } from "@/components/ChartCard";
+
+import { TemporalChartCard } from "@/components/TemporalChartCard";
 import { FilterBar, TimeRange } from "@/components/FilterBar";
-import { generateMockData } from "@/utils/chartData";
+// import { generateMockData } from "@/utils/chartData"; // Deprecated
 import type { MenuItem } from "@/components/DashboardSidebar";
+import type { ZoomLevel } from "@/components/TemporalChartCard";
+// import { fetchAbstractionData, fetchRawData, QueryParams } from "@/api/temporal"; // Moved to Index
+// import { calculateDateRange } from "@/utils/dateUtils"; // Moved to Index
+// import { toast } from "sonner"; 
+// import { useToast } from "@/components/ui/use-toast"; // Moved logic to Index
 
 interface ActiveChart extends MenuItem {
-  data: Array<{ date: string; value: number }>;
+  // data: Array<{ date: string; value: number }>; // Old structure
+  externalData?: any[];
+  conceptData?: any;
+  isRaw?: boolean;
 }
 
 interface DataExplorationProps {
@@ -14,18 +23,36 @@ interface DataExplorationProps {
   onRemoveChart: (id: string) => void;
   onCloseAll: () => void;
   onCreateAssociation: () => void;
+  // Lifted Props
+  patientIds: string[];
+  setPatientIds: (ids: string[]) => void;
+  timeRange: TimeRange;
+  setTimeRange: (range: TimeRange) => void;
+  patientCount: number;
+  onChartDrillDown?: (chartId: string, date: Date, currentZoomLevel: ZoomLevel) => void;
+  onChartZoomOut?: (chartId: string) => void;
 }
 
-export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onCloseAll, onCreateAssociation }: DataExplorationProps) {
+export function DataExploration({
+  activeCharts,
+  onAddChart,
+  onRemoveChart,
+  onCloseAll,
+  onCreateAssociation,
+  patientIds,
+  setPatientIds,
+  timeRange,
+  setTimeRange,
+  patientCount,
+  onChartDrillDown,
+  onChartZoomOut
+}: DataExplorationProps) {
   const [brushRange, setBrushRange] = useState<{ startIndex?: number; endIndex?: number }>({});
-  const [patientId, setPatientId] = useState("");
-  const [timeRange, setTimeRange] = useState<TimeRange>({ type: "relative", relative: "30d" });
-  const [patientCount] = useState(10000);
 
   useEffect(() => {
     // Synchronize horizontal scrolling across all chart containers
     const scrollContainers = document.querySelectorAll('[id^="chart-scroll-"]');
-    
+
     const handleScroll = (e: Event) => {
       const scrollLeft = (e.target as HTMLElement).scrollLeft;
       scrollContainers.forEach((container) => {
@@ -53,8 +80,8 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <FilterBar
-        patientId={patientId}
-        onPatientIdChange={setPatientId}
+        patientIds={patientIds}
+        onPatientIdsChange={setPatientIds}
         timeRange={timeRange}
         onTimeRangeChange={setTimeRange}
         patientCount={patientCount}
@@ -62,7 +89,7 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
         hasCharts={activeCharts.length > 0}
         onCreateAssociation={onCreateAssociation}
       />
-      
+
       <div className="flex-1 overflow-auto">
         <div className="container max-w-7xl p-6">
           {activeCharts.length === 0 ? (
@@ -79,18 +106,18 @@ export function DataExploration({ activeCharts, onAddChart, onRemoveChart, onClo
           ) : (
             <div className="space-y-6">
               {activeCharts.map((chart) => (
-                <ChartCard
+                <TemporalChartCard
                   key={chart.id}
                   id={chart.id}
                   title={chart.title}
-                  chartType={chart.chartType}
-                  data={chart.data}
                   onRemove={onRemoveChart}
-                  scrollContainerId={`chart-scroll-${chart.id}`}
-                  onBrushChange={handleBrushChange}
-                  brushStartIndex={brushRange.startIndex}
-                  brushEndIndex={brushRange.endIndex}
-                  patientCount={Math.floor(Math.random() * 5000) + 5000}
+                  isMultiPatient={chart.chartType === 'line' || chart.chartType === 'scatter'} // 'scatter' from Raw is also multi-patient effectively for this purpose?
+                  isRaw={chart.isRaw}
+                  chartType={chart.chartType}
+                  externalData={chart.externalData}
+                  conceptData={chart.conceptData}
+                  onDrillDown={(date, level) => onChartDrillDown && onChartDrillDown(chart.id, date, level)}
+                  onZoomOut={() => onChartZoomOut && onChartZoomOut(chart.id)}
                 />
               ))}
             </div>

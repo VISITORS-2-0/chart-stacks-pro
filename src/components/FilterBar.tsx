@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Calendar, Users, XCircle, Plus } from "lucide-react";
+import { Search, Calendar, Users, XCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { PatientMultiSelect } from "@/components/PatientMultiSelect";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,6 @@ interface FilterBarProps {
   patientCount: number;
   onCloseAll: () => void;
   hasCharts: boolean;
-  onCreateAssociation: () => void;
 }
 
 export interface TimeRange {
@@ -51,7 +50,6 @@ export const FilterBar = ({
   patientCount,
   onCloseAll,
   hasCharts,
-  onCreateAssociation,
 }: FilterBarProps) => {
   const [localStartDate, setLocalStartDate] = useState<Date | undefined>(timeRange.startDate);
   const [localEndDate, setLocalEndDate] = useState<Date | undefined>(timeRange.endDate);
@@ -157,17 +155,6 @@ export const FilterBar = ({
             </Tabs>
           </PopoverContent>
         </Popover>
-
-        {/* Association Button */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onCreateAssociation}
-          className="flex items-center gap-2 h-9"
-        >
-          <Plus className="h-4 w-4" />
-          Association
-        </Button>
 
         {/* Close All Button */}
         {hasCharts && (

@@ -6,7 +6,6 @@ import { DataExploration } from "./DataExploration";
 import { PopulationQuery } from "./PopulationQuery";
 import { PatternExplorer } from "./PatternExplorer";
 import { DataExport } from "./DataExport";
-import { Association } from "./Association";
 
 import { TimeRange } from "@/components/FilterBar";
 import { fetchAbstractionData, fetchRawData, fetchMultiplePatientsAbstraction, QueryParams, PatternQueryParams } from "@/api/temporal";
@@ -23,18 +22,11 @@ interface ActiveChart extends MenuItem {
   currentEnd?: string;
 }
 
-interface AssociationTab {
-  id: string;
-  name: string;
-}
-
 type TabValue = "exploration" | "population" | "pattern" | "export" | string;
 
 const Index = () => {
   const [activeCharts, setActiveCharts] = useState<ActiveChart[]>([]);
   const [activeTab, setActiveTab] = useState<TabValue>("exploration");
-  const [associationTabs, setAssociationTabs] = useState<AssociationTab[]>([]);
-  const [associationCounter, setAssociationCounter] = useState(1);
 
   // Lifted State
   const [patientIds, setPatientIds] = useState<string[]>([]);
@@ -306,16 +298,6 @@ const Index = () => {
     setActiveCharts([]);
   };
 
-  const handleCreateAssociation = () => {
-    const newTab: AssociationTab = {
-      id: `association-${associationCounter}`,
-      name: `Association ${associationCounter}`,
-    };
-    setAssociationTabs((prev) => [...prev, newTab]);
-    setActiveTab(newTab.id);
-    setAssociationCounter((prev) => prev + 1);
-  };
-
   const renderActiveScreen = () => {
     if (activeTab === "exploration") {
       return (
@@ -324,7 +306,6 @@ const Index = () => {
           onAddChart={handleItemClick} // This prop might be unused if sidebar handles clicks directly, check Usage
           onRemoveChart={handleRemoveChart}
           onCloseAll={handleCloseAll}
-          onCreateAssociation={handleCreateAssociation}
           // New Props
           patientIds={patientIds}
           setPatientIds={setPatientIds}
@@ -347,12 +328,6 @@ const Index = () => {
 
     if (activeTab === "export") {
       return <DataExport />;
-    }
-
-    // Check if it's an association tab
-    const associationTab = associationTabs.find(tab => tab.id === activeTab);
-    if (associationTab) {
-      return <Association name={associationTab.name} />;
     }
 
     return null;
@@ -414,23 +389,6 @@ const Index = () => {
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
               )}
             </button>
-
-            {/* Dynamic Association Tabs */}
-            {associationTabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === tab.id
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-                  }`}
-              >
-                {tab.name}
-                {activeTab === tab.id && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-                )}
-              </button>
-            ))}
           </div>
 
           {/* Active Screen */}

@@ -22,7 +22,6 @@ interface DataExplorationProps {
   onAddChart: (item: MenuItem) => void;
   onRemoveChart: (id: string) => void;
   onCloseAll: () => void;
-  onCreateAssociation: () => void;
   // Lifted Props
   patientIds: string[];
   setPatientIds: (ids: string[]) => void;
@@ -38,7 +37,6 @@ export function DataExploration({
   onAddChart,
   onRemoveChart,
   onCloseAll,
-  onCreateAssociation,
   patientIds,
   setPatientIds,
   timeRange,
@@ -87,7 +85,6 @@ export function DataExploration({
         patientCount={patientCount}
         onCloseAll={onCloseAll}
         hasCharts={activeCharts.length > 0}
-        onCreateAssociation={onCreateAssociation}
       />
 
       <div className="flex-1 overflow-auto">

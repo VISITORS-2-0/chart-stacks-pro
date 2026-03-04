@@ -322,12 +322,29 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
     };
 
     const interactionLayerData = useMemo(() => {
-        return virtualTicks.map(t => ({ // Only interaction points for visible ticks
-            time: t,
-            y: 0,
-            dummy: true
-        }));
-    }, [virtualTicks]);
+        return virtualTicks.map(t => {
+            const date = new Date(t);
+            const year = date.getFullYear();
+            let end = t;
+
+            if (zoomLevel === 'years') {
+                end = new Date(year, 11, 31, 23, 59, 59).getTime();
+            } else if (zoomLevel === 'months') {
+                const month = date.getMonth();
+                end = new Date(year, month + 1, 0, 23, 59, 59).getTime();
+            } else {
+                const month = date.getMonth();
+                const day = date.getDate();
+                end = new Date(year, month, day, 23, 59, 59).getTime();
+            }
+
+            return {
+                time: t + (end - t) / 2,
+                y: 0,
+                dummy: true
+            };
+        });
+    }, [virtualTicks, zoomLevel]);
 
     return (
         <div className="w-full h-full p-4 relative select-none flex flex-col">

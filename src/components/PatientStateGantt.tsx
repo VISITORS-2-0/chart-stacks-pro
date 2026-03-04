@@ -14,7 +14,7 @@ interface PatientStateGanttProps {
 
 // Custom Shape to render the "Gantt" bars using Scatter points
 const GanttBar = (props: any) => {
-    const { cx, cy, payload, xAxis, yAxis } = props;
+    const { cx, cy, payload, xAxis, yAxis, setBarTooltip } = props;
     if (!xAxis || !yAxis || !payload) return null;
 
     const xStart = xAxis.scale(payload.start);
@@ -37,8 +37,23 @@ const GanttBar = (props: any) => {
                 ry={3}
                 stroke={payload.stroke}
                 strokeWidth={1}
-                className="transition-opacity hover:opacity-80"
-                style={{ pointerEvents: 'none' }}
+                className="transition-opacity hover:opacity-80 cursor-pointer"
+                style={{ pointerEvents: 'auto' }}
+                onMouseEnter={(e) => {
+                    if (setBarTooltip) {
+                        setBarTooltip({ x: e.clientX, y: e.clientY, data: payload });
+                    }
+                }}
+                onMouseMove={(e) => {
+                    if (setBarTooltip) {
+                        setBarTooltip({ x: e.clientX, y: e.clientY, data: payload });
+                    }
+                }}
+                onMouseLeave={() => {
+                    if (setBarTooltip) {
+                        setBarTooltip(null);
+                    }
+                }}
             />
         </g>
     );
@@ -48,6 +63,7 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
     const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [visibleWindow, setVisibleWindow] = useState<{ start: number, end: number } | null>(null);
+    const [barTooltip, setBarTooltip] = useState<{ x: number, y: number, data: any } | null>(null);
 
     // 1. Process Categories (Y-Axis)
     const categories = useMemo(() => {
@@ -303,31 +319,32 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
         return d.getDate().toString();
     };
 
-    const CustomTooltip = ({ active, payload }: any) => {
-        if (active && payload && payload.length) {
-            const ganttItem = payload.find((p: any) => p.payload && p.payload.value);
-            if (ganttItem) {
-                const d = ganttItem.payload;
-                return (
-                    <div className="bg-popover text-popover-foreground border border-border p-3 rounded shadow-lg text-xs z-50">
-                        <div className="font-bold mb-1" style={{ color: d.fill }}>{d.value}</div>
-                        <div>Start: {new Date(d.start).toLocaleString()}</div>
-                        <div>End: {new Date(d.end).toLocaleString()}</div>
-                        <div>Duration: {Math.round((d.end - d.start) / (1000 * 60 * 60))} hrs</div>
-                    </div>
-                );
-            }
-        }
-        return null;
-    };
+
 
     const interactionLayerData = useMemo(() => {
-        return virtualTicks.map(t => ({ // Only interaction points for visible ticks
-            time: t,
-            y: 0,
-            dummy: true
-        }));
-    }, [virtualTicks]);
+        return virtualTicks.map(t => {
+            const date = new Date(t);
+            const year = date.getFullYear();
+            let end = t;
+
+            if (zoomLevel === 'years') {
+                end = new Date(year, 11, 31, 23, 59, 59).getTime();
+            } else if (zoomLevel === 'months') {
+                const month = date.getMonth();
+                end = new Date(year, month + 1, 0, 23, 59, 59).getTime();
+            } else {
+                const month = date.getMonth();
+                const day = date.getDate();
+                end = new Date(year, month, day, 23, 59, 59).getTime();
+            }
+
+            return {
+                time: t + (end - t) / 2,
+                y: 0,
+                dummy: true
+            };
+        });
+    }, [virtualTicks, zoomLevel]);
 
     return (
         <div className="w-full h-full p-4 relative select-none flex flex-col">
@@ -371,7 +388,6 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
                                 interval={0}
                             />
 
-                            <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'transparent' }} />
 
                             <Scatter
                                 data={interactionLayerData}
@@ -395,7 +411,7 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
 
                             <Scatter
                                 data={virtualData}
-                                shape={<GanttBar />}
+                                shape={<GanttBar setBarTooltip={setBarTooltip} />}
                                 isAnimationActive={false}
                                 legendType="none"
                                 cursor="pointer"
@@ -405,6 +421,22 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
                     </ResponsiveContainer>
                 </div>
             </div>
+
+            {/* Custom Tooltip Overlay */}
+            {barTooltip && (
+                <div
+                    className="fixed pointer-events-none bg-popover text-popover-foreground border border-border p-3 rounded shadow-lg text-xs z-[100]"
+                    style={{
+                        left: Math.min(barTooltip.x + 15, window.innerWidth - 250),
+                        top: Math.min(barTooltip.y + 15, window.innerHeight - 150)
+                    }}
+                >
+                    <div className="font-bold mb-1" style={{ color: barTooltip.data.fill }}>{barTooltip.data.value}</div>
+                    <div>Start: {new Date(barTooltip.data.start).toLocaleString()}</div>
+                    <div>End: {new Date(barTooltip.data.end).toLocaleString()}</div>
+                    <div>Duration: {Math.round((barTooltip.data.end - barTooltip.data.start) / (1000 * 60 * 60))} hrs</div>
+                </div>
+            )}
         </div>
     );
 }

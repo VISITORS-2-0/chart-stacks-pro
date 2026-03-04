@@ -5,11 +5,12 @@ import { TemporalRow } from '../types/temporal';
 interface PatientMultiLineChartProps {
     data: TemporalRow[];
     zoomLevel?: 'years' | 'months' | 'days';
+    focusDate?: Date | null;
     onDrillDown?: (dateStr: string) => void;
     onZoomOut?: () => void;
 }
 
-export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown, onZoomOut }: PatientMultiLineChartProps) {
+export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, onDrillDown, onZoomOut }: PatientMultiLineChartProps) {
     // Shared X-Axis logic: Use numeric timestamps to allow precise plotting
     const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
 
@@ -85,15 +86,18 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown, 
         const minDate = new Date(minTime);
         const maxDate = new Date(maxTime);
 
+        // Determine bounds based on focus date or data bounds
         let domainStart = minTime;
         let domainEnd = maxTime;
 
         const detailTicks: number[] = [];
         const contextTicks: number[] = [];
 
+        const baseDate = focusDate || minDate;
+
         if (zoomLevel === 'years') {
             const startYear = minDate.getFullYear();
-            let endYear = new Date(maxTime).getFullYear();
+            let endYear = maxDate.getFullYear();
 
             // Enforce minimum 5 years domain for consistent "bucket size" visual
             if (endYear - startYear < 5) {
@@ -109,7 +113,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown, 
             }
 
         } else if (zoomLevel === 'months') {
-            const year = minDate.getFullYear();
+            const year = baseDate.getFullYear();
 
             domainStart = new Date(year, 0, 1).getTime();
             domainEnd = new Date(year, 11, 31, 23, 59, 59).getTime();
@@ -123,8 +127,8 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown, 
             }
         } else {
             // zoomLevel === 'days'
-            const year = minDate.getFullYear();
-            const month = minDate.getMonth();
+            const year = baseDate.getFullYear();
+            const month = baseDate.getMonth();
 
             domainStart = new Date(year, month, 1).getTime();
             const lastDayObj = new Date(year, month + 1, 0);
@@ -140,7 +144,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown, 
             }
         }
         return { detailAxisTicks: detailTicks, contextAxisTicks: contextTicks, xDomain: [domainStart, domainEnd] };
-    }, [scatterData, zoomLevel]);
+    }, [scatterData, zoomLevel, focusDate]);
 
     const detailTickFormatter = (unixTime: number) => {
         const date = new Date(unixTime);
@@ -207,6 +211,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown, 
                         dataKey="x"
                         type="number"
                         domain={xDomain as any}
+                        allowDataOverflow={true}
                         ticks={detailAxisTicks}
                         tickFormatter={detailTickFormatter}
                         scale="time"
@@ -241,6 +246,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown, 
                             dataKey="x"
                             type="number"
                             domain={xDomain as any}
+                            allowDataOverflow={true}
                             ticks={contextAxisTicks}
                             tickFormatter={contextTickFormatter}
                             scale="time"

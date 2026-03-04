@@ -131,26 +131,20 @@ export function TemporalChartCard({
         const clickedDate = new Date(dateStr);
         if (isNaN(clickedDate.getTime())) return;
 
-        // Always set local focus reference for child components
+        // Set local focus reference
         setFocusDate(clickedDate);
 
+        // Update local zoom level for UI state
+        if (zoomLevel === 'years') {
+            setZoomLevel('months');
+        } else if (zoomLevel === 'months') {
+            setZoomLevel('days');
+        }
+
+        // Always notify parent just in case it wants to do server-side fetching
         if (onDrillDown) {
             onDrillDown(clickedDate, zoomLevel);
-            // Manually advance local zoom state to match what we expect?
-            // Or rely on parent to update data.
-            // If we rely on parent, we still might want to update local 'zoomLevel' for display purposes 
-            // (e.g., tick formatting relies on it in PatientStatusAnalytics?).
-            // Actually, `PatientStatusAnalytics` takes `zoomLevel` prop.
-            // We should update local state IF the parent doesn't control `zoomLevel` prop.
-            // But `zoomLevel` is local state here.
-
-            if (zoomLevel === 'years') setZoomLevel('months');
-            else if (zoomLevel === 'months') setZoomLevel('days');
-
-            return;
         }
-        if (zoomLevel === 'years') setZoomLevel('months');
-        else if (zoomLevel === 'months') setZoomLevel('days');
     };
 
     const handleZoomOut = () => {
@@ -220,6 +214,7 @@ export function TemporalChartCard({
                         <PatientMultiLineChart
                             data={filteredData as any}
                             zoomLevel={zoomLevel}
+                            focusDate={focusDate}
                             onDrillDown={handleDrillDown}
                             onZoomOut={handleZoomOut}
                         />

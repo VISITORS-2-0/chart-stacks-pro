@@ -10,6 +10,9 @@ interface PatientStatusAnalyticsProps {
 }
 
 export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown, conceptData }: PatientStatusAnalyticsProps) {
+    const componentId = React.useId();
+    const syncId = `patientStatus-${componentId}`;
+
     // Determine Categories from conceptData or fallback
     const categories = React.useMemo(() => {
         if (conceptData && conceptData.allowed_values && conceptData.allowed_values.values) {
@@ -152,7 +155,7 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart
                                     data={chartData}
-                                    syncId="patientStatus"
+                                    syncId={syncId}
                                     margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                                     onClick={(e: any) => {
                                         if (e && e.activePayload && e.activePayload[0]) {

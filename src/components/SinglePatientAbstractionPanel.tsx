@@ -207,6 +207,41 @@ export function SinglePatientAbstractionPanel({
         return data;
     }, [intervals, referenceEvents, sortedValueLevels]);
 
+    // Generate explicit ticks aligned to the start of periods
+    const virtualTicks = useMemo(() => {
+        if (!chartData.length) return [];
+        const minTime = Math.min(...chartData.map(d => d.start as number));
+        const maxTime = Math.max(...chartData.map(d => d.end as number));
+
+        const ticks = [];
+        let curr = new Date(minTime);
+
+        if (zoomLevel === 'years') {
+            curr = new Date(curr.getFullYear(), 0, 1);
+            while (curr.getTime() <= maxTime) {
+                ticks.push(curr.getTime());
+                curr.setFullYear(curr.getFullYear() + 1);
+            }
+        } else if (zoomLevel === 'months') {
+            curr = new Date(curr.getFullYear(), curr.getMonth(), 1);
+            while (curr.getTime() <= maxTime) {
+                ticks.push(curr.getTime());
+                curr.setMonth(curr.getMonth() + 1);
+            }
+        } else {
+            curr = new Date(curr.getFullYear(), curr.getMonth(), curr.getDate());
+            while (curr.getTime() <= maxTime) {
+                ticks.push(curr.getTime());
+                curr.setDate(curr.getDate() + 1);
+            }
+        }
+
+        // Ensure at least one max tick if we missed it
+        if (ticks.length === 0) ticks.push(minTime);
+
+        return ticks;
+    }, [chartData, zoomLevel]);
+
     // Handle Click to Zoom
     const handleIntervalClick = (data: any) => {
         // Trigger external callback
@@ -483,7 +518,8 @@ export function SinglePatientAbstractionPanel({
                             <XAxis
                                 type="number"
                                 dataKey="start"
-                                domain={['auto', 'auto']}
+                                domain={['dataMin', 'dataMax']}
+                                ticks={virtualTicks}
                                 tickFormatter={xTickFormatter}
                                 stroke="hsl(var(--muted-foreground))"
                                 fontSize={12}

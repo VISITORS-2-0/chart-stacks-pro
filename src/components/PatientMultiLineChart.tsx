@@ -105,7 +105,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', onDrillDown, 
 
             // Detail: Years
             for (let y = startYear; y <= endYear; y++) {
-                detailTicks.push(new Date(y, 6, 1).getTime());
+                detailTicks.push(new Date(y, 0, 1).getTime());
             }
 
         } else if (zoomLevel === 'months') {

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ComposedChart, Line, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceArea } from 'recharts';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceArea } from 'recharts';
 import { TemporalRow } from '../types/temporal';
 
 interface PatientMultiLineChartProps {
@@ -31,6 +31,14 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
 
     // 2. Prepare Monthly Max/Min Data
     const { maxLineData, minLineData } = useMemo(() => {
+        // Reset flags for the current zoom calculation so old zoom bucket flags don't persist
+        scatterData.forEach(pt => {
+            if (pt) {
+                (pt as any).isMaxBucket = false;
+                (pt as any).isMinBucket = false;
+            }
+        });
+
         const buckets = new Map<string, {
             maxPoint: { x: number, y: number, date: Date } | null;
             minPoint: { x: number, y: number, date: Date } | null;
@@ -64,8 +72,16 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
 
         // Convert to sorted arrays
         const sortedKeys = Array.from(buckets.keys()).sort();
-        const maxData = sortedKeys.map(k => buckets.get(k)!.maxPoint).filter(Boolean);
-        const minData = sortedKeys.map(k => buckets.get(k)!.minPoint).filter(Boolean);
+        const maxData = sortedKeys.map(k => {
+            const pt = buckets.get(k)!.maxPoint;
+            if (pt) (pt as any).isMaxBucket = true;
+            return pt;
+        }).filter(Boolean);
+        const minData = sortedKeys.map(k => {
+            const pt = buckets.get(k)!.minPoint;
+            if (pt) (pt as any).isMinBucket = true;
+            return pt;
+        }).filter(Boolean);
 
         return { maxLineData: maxData, minLineData: minData };
     }, [scatterData, zoomLevel]);
@@ -191,10 +207,31 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
         setHoveredRange({ start, end });
     };
 
+    const CustomTooltip = ({ active, payload, label }: any) => {
+        if (active && payload && payload.length) {
+            const dataPoint = payload[0].payload;
+            return (
+                <div className="bg-popover border border-border text-popover-foreground rounded-md shadow-md p-3 text-sm">
+                    <div className="font-semibold mb-1">
+                        {dataPoint.date ? new Date(dataPoint.date).toLocaleString() : new Date(label).toLocaleString()}
+                    </div>
+                    <div className="grid gap-1 mt-1">
+                        <div className="text-muted-foreground">Value: <span className="font-medium text-foreground">{dataPoint.y}</span></div>
+                        {dataPoint.patientId && <div className="text-muted-foreground">Patient: <span className="font-medium text-foreground">{dataPoint.patientId}</span></div>}
+                        {dataPoint.isMaxBucket && <div className="text-red-500 font-medium text-xs">Bucket Max Value</div>}
+                        {dataPoint.isMinBucket && <div className="text-blue-500 font-medium text-xs">Bucket Min Value</div>}
+                    </div>
+                </div>
+            );
+        }
+        return null;
+    };
+
     return (
         <div className="w-full h-full p-4">
             <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart
+                <ScatterChart
+                    data={scatterData}
                     margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                     onMouseMove={handleMouseMove}
                     onMouseLeave={() => setHoveredRange(null)}
@@ -264,52 +301,48 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                     )}
                     <YAxis dataKey="y" />
                     <Tooltip
-                        labelFormatter={(label) => new Date(label).toLocaleString()}
-                        formatter={(value, name) => [value, name === 'y' ? 'Value' : name]}
+                        content={<CustomTooltip />}
                         cursor={false} // Disable default cursor line since we use ReferenceArea
                     />
                     <Legend />
 
                     {/* Max Line - Red */}
-                    <Line
+                    <Scatter
                         xAxisId="detail"
                         data={maxLineData}
                         dataKey="y"
-                        stroke="#ff0000"
-                        strokeWidth={2}
-                        dot={true}
-                        activeDot={{ r: 6 }}
+                        line={{ stroke: '#ff0000', strokeWidth: 2 }}
+                        fill="#ff0000"
+                        shape="circle"
                         name="Max"
-                        connectNulls
                         isAnimationActive={false}
                     />
 
                     {/* Min Line - Blue */}
-                    <Line
+                    <Scatter
                         xAxisId="detail"
                         data={minLineData}
                         dataKey="y"
-                        stroke="#0000ff"
-                        strokeWidth={2}
-                        dot={true}
-                        activeDot={{ r: 6 }}
+                        line={{ stroke: '#0000ff', strokeWidth: 2 }}
+                        fill="#0000ff"
+                        shape="circle"
                         name="Min"
-                        connectNulls
                         isAnimationActive={false}
                     />
 
-                    {/* All Points - Gray */}
                     <Scatter
                         xAxisId="detail"
                         data={scatterData}
+                        dataKey="y"
                         name="Patient Values"
                         fill="#888888"
                         shape="circle"
                         line={false}
                         onClick={handlePointClick}
                         cursor="pointer"
+                        isAnimationActive={false}
                     />
-                </ComposedChart>
+                </ScatterChart>
             </ResponsiveContainer>
         </div>
     );

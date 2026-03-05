@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceArea } from 'recharts';
 import { TemporalRow } from '../types/temporal';
 
@@ -11,6 +11,7 @@ interface PatientMultiLineChartProps {
 }
 
 export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, onDrillDown, onZoomOut }: PatientMultiLineChartProps) {
+    const scrollRef = useRef<HTMLDivElement>(null);
     // Shared X-Axis logic: Use numeric timestamps to allow precise plotting
     const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
 
@@ -102,65 +103,55 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
         const minDate = new Date(minTime);
         const maxDate = new Date(maxTime);
 
-        // Determine bounds based on focus date or data bounds
-        let domainStart = minTime;
-        let domainEnd = maxTime;
+        // Determine bounds based on data bounds, NOT focus date
+        // focusDate is now only used for auto-scrolling to the clicked point
+        const domainStart = minTime;
+        const domainEnd = maxTime;
 
         const detailTicks: number[] = [];
         const contextTicks: number[] = [];
 
-        const baseDate = focusDate || minDate;
+        const startYear = minDate.getFullYear();
+        const endYear = maxDate.getFullYear();
 
         if (zoomLevel === 'years') {
-            const startYear = minDate.getFullYear();
-            let endYear = maxDate.getFullYear();
-
-            // Enforce minimum 5 years domain for consistent "bucket size" visual
-            if (endYear - startYear < 5) {
-                endYear = startYear + 4;
-            }
-
-            domainStart = new Date(startYear, 0, 1).getTime();
-            domainEnd = new Date(endYear, 11, 31, 23, 59, 59).getTime();
-
             // Detail: Years
-            for (let y = startYear; y <= endYear; y++) {
+            for (let y = startYear; y <= endYear + 1; y++) {
                 detailTicks.push(new Date(y, 0, 1).getTime());
             }
 
         } else if (zoomLevel === 'months') {
-            const year = baseDate.getFullYear();
-
-            domainStart = new Date(year, 0, 1).getTime();
-            domainEnd = new Date(year, 11, 31, 23, 59, 59).getTime();
-
             // Context: Year
-            contextTicks.push(new Date(year, 0, 1).getTime());
-
-            // Detail: Months
-            for (let m = 0; m < 12; m++) {
-                detailTicks.push(new Date(year, m, 1).getTime());
+            for (let y = startYear; y <= endYear + 1; y++) {
+                contextTicks.push(new Date(y, 0, 1).getTime());
+                // Detail: Months
+                for (let m = 0; m < 12; m++) {
+                    detailTicks.push(new Date(y, m, 1).getTime());
+                }
             }
         } else {
             // zoomLevel === 'days'
-            const year = baseDate.getFullYear();
-            const month = baseDate.getMonth();
+            // Performance warning: plotting days for multiple years will create thousands of ticks.
+            // But since the user wants horizontal scrolling across the whole span at any zoom,
+            // we must generate them, or relies on Rechart's auto ticks. We'll generate them here.
+            for (let y = startYear; y <= endYear; y++) {
+                for (let m = 0; m < 12; m++) {
+                    // Context: Month
+                    contextTicks.push(new Date(y, m, 15).getTime());
 
-            domainStart = new Date(year, month, 1).getTime();
-            const lastDayObj = new Date(year, month + 1, 0);
-            const lastDay = lastDayObj.getDate();
-            domainEnd = new Date(year, month, lastDay, 23, 59, 59).getTime();
-
-            // Context: Month
-            contextTicks.push(new Date(year, month, 15).getTime());
-
-            // Detail: Days
-            for (let d = 1; d <= lastDay; d++) {
-                detailTicks.push(new Date(year, month, d).getTime());
+                    const lastDay = new Date(y, m + 1, 0).getDate();
+                    // Detail: Days
+                    for (let d = 1; d <= lastDay; d++) {
+                        const tickTime = new Date(y, m, d).getTime();
+                        if (tickTime >= domainStart && tickTime <= domainEnd) {
+                            detailTicks.push(tickTime);
+                        }
+                    }
+                }
             }
         }
         return { detailAxisTicks: detailTicks, contextAxisTicks: contextTicks, xDomain: [domainStart, domainEnd] };
-    }, [scatterData, zoomLevel, focusDate]);
+    }, [scatterData, zoomLevel]);
 
     const detailTickFormatter = (unixTime: number) => {
         const date = new Date(unixTime);
@@ -227,123 +218,176 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
         return null;
     };
 
+    // 4. Calculate Dynamic Width for Horizontal Scrolling
+    const chartWidth = useMemo(() => {
+        const [start, end] = xDomain as [number, number];
+        const durationMs = end - start;
+        const days = durationMs / (1000 * 60 * 60 * 24);
+
+        let minWidth = 800; // Base minimum width
+
+        if (zoomLevel === 'years') {
+            const years = days / 365;
+            minWidth = Math.max(800, years * 100); // 100px per year
+        } else if (zoomLevel === 'months') {
+            const months = days / 30;
+            minWidth = Math.max(800, months * 80); // 80px per month
+        } else if (zoomLevel === 'days') {
+            minWidth = Math.max(800, days * 40); // 40px per day
+        }
+
+        return minWidth;
+    }, [xDomain, zoomLevel]);
+
+    // 5. Scroll to focusDate when zoom changes
+    useEffect(() => {
+        if (!scrollRef.current || !focusDate || !scatterData.length) return;
+
+        const [domainStart, domainEnd] = xDomain as [number, number];
+        const focusTime = focusDate.getTime();
+
+        // Calculate the percentage position of focusDate within the domain
+        const totalDuration = domainEnd - domainStart;
+        if (totalDuration <= 0) return;
+
+        const focusPercentage = (focusTime - domainStart) / totalDuration;
+
+        // Calculate scroll position based on scrollWidth and visible clientWidth
+        const scrollWidth = scrollRef.current.scrollWidth;
+        const clientWidth = scrollRef.current.clientWidth;
+
+        // Scroll so the focusDate is roughly centered
+        const targetScrollLeft = (scrollWidth * focusPercentage) - (clientWidth / 2);
+
+        // Use timeout to ensure it runs after render/layout if width changed
+        setTimeout(() => {
+            if (scrollRef.current) {
+                scrollRef.current.scrollTo({ left: Math.max(0, targetScrollLeft), behavior: 'smooth' });
+            }
+        }, 100);
+    }, [focusDate, zoomLevel, xDomain, scatterData.length, chartWidth]);
+
     return (
-        <div className="w-full h-full p-4">
-            <ResponsiveContainer width="100%" height="100%">
-                <ScatterChart
-                    data={scatterData}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                    onMouseMove={handleMouseMove}
-                    onMouseLeave={() => setHoveredRange(null)}
-                    onClick={(e: any) => {
-                        // Attempt to capture clicks on the chart area if specific element click fails
-                        if (e && e.activePayload && e.activePayload[0]) {
-                            handlePointClick(e.activePayload[0].payload);
-                        }
-                    }}
-                >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis
-                        xAxisId="detail"
-                        dataKey="x"
-                        type="number"
-                        domain={xDomain as any}
-                        allowDataOverflow={true}
-                        ticks={detailAxisTicks}
-                        tickFormatter={detailTickFormatter}
-                        scale="time"
-                        allowDuplicatedCategory={false}
-                        interval={0}
-                        orientation="bottom"
-                        height={30}
-                        onClick={(e) => {
-                            if (onDrillDown && e && e.value) {
-                                const date = new Date(e.value);
-                                onDrillDown(date.toISOString());
-                            }
-                        }}
-                        cursor="pointer"
-                    />
-
-                    {/* Hover Highlight */}
-                    {hoveredRange && (
-                        <ReferenceArea
-                            xAxisId="detail"
-                            x1={hoveredRange.start}
-                            x2={hoveredRange.end}
-                            fill="#9ca3af" // tailwind gray-400
-                            fillOpacity={0.3}
-                            ifOverflow="extendDomain"
-                        />
-                    )}
-
-                    {contextAxisTicks.length > 0 && (
-                        <XAxis
-                            xAxisId="context"
-                            dataKey="x"
-                            type="number"
-                            domain={xDomain as any}
-                            allowDataOverflow={true}
-                            ticks={contextAxisTicks}
-                            tickFormatter={contextTickFormatter}
-                            scale="time"
-                            allowDuplicatedCategory={false}
-                            interval={0}
-                            orientation="bottom"
-                            dy={15}
-                            tickLine={false}
-                            axisLine={false}
-                            onClick={() => {
-                                if (onZoomOut) onZoomOut();
+        <div className="w-full h-full p-4 overflow-hidden flex flex-col">
+            <div ref={scrollRef} className="flex-1 w-full overflow-x-auto overflow-y-hidden custom-scrollbar">
+                <div style={{ minWidth: `${chartWidth}px`, height: '100%' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <ScatterChart
+                            data={scatterData}
+                            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                            onMouseMove={handleMouseMove}
+                            onMouseLeave={() => setHoveredRange(null)}
+                            onClick={(e: any) => {
+                                // Attempt to capture clicks on the chart area if specific element click fails
+                                if (e && e.activePayload && e.activePayload[0]) {
+                                    handlePointClick(e.activePayload[0].payload);
+                                }
                             }}
-                            cursor="pointer"
-                        />
-                    )}
-                    <YAxis dataKey="y" />
-                    <Tooltip
-                        content={<CustomTooltip />}
-                        cursor={false} // Disable default cursor line since we use ReferenceArea
-                    />
-                    <Legend />
+                        >
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis
+                                xAxisId="detail"
+                                dataKey="x"
+                                type="number"
+                                domain={xDomain as any}
+                                allowDataOverflow={true}
+                                ticks={detailAxisTicks}
+                                tickFormatter={detailTickFormatter}
+                                scale="time"
+                                allowDuplicatedCategory={false}
+                                interval={0}
+                                orientation="bottom"
+                                height={30}
+                                onClick={(e) => {
+                                    if (onDrillDown && e && e.value) {
+                                        const date = new Date(e.value);
+                                        onDrillDown(date.toISOString());
+                                    }
+                                }}
+                                cursor="pointer"
+                            />
 
-                    {/* Max Line - Red */}
-                    <Scatter
-                        xAxisId="detail"
-                        data={maxLineData}
-                        dataKey="y"
-                        line={{ stroke: '#ff0000', strokeWidth: 2 }}
-                        fill="#ff0000"
-                        shape="circle"
-                        name="Max"
-                        isAnimationActive={false}
-                    />
+                            {/* Hover Highlight */}
+                            {hoveredRange && (
+                                <ReferenceArea
+                                    xAxisId="detail"
+                                    x1={hoveredRange.start}
+                                    x2={hoveredRange.end}
+                                    fill="#9ca3af" // tailwind gray-400
+                                    fillOpacity={0.3}
+                                    ifOverflow="extendDomain"
+                                />
+                            )}
 
-                    {/* Min Line - Blue */}
-                    <Scatter
-                        xAxisId="detail"
-                        data={minLineData}
-                        dataKey="y"
-                        line={{ stroke: '#0000ff', strokeWidth: 2 }}
-                        fill="#0000ff"
-                        shape="circle"
-                        name="Min"
-                        isAnimationActive={false}
-                    />
+                            {contextAxisTicks.length > 0 && (
+                                <XAxis
+                                    xAxisId="context"
+                                    dataKey="x"
+                                    type="number"
+                                    domain={xDomain as any}
+                                    allowDataOverflow={true}
+                                    ticks={contextAxisTicks}
+                                    tickFormatter={contextTickFormatter}
+                                    scale="time"
+                                    allowDuplicatedCategory={false}
+                                    interval={0}
+                                    orientation="bottom"
+                                    dy={15}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    onClick={() => {
+                                        if (onZoomOut) onZoomOut();
+                                    }}
+                                    cursor="pointer"
+                                />
+                            )}
+                            <YAxis dataKey="y" />
+                            <Tooltip
+                                content={<CustomTooltip />}
+                                cursor={false} // Disable default cursor line since we use ReferenceArea
+                            />
+                            <Legend />
 
-                    <Scatter
-                        xAxisId="detail"
-                        data={scatterData}
-                        dataKey="y"
-                        name="Patient Values"
-                        fill="#888888"
-                        shape="circle"
-                        line={false}
-                        onClick={handlePointClick}
-                        cursor="pointer"
-                        isAnimationActive={false}
-                    />
-                </ScatterChart>
-            </ResponsiveContainer>
+                            {/* Max Line - Red */}
+                            <Scatter
+                                xAxisId="detail"
+                                data={maxLineData}
+                                dataKey="y"
+                                line={{ stroke: '#ff0000', strokeWidth: 2 }}
+                                fill="#ff0000"
+                                shape="circle"
+                                name="Max"
+                                isAnimationActive={false}
+                            />
+
+                            {/* Min Line - Blue */}
+                            <Scatter
+                                xAxisId="detail"
+                                data={minLineData}
+                                dataKey="y"
+                                line={{ stroke: '#0000ff', strokeWidth: 2 }}
+                                fill="#0000ff"
+                                shape="circle"
+                                name="Min"
+                                isAnimationActive={false}
+                            />
+
+                            <Scatter
+                                xAxisId="detail"
+                                data={scatterData}
+                                dataKey="y"
+                                name="Patient Values"
+                                fill="#888888"
+                                shape="circle"
+                                line={false}
+                                onClick={handlePointClick}
+                                cursor="pointer"
+                                isAnimationActive={false}
+                            />
+                        </ScatterChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
         </div>
     );
 }

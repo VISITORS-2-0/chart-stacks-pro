@@ -269,6 +269,22 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
 
     return (
         <div className="w-full h-full p-4 overflow-hidden flex flex-col">
+            {/* Fixed Legend outside of scrolling area */}
+            <div className="flex justify-center gap-6 mb-2 text-sm">
+                <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-[#ff0000]"></div>
+                    <span className="text-foreground">Max</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-[#0000ff]"></div>
+                    <span className="text-foreground">Min</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-[#888888]"></div>
+                    <span className="text-foreground">Patient Values</span>
+                </div>
+            </div>
+
             <div ref={scrollRef} className="flex-1 w-full overflow-x-auto overflow-y-hidden custom-scrollbar">
                 <div style={{ minWidth: `${chartWidth}px`, height: '100%' }}>
                     <ResponsiveContainer width="100%" height="100%">
@@ -346,7 +362,6 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                                 content={<CustomTooltip />}
                                 cursor={false} // Disable default cursor line since we use ReferenceArea
                             />
-                            <Legend />
 
                             {/* Max Line - Red */}
                             <Scatter

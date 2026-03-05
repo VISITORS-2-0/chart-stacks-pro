@@ -137,10 +137,17 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
         } else if (zoomLevel === 'months') {
             // Context: Year
             for (let y = startYear; y <= endYear + 1; y++) {
-                contextTicks.push(new Date(y, 0, 1).getTime());
+                const tickTime = new Date(y, 0, 1).getTime();
+                if (tickTime >= domainStart && tickTime <= domainEnd) {
+                    contextTicks.push(tickTime);
+                }
+
                 // Detail: Months
                 for (let m = 0; m < 12; m++) {
-                    detailTicks.push(new Date(y, m, 1).getTime());
+                    const monthTickTime = new Date(y, m, 1).getTime();
+                    if (monthTickTime >= domainStart && monthTickTime <= domainEnd) {
+                        detailTicks.push(monthTickTime);
+                    }
                 }
             }
         } else {

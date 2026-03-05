@@ -103,10 +103,24 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
         const minDate = new Date(minTime);
         const maxDate = new Date(maxTime);
 
-        // Determine bounds based on data bounds, NOT focus date
+        // Determine bounds based on bucket start of minDate and bucket end of maxDate
         // focusDate is now only used for auto-scrolling to the clicked point
-        const domainStart = minTime;
-        const domainEnd = maxTime;
+
+        let domainStart = minTime;
+        let domainEnd = maxTime;
+
+        if (zoomLevel === 'years') {
+            domainStart = new Date(minDate.getFullYear(), 0, 1).getTime();
+            domainEnd = new Date(maxDate.getFullYear(), 11, 31, 23, 59, 59).getTime();
+        } else if (zoomLevel === 'months') {
+            domainStart = new Date(minDate.getFullYear(), minDate.getMonth(), 1).getTime();
+            const lastDay = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 0).getDate();
+            domainEnd = new Date(maxDate.getFullYear(), maxDate.getMonth(), lastDay, 23, 59, 59).getTime();
+        } else {
+            // days
+            domainStart = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate()).getTime();
+            domainEnd = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate(), 23, 59, 59).getTime();
+        }
 
         const detailTicks: number[] = [];
         const contextTicks: number[] = [];

@@ -171,8 +171,24 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
                                         interval={0}
                                         height={30}
                                         tickFormatter={(val) => {
-                                            // Format based on Zoom Level if needed, or rely on raw string
-                                            return val;
+                                            if (!val) return val;
+
+                                            const parts = val.split('-');
+
+                                            // Determine exactly what the data string represents to prevent async mismatches
+                                            if (parts.length === 3) {
+                                                // Data is YYYY-MM-DD -> Render Day
+                                                return parseInt(parts[2], 10).toString();
+                                            } else if (parts.length === 2) {
+                                                // Data is YYYY-MM -> Render Month
+                                                const date = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
+                                                if (!isNaN(date.getTime())) {
+                                                    return date.toLocaleDateString(undefined, { month: 'short' });
+                                                }
+                                            }
+
+                                            // Data is YYYY -> Render Year
+                                            return parts[0];
                                         }}
                                     />
                                     <YAxis
@@ -187,6 +203,7 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
                                         radius={[4, 4, 0, 0]}
                                         cursor="pointer"
                                         onClick={handleBarClick}
+                                        isAnimationActive={false}
                                     />
                                 </BarChart>
                             </ResponsiveContainer>

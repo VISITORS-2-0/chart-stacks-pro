@@ -195,7 +195,7 @@ export function DashboardSidebar({ onItemClick }: DashboardSidebarProps) {
                         />
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
-                    <CollapsibleContent className="pl-4">
+                    <CollapsibleContent className="pl-4 max-h-[300px] overflow-y-auto pr-2">
                       <SidebarMenu>
                         {section.children.map((child, index) => (
                           <SidebarMenuItem key={`${section.parent}-${child.id}-${index}`}>

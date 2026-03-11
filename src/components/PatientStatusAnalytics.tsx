@@ -7,9 +7,10 @@ interface PatientStatusAnalyticsProps {
     zoomLevel?: 'years' | 'months' | 'days';
     onDrillDown?: (dateStr: string) => void;
     conceptData?: any;
+    focusDate?: Date | null;
 }
 
-export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown, conceptData }: PatientStatusAnalyticsProps) {
+export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate }: PatientStatusAnalyticsProps) {
     const componentId = React.useId();
     const syncId = `patientStatus-${componentId}`;
 
@@ -44,61 +45,114 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
     const chartData = React.useMemo(() => {
         if (!data || data.length === 0) return [];
 
+        let processedData: any[] = [];
+
         // Detect if already processed
         if ('NormalPct' in data[0] || 'month' in data[0]) {
-            return data as PatientStatusProcessedRow[];
+            processedData = data as PatientStatusProcessedRow[];
+        } else {
+            // Processing Raw Data (TemporalRow[])
+            const rawData = data as TemporalRow[];
+            const buckets = new Map<string, Record<string, number>>();
+
+            rawData.forEach(row => {
+                const date = new Date(row.StartTime);
+                if (isNaN(date.getTime())) return;
+
+                let key;
+                if (zoomLevel === 'years') {
+                    key = `${date.getFullYear()}`;
+                } else if (zoomLevel === 'months') {
+                    key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                } else {
+                    // Days
+                    key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                }
+
+                if (!buckets.has(key)) {
+                    buckets.set(key, { total: 0 });
+                    categories.forEach((c: string) => buckets.get(key)![c] = 0);
+                }
+
+                const entry = buckets.get(key)!;
+                const val = String(row.Value); // Ensure string matching
+                if (categories.includes(val)) {
+                    entry[val] = (entry[val] || 0) + 1;
+                    entry.total += 1;
+                }
+            });
+
+            // Convert buckets to rows with Percentages
+            const sortedKeys = Array.from(buckets.keys()).sort();
+            sortedKeys.forEach(key => {
+                const entry = buckets.get(key)!;
+                const row: any = { month: key }; // Using 'month' as XAxis key for compatibility
+
+                categories.forEach((cat: string) => {
+                    row[cat] = entry[cat];
+                    row[`${cat}Pct`] = entry.total > 0 ? (entry[cat] / entry.total) * 100 : 0;
+                });
+                processedData.push(row);
+            });
         }
 
-        // Processing Raw Data (TemporalRow[])
-        const rawData = data as TemporalRow[];
-        const buckets = new Map<string, Record<string, number>>();
+        // --- PADDING LOGIC ---
+        const dataMap = new Map();
+        processedData.forEach(d => dataMap.set(d.month, d));
 
-        rawData.forEach(row => {
-            const date = new Date(row.StartTime);
-            if (isNaN(date.getTime())) return;
+        let keysToGenerate: string[] = [];
 
-            let key;
-            if (zoomLevel === 'years') {
-                key = `${date.getFullYear()}`;
-            } else if (zoomLevel === 'months') {
-                key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-            } else {
-                // Days
-                key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        if (zoomLevel === 'months' && focusDate) {
+            const y = focusDate.getFullYear();
+            for (let m = 1; m <= 12; m++) {
+                keysToGenerate.push(`${y}-${String(m).padStart(2, '0')}`);
             }
-
-            if (!buckets.has(key)) {
-                buckets.set(key, { total: 0 });
-                categories.forEach((c: string) => buckets.get(key)![c] = 0);
+        } else if (zoomLevel === 'days' && focusDate) {
+            const y = focusDate.getFullYear();
+            const m = focusDate.getMonth() + 1;
+            const daysInMonth = new Date(y, m, 0).getDate();
+            for (let d = 1; d <= daysInMonth; d++) {
+                keysToGenerate.push(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
             }
-
-            const entry = buckets.get(key)!;
-            const val = String(row.Value); // Ensure string matching
-            if (categories.includes(val)) {
-                entry[val] = (entry[val] || 0) + 1;
-                entry.total += 1;
-            }
-        });
-
-        // Convert buckets to rows with Percentages
-        const processed: any[] = [];
-        // Sort keys to ensure chronological order
-        const sortedKeys = Array.from(buckets.keys()).sort();
-
-        sortedKeys.forEach(key => {
-            const entry = buckets.get(key)!;
-            const row: any = { month: key }; // Using 'month' as XAxis key for compatibility
-
-            categories.forEach((cat: string) => {
-                row[cat] = entry[cat];
-                row[`${cat}Pct`] = entry.total > 0 ? (entry[cat] / entry.total) * 100 : 0;
+        } else {
+            // years or fallback: find min/max year from data and pad in between
+            if (processedData.length === 0) return [];
+            let minYear = Infinity;
+            let maxYear = -Infinity;
+            processedData.forEach(d => {
+                const y = parseInt(d.month.split('-')[0], 10);
+                if (!isNaN(y)) {
+                    if (y < minYear) minYear = y;
+                    if (y > maxYear) maxYear = y;
+                }
             });
-            processed.push(row);
+            if (minYear !== Infinity && maxYear !== -Infinity && maxYear - minYear < 100) {
+                // Limit to 100 years max to prevent massive loops if there's a bad date
+                for (let y = minYear; y <= maxYear; y++) {
+                    keysToGenerate.push(`${y}`);
+                }
+            } else {
+                return processedData.sort((a, b) => a.month.localeCompare(b.month));
+            }
+        }
+
+        const padded: any[] = [];
+        keysToGenerate.forEach(k => {
+            if (dataMap.has(k)) {
+                padded.push(dataMap.get(k));
+            } else {
+                const empty: any = { month: k };
+                categories.forEach(cat => {
+                    empty[cat] = 0;
+                    empty[`${cat}Pct`] = 0;
+                });
+                padded.push(empty);
+            }
         });
 
-        return processed;
+        return padded;
 
-    }, [data, categories, zoomLevel]);
+    }, [data, categories, zoomLevel, focusDate]);
 
     const handleBarClick = (data: any) => {
         if (onDrillDown && data && data.month) {

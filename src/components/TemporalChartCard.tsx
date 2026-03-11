@@ -78,21 +78,33 @@ export function TemporalChartCard({
         if (!focusDate) return data;
 
         return data.filter((row: any) => {
-            // Check row.StartTime (raw) or row.month (abstract)
-            // Abstract data only has month 'YYYY-MM'. 
-            // Raw data has StartTime ISO.
+            if (row.StartTime) {
+                const rowDate = new Date(row.StartTime);
+                if (isNaN(rowDate.getTime())) return false;
 
-            const rowDate = row.StartTime ? new Date(row.StartTime) : (row.month ? new Date(row.month + '-01') : null);
-            if (!rowDate) return false;
+                if (zoomLevel === 'months') {
+                    return rowDate.getFullYear() === focusDate.getFullYear();
+                }
+                if (zoomLevel === 'days') {
+                    return rowDate.getFullYear() === focusDate.getFullYear() &&
+                        rowDate.getMonth() === focusDate.getMonth();
+                }
+                return true;
+            } else if (row.month) {
+                // Abstract data row.month is 'YYYY-MM'
+                const parts = row.month.split('-');
+                const rowYear = parseInt(parts[0], 10);
 
-            if (zoomLevel === 'months') {
-                return rowDate.getFullYear() === focusDate.getFullYear();
+                if (zoomLevel === 'months') {
+                    return rowYear === focusDate.getFullYear();
+                }
+                if (zoomLevel === 'days') {
+                    const rowMonth = parts.length > 1 ? parseInt(parts[1], 10) - 1 : 0;
+                    return rowYear === focusDate.getFullYear() && rowMonth === focusDate.getMonth();
+                }
+                return true;
             }
-            if (zoomLevel === 'days') {
-                return rowDate.getFullYear() === focusDate.getFullYear() &&
-                    rowDate.getMonth() === focusDate.getMonth();
-            }
-            return true;
+            return false;
         });
     }, [data, zoomLevel, focusDate, onDrillDown]);
 
@@ -230,6 +242,7 @@ export function TemporalChartCard({
                         <PatientStatusAnalytics
                             data={filteredData as any}
                             zoomLevel={zoomLevel}
+                            focusDate={focusDate}
                             onDrillDown={handleDrillDown}
                             conceptData={conceptData}
                         />

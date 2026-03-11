@@ -81,8 +81,11 @@ const Index = () => {
 
           // Transform Pattern Result to PatientStatusProcessedRow format
           resultData = response.result.map(item => {
+            const d = new Date(item.StartTime);
+            const yStr = d.getFullYear().toString();
+
             const row: any = {
-              month: new Date(item.StartTime).toISOString().slice(0, 4), // Using YYYY as key as we default to 'YE'
+              month: yStr, // Using YYYY as key as we default to 'YE'
               // Also add a "year" property or similar if needed, but "month" is what PatientStatusAnalytics expects for x-axis key currently
             };
 
@@ -145,10 +148,15 @@ const Index = () => {
 
   const processPatternResult = (result: any[], intervalStr: string) => {
     const transformed = result.map(item => {
+      const d = new Date(item.StartTime);
+      const yStr = d.getFullYear().toString();
+      const mStr = String(d.getMonth() + 1).padStart(2, '0');
+      const dStr = String(d.getDate()).padStart(2, '0');
+
       // For key, if YE -> YYYY. If ME -> YYYY-MM. If D -> YYYY-MM-DD.
-      let key = new Date(item.StartTime).toISOString().slice(0, 4);
-      if (intervalStr === 'ME') key = new Date(item.StartTime).toISOString().slice(0, 7);
-      else if (intervalStr === 'D') key = new Date(item.StartTime).toISOString().slice(0, 10);
+      let key = yStr;
+      if (intervalStr === 'ME') key = `${yStr}-${mStr}`;
+      else if (intervalStr === 'D') key = `${yStr}-${mStr}-${dStr}`;
 
       const row: any = {
         month: key, // Using 'month' as common x-axis key for now

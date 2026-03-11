@@ -14,8 +14,8 @@ export default defineConfig(({ mode }) => {
       host: "::",
       port: 8080,
       proxy: {
-        "/api/menu": {
-          target: menuServiceUrl,
+        "/api/v1/concept/menu": {
+          target: dataServiceUrl,
           changeOrigin: true,
           secure: false,
         },
@@ -24,7 +24,6 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
-
       },
     },
     plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),

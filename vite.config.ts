@@ -7,15 +7,15 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const menuServiceUrl = env.MENU_SERVICE_URL || 'http://localhost:3000';
-  const dataServiceUrl = env.DATA_SERVICE_URL || 'http://localhost:8000';
+  const dataServiceUrl = env.DATA_SERVICE_URL || 'http://127.0.0.1:8000';
 
   return {
     server: {
       host: "::",
       port: 8080,
       proxy: {
-        "/api/menu": {
-          target: menuServiceUrl,
+        "/api/v1/concept/menu": {
+          target: dataServiceUrl,
           changeOrigin: true,
           secure: false,
         },
@@ -24,7 +24,6 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
-
       },
     },
     plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),

@@ -2,14 +2,19 @@ import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TemporalRow, PatientStatusProcessedRow } from '../types/temporal';
 
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
 interface PatientStatusAnalyticsProps {
     data: (TemporalRow | PatientStatusProcessedRow)[];
     zoomLevel?: 'years' | 'months' | 'days';
     onDrillDown?: (dateStr: string) => void;
     conceptData?: any;
+    focusDate?: Date | null;
+    onNavigate?: (direction: 'next' | 'prev') => void;
 }
 
-export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown, conceptData }: PatientStatusAnalyticsProps) {
+export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, onNavigate }: PatientStatusAnalyticsProps) {
     const componentId = React.useId();
     const syncId = `patientStatus-${componentId}`;
 
@@ -44,61 +49,114 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
     const chartData = React.useMemo(() => {
         if (!data || data.length === 0) return [];
 
+        let processedData: any[] = [];
+
         // Detect if already processed
         if ('NormalPct' in data[0] || 'month' in data[0]) {
-            return data as PatientStatusProcessedRow[];
+            processedData = data as PatientStatusProcessedRow[];
+        } else {
+            // Processing Raw Data (TemporalRow[])
+            const rawData = data as TemporalRow[];
+            const buckets = new Map<string, Record<string, number>>();
+
+            rawData.forEach(row => {
+                const date = new Date(row.StartTime);
+                if (isNaN(date.getTime())) return;
+
+                let key;
+                if (zoomLevel === 'years') {
+                    key = `${date.getFullYear()}`;
+                } else if (zoomLevel === 'months') {
+                    key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                } else {
+                    // Days
+                    key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                }
+
+                if (!buckets.has(key)) {
+                    buckets.set(key, { total: 0 });
+                    categories.forEach((c: string) => buckets.get(key)![c] = 0);
+                }
+
+                const entry = buckets.get(key)!;
+                const val = String(row.Value); // Ensure string matching
+                if (categories.includes(val)) {
+                    entry[val] = (entry[val] || 0) + 1;
+                    entry.total += 1;
+                }
+            });
+
+            // Convert buckets to rows with Percentages
+            const sortedKeys = Array.from(buckets.keys()).sort();
+            sortedKeys.forEach(key => {
+                const entry = buckets.get(key)!;
+                const row: any = { month: key }; // Using 'month' as XAxis key for compatibility
+
+                categories.forEach((cat: string) => {
+                    row[cat] = entry[cat];
+                    row[`${cat}Pct`] = entry.total > 0 ? (entry[cat] / entry.total) * 100 : 0;
+                });
+                processedData.push(row);
+            });
         }
 
-        // Processing Raw Data (TemporalRow[])
-        const rawData = data as TemporalRow[];
-        const buckets = new Map<string, Record<string, number>>();
+        // --- PADDING LOGIC ---
+        const dataMap = new Map();
+        processedData.forEach(d => dataMap.set(d.month, d));
 
-        rawData.forEach(row => {
-            const date = new Date(row.StartTime);
-            if (isNaN(date.getTime())) return;
+        let keysToGenerate: string[] = [];
 
-            let key;
-            if (zoomLevel === 'years') {
-                key = `${date.getFullYear()}`;
-            } else if (zoomLevel === 'months') {
-                key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-            } else {
-                // Days
-                key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        if (zoomLevel === 'months' && focusDate) {
+            const y = focusDate.getFullYear();
+            for (let m = 1; m <= 12; m++) {
+                keysToGenerate.push(`${y}-${String(m).padStart(2, '0')}`);
             }
-
-            if (!buckets.has(key)) {
-                buckets.set(key, { total: 0 });
-                categories.forEach((c: string) => buckets.get(key)![c] = 0);
+        } else if (zoomLevel === 'days' && focusDate) {
+            const y = focusDate.getFullYear();
+            const m = focusDate.getMonth() + 1;
+            const daysInMonth = new Date(y, m, 0).getDate();
+            for (let d = 1; d <= daysInMonth; d++) {
+                keysToGenerate.push(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
             }
-
-            const entry = buckets.get(key)!;
-            const val = String(row.Value); // Ensure string matching
-            if (categories.includes(val)) {
-                entry[val] = (entry[val] || 0) + 1;
-                entry.total += 1;
-            }
-        });
-
-        // Convert buckets to rows with Percentages
-        const processed: any[] = [];
-        // Sort keys to ensure chronological order
-        const sortedKeys = Array.from(buckets.keys()).sort();
-
-        sortedKeys.forEach(key => {
-            const entry = buckets.get(key)!;
-            const row: any = { month: key }; // Using 'month' as XAxis key for compatibility
-
-            categories.forEach((cat: string) => {
-                row[cat] = entry[cat];
-                row[`${cat}Pct`] = entry.total > 0 ? (entry[cat] / entry.total) * 100 : 0;
+        } else {
+            // years or fallback: find min/max year from data and pad in between
+            if (processedData.length === 0) return [];
+            let minYear = Infinity;
+            let maxYear = -Infinity;
+            processedData.forEach(d => {
+                const y = parseInt(d.month.split('-')[0], 10);
+                if (!isNaN(y)) {
+                    if (y < minYear) minYear = y;
+                    if (y > maxYear) maxYear = y;
+                }
             });
-            processed.push(row);
+            if (minYear !== Infinity && maxYear !== -Infinity && maxYear - minYear < 100) {
+                // Limit to 100 years max to prevent massive loops if there's a bad date
+                for (let y = minYear; y <= maxYear; y++) {
+                    keysToGenerate.push(`${y}`);
+                }
+            } else {
+                return processedData.sort((a, b) => a.month.localeCompare(b.month));
+            }
+        }
+
+        const padded: any[] = [];
+        keysToGenerate.forEach(k => {
+            if (dataMap.has(k)) {
+                padded.push(dataMap.get(k));
+            } else {
+                const empty: any = { month: k };
+                categories.forEach(cat => {
+                    empty[cat] = 0;
+                    empty[`${cat}Pct`] = 0;
+                });
+                padded.push(empty);
+            }
         });
 
-        return processed;
+        return padded;
 
-    }, [data, categories, zoomLevel]);
+    }, [data, categories, zoomLevel, focusDate]);
 
     const handleBarClick = (data: any) => {
         if (onDrillDown && data && data.month) {
@@ -141,76 +199,104 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
         return null;
     };
 
+    const isZoomedIn = zoomLevel === 'months' || zoomLevel === 'days';
+
     return (
-        <div className="w-full h-full flex flex-col space-y-4 p-4">
-            {categories.map((category: string, index: number) => {
-                const isLast = index === categories.length - 1;
+        <div className="w-full h-full flex flex-col p-4 relative">
+            <div className="w-full h-full flex flex-col space-y-4">
+                {categories.map((category: string, index: number) => {
+                    const isLast = index === categories.length - 1;
 
-                return (
-                    <div key={category} className="flex-1 min-h-0 relative">
-                        <h3 className="text-sm font-medium mb-1 text-center" style={{ color: categoryColors[category] }}>
-                            {category.replace('_', ' ')}
-                        </h3>
-                        <div className="w-full h-[calc(100%-1.5rem)]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart
-                                    data={chartData}
-                                    syncId={syncId}
-                                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                                    onClick={(e: any) => {
-                                        if (e && e.activePayload && e.activePayload[0]) {
-                                            handleBarClick(e.activePayload[0].payload);
-                                        }
-                                    }}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis
-                                        dataKey="month"
-                                        hide={!isLast}
-                                        tick={{ fontSize: 12 }}
-                                        interval={0}
-                                        height={30}
-                                        tickFormatter={(val) => {
-                                            if (!val) return val;
-
-                                            const parts = val.split('-');
-
-                                            // Determine exactly what the data string represents to prevent async mismatches
-                                            if (parts.length === 3) {
-                                                // Data is YYYY-MM-DD -> Render Day
-                                                return parseInt(parts[2], 10).toString();
-                                            } else if (parts.length === 2) {
-                                                // Data is YYYY-MM -> Render Month
-                                                const date = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
-                                                if (!isNaN(date.getTime())) {
-                                                    return date.toLocaleDateString(undefined, { month: 'short' });
-                                                }
+                    return (
+                        <div key={category} className="flex-1 min-h-0 relative">
+                            <h3 className="text-sm font-medium mb-1 text-center" style={{ color: categoryColors[category] }}>
+                                {category.replace('_', ' ')}
+                            </h3>
+                            <div className="w-full h-[calc(100%-1.5rem)]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        data={chartData}
+                                        syncId={syncId}
+                                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                                        onClick={(e: any) => {
+                                            if (e && e.activePayload && e.activePayload[0]) {
+                                                handleBarClick(e.activePayload[0].payload);
                                             }
-
-                                            // Data is YYYY -> Render Year
-                                            return parts[0];
                                         }}
-                                    />
-                                    <YAxis
-                                        domain={[0, 100]}
-                                        tickFormatter={(value) => `${value}%`}
-                                        fontSize={12}
-                                    />
-                                    <Tooltip content={<CustomTooltip />} />
-                                    <Bar
-                                        dataKey={`${category}Pct`}
-                                        fill={categoryColors[category] || "#8884d8"}
-                                        radius={[4, 4, 0, 0]}
-                                        cursor="pointer"
-                                        onClick={handleBarClick}
-                                        isAnimationActive={false}
-                                    />
-                                </BarChart>
-                            </ResponsiveContainer>
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                        <XAxis
+                                            dataKey="month"
+                                            hide={!isLast}
+                                            tick={{ fontSize: 12 }}
+                                            interval={0}
+                                            height={30}
+                                            tickFormatter={(val) => {
+                                                if (!val) return val;
+
+                                                const parts = val.split('-');
+
+                                                // Determine exactly what the data string represents to prevent async mismatches
+                                                if (parts.length === 3) {
+                                                    // Data is YYYY-MM-DD -> Render Day
+                                                    return parseInt(parts[2], 10).toString();
+                                                } else if (parts.length === 2) {
+                                                    // Data is YYYY-MM -> Render Month
+                                                    const date = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
+                                                    if (!isNaN(date.getTime())) {
+                                                        return date.toLocaleDateString(undefined, { month: 'short' });
+                                                    }
+                                                }
+
+                                                // Data is YYYY -> Render Year
+                                                return parts[0];
+                                            }}
+                                        />
+                                        <YAxis
+                                            domain={[0, 100]}
+                                            tickFormatter={(value) => `${value}%`}
+                                            fontSize={12}
+                                        />
+                                        <Tooltip content={<CustomTooltip />} />
+                                        <Bar
+                                            dataKey={`${category}Pct`}
+                                            fill={categoryColors[category] || "#8884d8"}
+                                            radius={[4, 4, 0, 0]}
+                                            cursor="pointer"
+                                            onClick={handleBarClick}
+                                            isAnimationActive={false}
+                                        />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
-                    </div>
-                );
-            })}
+                    );
+                })}
+            </div>
+
+            {isZoomedIn && onNavigate && (
+                <div className="flex justify-center items-center gap-4 mt-4 shrink-0">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 bg-background/80 backdrop-blur-sm"
+                        onClick={() => onNavigate('prev')}
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm font-semibold text-muted-foreground bg-background/80 px-2 py-1 rounded min-w-[120px] text-center">
+                        {focusDate ? (zoomLevel === 'months' ? focusDate.getFullYear() : focusDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })) : ''}
+                    </span>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 bg-background/80 backdrop-blur-sm"
+                        onClick={() => onNavigate('next')}
+                    >
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
+            )}
         </div>
     );
 }

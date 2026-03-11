@@ -83,92 +83,87 @@ export const FilterBar = ({
   };
 
   return (
-    <div className="bg-card border-b border-border px-6 py-4 space-y-4">
+    <div className="bg-card border-b border-border px-6 py-4 flex flex-col sm:flex-row items-start gap-4">
+      {/* Time Picker */}
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className="h-[2.5rem] gap-2 min-w-[200px]">
+            <Calendar className="h-4 w-4" />
+            <span className="text-sm">{getTimeRangeLabel()}</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[400px] p-0 max-h-[80vh] overflow-y-auto" align="start">
+          <Tabs defaultValue={timeRange.type} className="w-full">
+            <TabsList className="w-full grid grid-cols-2">
+              <TabsTrigger value="relative">Relative</TabsTrigger>
+              <TabsTrigger value="absolute">Absolute</TabsTrigger>
+            </TabsList>
 
-      {/* Row 1: Patient Selection */}
-      <div className="w-full">
+            <TabsContent value="relative" className="p-4 space-y-2">
+              {relativeOptions.map((option) => (
+                <Button
+                  key={option.value}
+                  variant={timeRange.relative === option.value ? "default" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => handleRelativeSelect(option.value)}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </TabsContent>
+
+            <TabsContent value="absolute" className="p-4 space-y-4">
+              <div className="space-y-2">
+                <Label>Start Date</Label>
+                <CalendarComponent
+                  mode="single"
+                  selected={localStartDate}
+                  onSelect={setLocalStartDate}
+                  className="pointer-events-auto"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>End Date</Label>
+                <CalendarComponent
+                  mode="single"
+                  selected={localEndDate}
+                  onSelect={setLocalEndDate}
+                  disabled={(date) => localStartDate ? date < localStartDate : false}
+                  className="pointer-events-auto"
+                />
+              </div>
+              <Button
+                onClick={handleAbsoluteApply}
+                className="w-full"
+                disabled={!localStartDate || !localEndDate}
+              >
+                Apply
+              </Button>
+            </TabsContent>
+          </Tabs>
+        </PopoverContent>
+      </Popover>
+
+      {/* Patient Selection */}
+      <div className="w-full sm:w-[400px] z-10">
         <PatientMultiSelect
           selectedIds={patientIds}
           onChange={onPatientIdsChange}
         />
       </div>
 
-      {/* Row 2: Controls */}
-      <div className="flex items-center gap-4 flex-wrap">
-
-        {/* Time Picker */}
-        <Popover open={isOpen} onOpenChange={setIsOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="h-9 gap-2 min-w-[200px]">
-              <Calendar className="h-4 w-4" />
-              <span className="text-sm">{getTimeRangeLabel()}</span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[400px] p-0 max-h-[80vh] overflow-y-auto" align="start">
-            <Tabs defaultValue={timeRange.type} className="w-full">
-              <TabsList className="w-full grid grid-cols-2">
-                <TabsTrigger value="relative">Relative</TabsTrigger>
-                <TabsTrigger value="absolute">Absolute</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="relative" className="p-4 space-y-2">
-                {relativeOptions.map((option) => (
-                  <Button
-                    key={option.value}
-                    variant={timeRange.relative === option.value ? "default" : "ghost"}
-                    className="w-full justify-start"
-                    onClick={() => handleRelativeSelect(option.value)}
-                  >
-                    {option.label}
-                  </Button>
-                ))}
-              </TabsContent>
-
-              <TabsContent value="absolute" className="p-4 space-y-4">
-                <div className="space-y-2">
-                  <Label>Start Date</Label>
-                  <CalendarComponent
-                    mode="single"
-                    selected={localStartDate}
-                    onSelect={setLocalStartDate}
-                    className="pointer-events-auto"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>End Date</Label>
-                  <CalendarComponent
-                    mode="single"
-                    selected={localEndDate}
-                    onSelect={setLocalEndDate}
-                    disabled={(date) => localStartDate ? date < localStartDate : false}
-                    className="pointer-events-auto"
-                  />
-                </div>
-                <Button
-                  onClick={handleAbsoluteApply}
-                  className="w-full"
-                  disabled={!localStartDate || !localEndDate}
-                >
-                  Apply
-                </Button>
-              </TabsContent>
-            </Tabs>
-          </PopoverContent>
-        </Popover>
-
-        {/* Close All Button */}
-        {hasCharts && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onCloseAll}
-            className="flex items-center gap-2 h-9 ml-auto"
-          >
-            <XCircle className="h-4 w-4" />
-            Close All Charts
-          </Button>
-        )}
-      </div>
+      {/* Close All Button */}
+      {hasCharts && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onCloseAll}
+          className="flex items-center gap-2 h-[2.5rem] ml-auto shrink-0"
+        >
+          <XCircle className="h-4 w-4" />
+          Close All Charts
+        </Button>
+      )}
     </div>
   );
 };

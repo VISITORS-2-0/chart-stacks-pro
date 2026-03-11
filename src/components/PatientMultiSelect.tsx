@@ -22,7 +22,12 @@ interface PatientMultiSelectProps {
     onChange: (ids: string[]) => void;
 }
 
-const AVAILABLE_PATIENTS = Array.from({ length: 21 }, (_, i) => (1000 + i).toString());
+const AVAILABLE_PATIENTS = [
+    "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+    "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+    "100", "101", "102", "103", "104",
+    "1000", "1001", "1002", "1003", "1004", "1005", "1006", "1007", "1008", "1009", "1010", "1011", "1012"
+];
 
 export function PatientMultiSelect({ selectedIds, onChange }: PatientMultiSelectProps) {
     const [open, setOpen] = useState(false);

@@ -298,6 +298,89 @@ const Index = () => {
     }
   };
 
+  const handleChartNavigate = async (chartId: string, direction: 'next' | 'prev', currentZoom: string, focusDate: Date | null) => {
+    if (!focusDate) return;
+    const chartIndex = activeCharts.findIndex(c => c.id === chartId);
+    if (chartIndex === -1) return;
+
+    const chart = activeCharts[chartIndex];
+    if (chart.parent !== 'Pattern') return; // Only abstractions for now
+
+    let startDateStr = '';
+    let endDateStr = '';
+    let fetchInterval = chart.currentInterval || 'ME';
+
+    const y = focusDate.getFullYear();
+    const m = focusDate.getMonth();
+
+    if (currentZoom === 'months') {
+      // We are looking at a full year, broken into months
+      // Next -> next year, Prev -> previous year
+      const targetYear = y + (direction === 'next' ? 1 : -1);
+      startDateStr = `${targetYear}-01-01`;
+      endDateStr = `${targetYear}-12-31`;
+      fetchInterval = 'ME';
+    } else if (currentZoom === 'days') {
+      // We are looking at a full month, broken into days
+      // Next -> next month, Prev -> previous month
+      let targetYear = y;
+      let targetMonth = m + (direction === 'next' ? 1 : -1);
+
+      if (targetMonth > 11) {
+        targetMonth = 0;
+        targetYear++;
+      } else if (targetMonth < 0) {
+        targetMonth = 11;
+        targetYear--;
+      }
+
+      // Start is 1st of target month
+      // End is last day of target month
+      const startD = new Date(targetYear, targetMonth, 1);
+      const endD = new Date(targetYear, targetMonth + 1, 0); // 0 gets last day of previous month
+
+      startDateStr = `${startD.getFullYear()}-${String(startD.getMonth() + 1).padStart(2, '0')}-01`;
+      endDateStr = `${endD.getFullYear()}-${String(endD.getMonth() + 1).padStart(2, '0')}-${String(endD.getDate()).padStart(2, '0')}`;
+      fetchInterval = 'D';
+
+      // Important: We need to update the focusDate in TemporalChartCard so the calendar math holds up.
+      // But since focusDate is internal state there, we can either pass it back down,
+      // OR let the TemporalChartCard manage its own onNavigate local state change,
+      // BUT we already shift data so filtering would clash if TemporalChartCard doesn't update focusDate.
+      // Easiest is to let TemporalChartCard handle its local state jump and we just fetch the data window.
+    } else {
+      return;
+    }
+
+    try {
+      const params: PatternQueryParams = {
+        patients_list: patientIds,
+        concept_name: chart.title,
+        start_date: startDateStr,
+        end_date: endDateStr,
+        interval_str: fetchInterval,
+        method: 'most_time_spent'
+      };
+
+      const response = await fetchMultiplePatientsAbstraction(params);
+
+      const updatedCharts = [...activeCharts];
+      updatedCharts[chartIndex] = {
+        ...chart,
+        externalData: processPatternResult(response.result, fetchInterval),
+        currentInterval: fetchInterval,
+        currentStart: startDateStr,
+        currentEnd: endDateStr,
+        conceptData: response.concept_data, // usually stable but good to update
+      };
+      setActiveCharts(updatedCharts);
+
+    } catch (error) {
+      console.error("Failed to navigate chart data", error);
+      toast({ title: "Error navigating data", description: String(error), variant: "destructive" });
+    }
+  };
+
   const handleRemoveChart = (id: string) => {
     setActiveCharts((prev) => prev.filter((chart) => chart.id !== id));
   };
@@ -322,6 +405,7 @@ const Index = () => {
           patientCount={patientCount}
           onChartDrillDown={handleChartDrillDown}
           onChartZoomOut={handleChartZoomOut}
+          onChartNavigate={handleChartNavigate}
         />
       );
     }

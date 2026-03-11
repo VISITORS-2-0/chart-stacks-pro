@@ -21,6 +21,7 @@ interface TemporalChartCardProps {
     conceptData?: any;
     onDrillDown?: (date: Date, currentLevel: ZoomLevel) => void;
     onZoomOut?: (currentLevel: ZoomLevel) => void;
+    onNavigate?: (direction: 'next' | 'prev', currentZoom: ZoomLevel, focusDate: Date | null) => void;
 }
 
 export function TemporalChartCard({
@@ -34,6 +35,7 @@ export function TemporalChartCard({
     conceptData,
     onDrillDown,
     onZoomOut,
+    onNavigate,
 }: TemporalChartCardProps) {
     const singlePatient = useOnePatientRaw();
     const multiPatientAbstract = useMultiPatientAbstract();
@@ -245,6 +247,20 @@ export function TemporalChartCard({
                             focusDate={focusDate}
                             onDrillDown={handleDrillDown}
                             conceptData={conceptData}
+                            onNavigate={(dir) => {
+                                if (focusDate) {
+                                    const y = focusDate.getFullYear();
+                                    const m = focusDate.getMonth();
+                                    let newFocus = new Date(focusDate);
+                                    if (zoomLevel === 'months') {
+                                        newFocus.setFullYear(y + (dir === 'next' ? 1 : -1));
+                                    } else if (zoomLevel === 'days') {
+                                        newFocus.setMonth(m + (dir === 'next' ? 1 : -1));
+                                    }
+                                    setFocusDate(newFocus);
+                                }
+                                if (onNavigate) onNavigate(dir, zoomLevel, focusDate);
+                            }}
                         />
                     )
                 )}

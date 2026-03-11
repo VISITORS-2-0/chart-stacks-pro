@@ -2,15 +2,19 @@ import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TemporalRow, PatientStatusProcessedRow } from '../types/temporal';
 
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
 interface PatientStatusAnalyticsProps {
     data: (TemporalRow | PatientStatusProcessedRow)[];
     zoomLevel?: 'years' | 'months' | 'days';
     onDrillDown?: (dateStr: string) => void;
     conceptData?: any;
     focusDate?: Date | null;
+    onNavigate?: (direction: 'next' | 'prev') => void;
 }
 
-export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate }: PatientStatusAnalyticsProps) {
+export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, onNavigate }: PatientStatusAnalyticsProps) {
     const componentId = React.useId();
     const syncId = `patientStatus-${componentId}`;
 
@@ -195,76 +199,104 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
         return null;
     };
 
+    const isZoomedIn = zoomLevel === 'months' || zoomLevel === 'days';
+
     return (
-        <div className="w-full h-full flex flex-col space-y-4 p-4">
-            {categories.map((category: string, index: number) => {
-                const isLast = index === categories.length - 1;
+        <div className="w-full h-full flex flex-col p-4 relative">
+            <div className="w-full h-full flex flex-col space-y-4">
+                {categories.map((category: string, index: number) => {
+                    const isLast = index === categories.length - 1;
 
-                return (
-                    <div key={category} className="flex-1 min-h-0 relative">
-                        <h3 className="text-sm font-medium mb-1 text-center" style={{ color: categoryColors[category] }}>
-                            {category.replace('_', ' ')}
-                        </h3>
-                        <div className="w-full h-[calc(100%-1.5rem)]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart
-                                    data={chartData}
-                                    syncId={syncId}
-                                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                                    onClick={(e: any) => {
-                                        if (e && e.activePayload && e.activePayload[0]) {
-                                            handleBarClick(e.activePayload[0].payload);
-                                        }
-                                    }}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis
-                                        dataKey="month"
-                                        hide={!isLast}
-                                        tick={{ fontSize: 12 }}
-                                        interval={0}
-                                        height={30}
-                                        tickFormatter={(val) => {
-                                            if (!val) return val;
-
-                                            const parts = val.split('-');
-
-                                            // Determine exactly what the data string represents to prevent async mismatches
-                                            if (parts.length === 3) {
-                                                // Data is YYYY-MM-DD -> Render Day
-                                                return parseInt(parts[2], 10).toString();
-                                            } else if (parts.length === 2) {
-                                                // Data is YYYY-MM -> Render Month
-                                                const date = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
-                                                if (!isNaN(date.getTime())) {
-                                                    return date.toLocaleDateString(undefined, { month: 'short' });
-                                                }
+                    return (
+                        <div key={category} className="flex-1 min-h-0 relative">
+                            <h3 className="text-sm font-medium mb-1 text-center" style={{ color: categoryColors[category] }}>
+                                {category.replace('_', ' ')}
+                            </h3>
+                            <div className="w-full h-[calc(100%-1.5rem)]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        data={chartData}
+                                        syncId={syncId}
+                                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                                        onClick={(e: any) => {
+                                            if (e && e.activePayload && e.activePayload[0]) {
+                                                handleBarClick(e.activePayload[0].payload);
                                             }
-
-                                            // Data is YYYY -> Render Year
-                                            return parts[0];
                                         }}
-                                    />
-                                    <YAxis
-                                        domain={[0, 100]}
-                                        tickFormatter={(value) => `${value}%`}
-                                        fontSize={12}
-                                    />
-                                    <Tooltip content={<CustomTooltip />} />
-                                    <Bar
-                                        dataKey={`${category}Pct`}
-                                        fill={categoryColors[category] || "#8884d8"}
-                                        radius={[4, 4, 0, 0]}
-                                        cursor="pointer"
-                                        onClick={handleBarClick}
-                                        isAnimationActive={false}
-                                    />
-                                </BarChart>
-                            </ResponsiveContainer>
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                        <XAxis
+                                            dataKey="month"
+                                            hide={!isLast}
+                                            tick={{ fontSize: 12 }}
+                                            interval={0}
+                                            height={30}
+                                            tickFormatter={(val) => {
+                                                if (!val) return val;
+
+                                                const parts = val.split('-');
+
+                                                // Determine exactly what the data string represents to prevent async mismatches
+                                                if (parts.length === 3) {
+                                                    // Data is YYYY-MM-DD -> Render Day
+                                                    return parseInt(parts[2], 10).toString();
+                                                } else if (parts.length === 2) {
+                                                    // Data is YYYY-MM -> Render Month
+                                                    const date = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
+                                                    if (!isNaN(date.getTime())) {
+                                                        return date.toLocaleDateString(undefined, { month: 'short' });
+                                                    }
+                                                }
+
+                                                // Data is YYYY -> Render Year
+                                                return parts[0];
+                                            }}
+                                        />
+                                        <YAxis
+                                            domain={[0, 100]}
+                                            tickFormatter={(value) => `${value}%`}
+                                            fontSize={12}
+                                        />
+                                        <Tooltip content={<CustomTooltip />} />
+                                        <Bar
+                                            dataKey={`${category}Pct`}
+                                            fill={categoryColors[category] || "#8884d8"}
+                                            radius={[4, 4, 0, 0]}
+                                            cursor="pointer"
+                                            onClick={handleBarClick}
+                                            isAnimationActive={false}
+                                        />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
-                    </div>
-                );
-            })}
+                    );
+                })}
+            </div>
+
+            {isZoomedIn && onNavigate && (
+                <div className="flex justify-center items-center gap-4 mt-4 shrink-0">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 bg-background/80 backdrop-blur-sm"
+                        onClick={() => onNavigate('prev')}
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm font-semibold text-muted-foreground bg-background/80 px-2 py-1 rounded min-w-[120px] text-center">
+                        {focusDate ? (zoomLevel === 'months' ? focusDate.getFullYear() : focusDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })) : ''}
+                    </span>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 bg-background/80 backdrop-blur-sm"
+                        onClick={() => onNavigate('next')}
+                    >
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
+            )}
         </div>
     );
 }

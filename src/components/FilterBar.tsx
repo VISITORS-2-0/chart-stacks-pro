@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Calendar, Users, XCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { PatientMultiSelect } from "@/components/PatientMultiSelect";
@@ -54,6 +54,14 @@ export const FilterBar = ({
   const [localStartDate, setLocalStartDate] = useState<Date | undefined>(timeRange.startDate);
   const [localEndDate, setLocalEndDate] = useState<Date | undefined>(timeRange.endDate);
   const [isOpen, setIsOpen] = useState(false);
+
+  // Sync local state when the prop changes (e.g., when modal reopens with an existing value)
+  useEffect(() => {
+    if (timeRange.type === "absolute") {
+      setLocalStartDate(timeRange.startDate);
+      setLocalEndDate(timeRange.endDate);
+    }
+  }, [timeRange, isOpen]);
 
   const getTimeRangeLabel = () => {
     if (timeRange.type === "relative" && timeRange.relative) {
@@ -119,6 +127,7 @@ export const FilterBar = ({
                   mode="single"
                   selected={localStartDate}
                   onSelect={setLocalStartDate}
+                  defaultMonth={localStartDate}
                   className="pointer-events-auto"
                 />
               </div>
@@ -128,6 +137,7 @@ export const FilterBar = ({
                   mode="single"
                   selected={localEndDate}
                   onSelect={setLocalEndDate}
+                  defaultMonth={localEndDate || localStartDate}
                   disabled={(date) => localStartDate ? date < localStartDate : false}
                   className="pointer-events-auto"
                 />

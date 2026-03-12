@@ -219,19 +219,65 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
         setHoveredRange({ start, end });
     };
 
+    // 4. Dummy Data for Empty Buckets
+    const dummyData = useMemo(() => {
+        if (!detailAxisTicks || detailAxisTicks.length === 0) return [];
+        const constY = scatterData.length > 0 ? scatterData[0].y : 0;
+        return detailAxisTicks.map(tick => {
+            const date = new Date(tick);
+            let middleTime = tick;
+            if (zoomLevel === 'years') {
+                middleTime = new Date(date.getFullYear(), 6, 1).getTime();
+            } else if (zoomLevel === 'months') {
+                middleTime = new Date(date.getFullYear(), date.getMonth(), 15).getTime();
+            } else {
+                middleTime = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0).getTime();
+            }
+            return {
+                x: middleTime,
+                y: constY,
+                isDummy: true
+            };
+        });
+    }, [detailAxisTicks, scatterData, zoomLevel]);
+
     const CustomTooltip = ({ active, payload, label }: any) => {
-        if (active && payload && payload.length) {
-            const dataPoint = payload[0].payload;
+        if (active && hoveredRange) {
+            const pointsInBucket = scatterData.filter(pt => pt.x >= hoveredRange.start && pt.x <= hoveredRange.end);
+
+            if (pointsInBucket.length === 0) {
+                const date = new Date(hoveredRange.start);
+                let dateStr = "";
+                if (zoomLevel === 'years') dateStr = date.getFullYear().toString();
+                else if (zoomLevel === 'months') dateStr = date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+                else dateStr = date.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+
+                return (
+                    <div className="bg-popover border border-border text-popover-foreground rounded-md shadow-md p-3 text-sm">
+                        <div className="font-semibold mb-1">{dateStr}</div>
+                        <div className="text-muted-foreground mt-1 text-xs">No data for this period.<br />Click to zoom in.</div>
+                    </div>
+                );
+            }
+
+            let displayPoint = pointsInBucket[0];
+            if (payload && payload.length) {
+                const nearestPoint = payload[0].payload;
+                if (!nearestPoint.isDummy && nearestPoint.x >= hoveredRange.start && nearestPoint.x <= hoveredRange.end) {
+                    displayPoint = nearestPoint;
+                }
+            }
+
             return (
                 <div className="bg-popover border border-border text-popover-foreground rounded-md shadow-md p-3 text-sm">
                     <div className="font-semibold mb-1">
-                        {dataPoint.date ? new Date(dataPoint.date).toLocaleString() : new Date(label).toLocaleString()}
+                        {new Date(displayPoint.date).toLocaleString()}
                     </div>
                     <div className="grid gap-1 mt-1">
-                        <div className="text-muted-foreground">Value: <span className="font-medium text-foreground">{dataPoint.y}</span></div>
-                        {dataPoint.patientId && <div className="text-muted-foreground">Patient: <span className="font-medium text-foreground">{dataPoint.patientId}</span></div>}
-                        {dataPoint.isMaxBucket && <div className="text-red-500 font-medium text-xs">Bucket Max Value</div>}
-                        {dataPoint.isMinBucket && <div className="text-blue-500 font-medium text-xs">Bucket Min Value</div>}
+                        <div className="text-muted-foreground">Value: <span className="font-medium text-foreground">{displayPoint.y}</span></div>
+                        {displayPoint.patientId && <div className="text-muted-foreground">Patient: <span className="font-medium text-foreground">{displayPoint.patientId}</span></div>}
+                        {displayPoint.isMaxBucket && <div className="text-red-500 font-medium text-xs">Bucket Max Value</div>}
+                        {displayPoint.isMinBucket && <div className="text-blue-500 font-medium text-xs">Bucket Min Value</div>}
                     </div>
                 </div>
             );
@@ -315,9 +361,9 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                             onMouseMove={handleMouseMove}
                             onMouseLeave={() => setHoveredRange(null)}
                             onClick={(e: any) => {
-                                // Attempt to capture clicks on the chart area if specific element click fails
-                                if (e && e.activePayload && e.activePayload[0]) {
-                                    handlePointClick(e.activePayload[0].payload);
+                                // Capture clicks on the chart area for zooming
+                                if (onDrillDown && hoveredRange) {
+                                    onDrillDown(new Date(hoveredRange.start).toISOString());
                                 }
                             }}
                         >
@@ -419,6 +465,17 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                                 onClick={handlePointClick}
                                 cursor="pointer"
                                 isAnimationActive={false}
+                            />
+
+                            {/* Dummy Data for Hovering Empty Buckets */}
+                            <Scatter
+                                xAxisId="detail"
+                                data={dummyData}
+                                dataKey="y"
+                                name="Empty"
+                                opacity={0}
+                                isAnimationActive={false}
+                                activeShape={() => null}
                             />
                         </ScatterChart>
                     </ResponsiveContainer>

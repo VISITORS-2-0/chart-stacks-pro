@@ -76,6 +76,10 @@ export function TemporalChartCard({
         // If 'months', filter by focusDate year
         // If 'days', filter by focusDate month
 
+        // For raw data, we never filter the dataset anymore because PatientMultiLineChart
+        // now supports horizontal scrolling, so we want all data available.
+        if (isRaw) return data;
+
         if (zoomLevel === 'years') return data;
         if (!focusDate) return data;
 

@@ -428,7 +428,7 @@ const Index = () => {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">
-        <DashboardSidebar onItemClick={handleItemClick} />
+        <DashboardSidebar onItemClick={handleItemClick} patientCount={patientIds.length} />
 
         <main className="flex-1 flex flex-col overflow-hidden">
           {/* Tab Navigation */}

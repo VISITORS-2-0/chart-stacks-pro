@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Search, ChevronsLeft, ChevronsRight, Loader2 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,9 +34,11 @@ export interface MenuItem {
 
 interface DashboardSidebarProps {
   onItemClick: (item: MenuItem) => void;
+  patientCount: number;
 }
 
-export function DashboardSidebar({ onItemClick }: DashboardSidebarProps) {
+export function DashboardSidebar({ onItemClick, patientCount }: DashboardSidebarProps) {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [openSections, setOpenSections] = useState<string[]>([]);
   const { open, setOpen } = useSidebar();
@@ -52,78 +55,59 @@ export function DashboardSidebar({ onItemClick }: DashboardSidebarProps) {
   const menuStructure = useMemo(() => {
     if (!data) return [];
 
-    const { TakEntity } = data;
-    const sections = [];
+    const grouped = data.reduce<Record<string, TakItem[]>>((acc, item) => {
+        const type = item.concept_type || "Unknown";
+        if (!acc[type]) acc[type] = [];
+        acc[type].push(item);
+        return acc;
+    }, {});
 
-    // Raw
-    if (TakEntity.Concept?.RawConcept?.length > 0) {
-      sections.push({
-        parent: "Raw",
-        chartType: "scatter" as ChartType,
-        children: TakEntity.Concept.RawConcept.map(item => ({
-          id: item.id,
-          title: item.name,
-          originalItem: item
+    return Object.entries(grouped).map(([conceptType, items]) => ({
+        parent: conceptType,
+        chartType: "scatter" as ChartType, // A placeholder, actual chart is determined dynamically on click
+        children: items.map(item => ({
+            id: item.id || item.name,
+            title: item.name,
+            originalItem: item
         }))
-      });
-    }
-
-    // Context
-    if (TakEntity.Context?.length > 0) {
-      sections.push({
-        parent: "Context",
-        chartType: "line" as ChartType,
-        children: TakEntity.Context.map(item => ({
-          id: item.id,
-          title: item.name,
-          originalItem: item
-        }))
-      });
-    }
-
-    // State
-    const stateItems = TakEntity.Concept?.AbstractConcept?.filter(item => item.type === 'state') || [];
-    if (stateItems.length > 0) {
-      sections.push({
-        parent: "State",
-        chartType: "bar" as ChartType,
-        children: stateItems.map(item => ({
-          id: item.id,
-          title: item.name,
-          originalItem: item
-        }))
-      });
-    }
-
-    // Pattern
-    const patternItems = TakEntity.Concept?.AbstractConcept?.filter(item => item.type === 'pattern') || [];
-    if (patternItems.length > 0) {
-      sections.push({
-        parent: "Pattern",
-        chartType: "line" as ChartType,
-        children: patternItems.map(item => ({
-          id: item.id,
-          title: item.name,
-          originalItem: item
-        }))
-      });
-    }
-
-    // Event
-    if (TakEntity.Event?.length > 0) {
-      sections.push({
-        parent: "Event",
-        chartType: "scatter" as ChartType,
-        children: TakEntity.Event.map(item => ({
-          id: item.id,
-          title: item.name,
-          originalItem: item
-        }))
-      });
-    }
-
-    return sections;
+    }));
   }, [data]);
+
+  const handleItemSelect = (
+    child: { id: string; title: string; originalItem: TakItem },
+    parentSection: string
+  ) => {
+    const { output_type, duration_type } = child.originalItem;
+    
+    // 1. Under Development Checks
+    if (
+      (output_type === "categorial" && duration_type === "point") ||
+      (output_type === "range" && duration_type === "interval")
+    ) {
+      toast({
+        title: "Under Development",
+        description: `This chart combination (${output_type} + ${duration_type}) is under development.`,
+        variant: "default",
+      });
+      return;
+    }
+
+    // 2. Resolve Chart Type
+    let chartType: ChartType = "scatter"; // Default
+    if (output_type === "categorial" && duration_type === "interval") {
+      chartType = patientCount > 1 ? "line" : "bar";
+    } else if (output_type === "range" && duration_type === "point") {
+      chartType = "scatter";
+    }
+
+    onItemClick({
+      id: child.id,
+      title: child.title,
+      parent: parentSection,
+      chartType,
+      originalItem: child.originalItem,
+    });
+  };
 
   const filteredMenu = menuStructure
     .map((section) => ({
@@ -200,15 +184,7 @@ export function DashboardSidebar({ onItemClick }: DashboardSidebarProps) {
                         {section.children.map((child, index) => (
                           <SidebarMenuItem key={`${section.parent}-${child.id}-${index}`}>
                             <SidebarMenuButton
-                              onClick={() =>
-                                onItemClick({
-                                  id: child.id,
-                                  title: child.title,
-                                  parent: section.parent,
-                                  chartType: section.chartType,
-                                  originalItem: child.originalItem,
-                                })
-                              }
+                                onClick={() => handleItemSelect(child, section.parent)}
                               className="text-primary-foreground hover:bg-primary-foreground/10"
                             >
                               {child.title}

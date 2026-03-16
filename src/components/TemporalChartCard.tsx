@@ -1,4 +1,4 @@
-import { X, ZoomIn, ZoomOut } from "lucide-react";
+import { X, ZoomIn, ZoomOut, CircleHelp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOnePatientRaw, useMultiPatientAbstract, useMultiPatientRaw } from "../hooks/useTemporalData";
@@ -191,7 +191,10 @@ export function TemporalChartCard({
         <Card className="border border-border shadow-sm animate-in fade-in-50 duration-300 w-full h-[500px] flex flex-col">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="flex flex-col gap-1">
-                    <CardTitle className="text-lg font-semibold">{title}</CardTitle>
+                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                        {title}
+                        <CircleHelp className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </CardTitle>
                     <p className="text-xs text-muted-foreground">
                         {loading ? "Loading..." : `${filteredData.length} data points`} ({zoomLevel})
                     </p>

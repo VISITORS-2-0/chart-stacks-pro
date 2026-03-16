@@ -2,7 +2,7 @@ import { useRef, useEffect } from "react";
 import { TableauViz } from "@tableau/embedding-api-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { X, CircleHelp } from "lucide-react";
 
 interface TableauChartCardProps {
     id: string;
@@ -34,7 +34,10 @@ export function TableauChartCard({
         <Card className="border border-border shadow-sm animate-in fade-in-50 duration-300 w-full h-[600px] flex flex-col">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="flex flex-col gap-1">
-                    <CardTitle className="text-lg font-semibold">{title} (Tableau)</CardTitle>
+                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                        {title} (Tableau)
+                        <CircleHelp className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </CardTitle>
                     <p className="text-xs text-muted-foreground">
                         PatientID: {patientId} (Parameter)
                     </p>

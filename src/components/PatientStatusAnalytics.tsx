@@ -20,8 +20,8 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
 
     // Determine Categories from conceptData or fallback
     const categories = React.useMemo(() => {
-        if (conceptData && conceptData.allowed_values && conceptData.allowed_values.values) {
-            return conceptData.allowed_values.values;
+        if (conceptData && conceptData.values) {
+            return conceptData.values;
         }
         return ['High', 'Normal', 'Moderately_low']; // Fallback
     }, [conceptData]);

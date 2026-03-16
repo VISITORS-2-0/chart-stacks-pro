@@ -4,12 +4,13 @@ import { TemporalRow, PatientStatusProcessedRow } from '../types/temporal';
 const DATA_SERVICE_URL = import.meta.env.VITE_DATA_SERVICE_URL || '';
 
 export interface ConceptData {
+    id?: string;
     name: string;
-    type: string;
-    allowed_values?: {
-        values: string[];
-        ordering: string;
-    };
+    type?: string;
+    concept_type?: string;
+    values?: string[];
+    "min-value"?: number;
+    "max-value"?: number;
 }
 
 export interface AbstractionResponse {

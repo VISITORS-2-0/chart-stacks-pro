@@ -121,7 +121,7 @@ export function TemporalChartCard({
         }
 
         // 1. Value Levels
-        const values = conceptData.allowed_values?.values || [];
+        const values = conceptData.values || [];
         const levels: ValueLevel[] = values.map((val: string, index: number) => ({
             label: val,
             order: index,

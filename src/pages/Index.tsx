@@ -65,6 +65,8 @@ const Index = () => {
       // 3. Call API based on type
       const parentSection = item.parent as string;
 
+      const isRawType = parentSection.toLowerCase().includes('raw');
+
       if (parentSection === "State" || parentSection === "Pattern" || parentSection === "Context") {
         if (parentSection === "State") {
           const response = await fetchAbstractionData(params);
@@ -109,7 +111,7 @@ const Index = () => {
           resultData = response.result;
           conceptData = response.concept_data;
         }
-      } else if (parentSection === "Raw") {
+      } else if (isRawType) {
         console.log("Sending Raw Data Request with params:", JSON.stringify(params, null, 2));
         const response = await fetchRawData(params);
         console.log("Received Raw Data Response:", JSON.stringify(response, null, 2));
@@ -128,7 +130,7 @@ const Index = () => {
         ...item,
         externalData: resultData,
         conceptData: conceptData,
-        isRaw: item.parent === 'Raw',
+        isRaw: isRawType,
         currentInterval: item.parent === 'Pattern' ? 'YE' : undefined,
         currentStart: params.start_date,
         currentEnd: params.end_date,

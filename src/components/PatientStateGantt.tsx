@@ -67,8 +67,8 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
 
     // 1. Process Categories (Y-Axis)
     const categories = useMemo(() => {
-        if (conceptData?.allowed_values?.values) {
-            return conceptData.allowed_values.values;
+        if (conceptData?.values) {
+            return conceptData.values;
         }
         const vals = new Set(data.map(d => String(d.Value)));
         return Array.from(vals).sort();

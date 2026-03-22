@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, CircleHelp } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +19,7 @@ import {
 } from "recharts";
 import type { ChartType } from "./DashboardSidebar";
 import { DataTable } from "./DataTable";
+import { GraphContextModal } from "./GraphContextModal";
 
 interface ChartData {
   date: string;
@@ -225,7 +226,7 @@ export function ChartCard({
         <div className="flex flex-col gap-1">
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
             {title}
-            <CircleHelp className="h-4 w-4 text-muted-foreground cursor-help" />
+            <GraphContextModal conceptName={title} />
           </CardTitle>
           <p className="text-xs text-muted-foreground">
             {patientCount.toLocaleString()} patients

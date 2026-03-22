@@ -1,4 +1,4 @@
-import { X, ZoomIn, ZoomOut, CircleHelp } from "lucide-react";
+import { X, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOnePatientRaw, useMultiPatientAbstract, useMultiPatientRaw } from "../hooks/useTemporalData";
@@ -7,6 +7,7 @@ import { PatientStateGantt } from "./PatientStateGantt";
 import { PatientMultiLineChart } from "./PatientMultiLineChart";
 import { SinglePatientAbstractionPanel, AbstractionInterval, ValueLevel } from "./SinglePatientAbstractionPanel";
 import { useState, useMemo } from "react";
+import { GraphContextModal } from "./GraphContextModal";
 
 export type ZoomLevel = 'years' | 'months' | 'days';
 
@@ -193,7 +194,7 @@ export function TemporalChartCard({
                 <div className="flex flex-col gap-1">
                     <CardTitle className="text-lg font-semibold flex items-center gap-2">
                         {title}
-                        <CircleHelp className="h-4 w-4 text-muted-foreground cursor-help" />
+                        <GraphContextModal conceptName={title} />
                     </CardTitle>
                     <p className="text-xs text-muted-foreground">
                         {loading ? "Loading..." : `${filteredData.length} data points`} ({zoomLevel})

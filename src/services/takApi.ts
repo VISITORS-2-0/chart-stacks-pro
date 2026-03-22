@@ -1,22 +1,15 @@
 import { useState, useEffect } from 'react';
 
 export interface TakItem {
+    id?: string;
     name: string;
-    type: string; // e.g., "raw-numeric", "state", "event", "context"
-    id: string;
+    concept_type: string;
+    output_type: string;
+    duration_type: string;
     description?: string;
 }
 
-export interface TakMenuResponse {
-    TakEntity: {
-        Event: TakItem[];
-        Context: TakItem[];
-        Concept: {
-            RawConcept: TakItem[];      // Contains all raw types (numeric, nominal, etc.)
-            AbstractConcept: TakItem[]; // Contains all abstract types (state, pattern, etc.)
-        };
-    };
-}
+export type TakMenuResponse = TakItem[];
 
 export const useTakMenu = () => {
     const [data, setData] = useState<TakMenuResponse | null>(null);

@@ -34,7 +34,7 @@ const Index = () => {
   const [patientCount] = useState(10000);
   const { toast } = useToast();
 
-  const handleItemClick = async (item: MenuItem, overridePatientIds?: string[]): Promise<{success: boolean, errorMessage?: string}> => {
+  const handleItemClick = async (item: MenuItem, overridePatientIds?: string[]): Promise<{ success: boolean, errorMessage?: string }> => {
     // Check if chart already exists
     const exists = activeCharts.some((chart) => chart.id === item.id);
     if (exists) return { success: true };
@@ -65,10 +65,14 @@ const Index = () => {
 
       // 3. Call API based on type
       const parentSection = item.parent as string;
+      const isContinuousPattern = item.originalItem?.output_type === "range" && item.originalItem?.duration_type === "interval";
+      const isRawType = parentSection.toLowerCase().includes('raw') || isContinuousPattern;
 
-      const isRawType = parentSection.toLowerCase().includes('raw');
-
-      if (parentSection === "State" || parentSection === "Pattern" || parentSection === "Context") {
+      if (isContinuousPattern) {
+        const response = await fetchRawData(params);
+        resultData = response.result;
+        conceptData = response.concept_data;
+      } else if (parentSection === "State" || parentSection === "Pattern" || parentSection === "Context") {
         if (parentSection === "State") {
           const response = await fetchAbstractionData(params);
           resultData = response.result;
@@ -432,9 +436,9 @@ const Index = () => {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">
-        <DashboardSidebar 
-          onItemClick={handleItemClick} 
-          patientIds={patientIds} 
+        <DashboardSidebar
+          onItemClick={handleItemClick}
+          patientIds={patientIds}
           onCloseAll={handleCloseAll}
         />
 

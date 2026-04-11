@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOnePatientRaw, useMultiPatientAbstract, useMultiPatientRaw } from "../hooks/useTemporalData";
 import { PatientStatusAnalytics } from "./PatientStatusAnalytics";
 import { PatientStateGantt } from "./PatientStateGantt";
+import { PatientContinuousIntervalChart } from "./PatientContinuousIntervalChart";
 import { PatientMultiLineChart } from "./PatientMultiLineChart";
 import { SinglePatientAbstractionPanel, AbstractionInterval, ValueLevel } from "./SinglePatientAbstractionPanel";
 import { useState, useMemo } from "react";
@@ -228,7 +229,15 @@ export function TemporalChartCard({
                 )}
 
                 {!loading && !error && filteredData.length > 0 && (
-                    isRaw ? (
+                    chartType === 'continuous-interval' ? (
+                        <PatientContinuousIntervalChart
+                            data={data as any}
+                            zoomLevel={zoomLevel}
+                            onDrillDown={handleDrillDown}
+                            conceptData={conceptData}
+                            focusDate={focusDate}
+                        />
+                    ) : isRaw ? (
                         <PatientMultiLineChart
                             data={filteredData as any}
                             zoomLevel={zoomLevel}

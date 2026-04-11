@@ -34,25 +34,26 @@ const Index = () => {
   const [patientCount] = useState(10000);
   const { toast } = useToast();
 
-  const handleItemClick = async (item: MenuItem) => {
+  const handleItemClick = async (item: MenuItem, overridePatientIds?: string[]): Promise<{success: boolean, errorMessage?: string}> => {
     // Check if chart already exists
     const exists = activeCharts.some((chart) => chart.id === item.id);
-    if (exists) return;
+    if (exists) return { success: true };
 
     // 1. Validation
-    if (patientIds.length === 0) {
+    const currentPatientIds = overridePatientIds || patientIds;
+    if (currentPatientIds.length === 0) {
       toast({
         title: "No Patient Selected",
         description: "Please select at least one patient before adding a chart.",
         variant: "destructive"
       });
-      return;
+      return { success: false, errorMessage: "No Patient Selected" };
     }
 
     // 2. Prepare Params
     const { start_date, end_date } = calculateDateRange(timeRange);
     const params: QueryParams = {
-      patients_list: patientIds,
+      patients_list: currentPatientIds,
       concept_name: item.title,
       start_date,
       end_date
@@ -64,6 +65,8 @@ const Index = () => {
 
       // 3. Call API based on type
       const parentSection = item.parent as string;
+
+      const isRawType = parentSection.toLowerCase().includes('raw');
 
       if (parentSection === "State" || parentSection === "Pattern" || parentSection === "Context") {
         if (parentSection === "State") {
@@ -109,7 +112,7 @@ const Index = () => {
           resultData = response.result;
           conceptData = response.concept_data;
         }
-      } else if (parentSection === "Raw") {
+      } else if (isRawType) {
         console.log("Sending Raw Data Request with params:", JSON.stringify(params, null, 2));
         const response = await fetchRawData(params);
         console.log("Received Raw Data Response:", JSON.stringify(response, null, 2));
@@ -123,18 +126,18 @@ const Index = () => {
         conceptData = response.concept_data;
       }
 
-      // Generate new chart with REAL data
       const newChart: ActiveChart = {
         ...item,
         externalData: resultData,
         conceptData: conceptData,
-        isRaw: item.parent === 'Raw',
+        isRaw: isRawType,
         currentInterval: item.parent === 'Pattern' ? 'YE' : undefined,
         currentStart: params.start_date,
         currentEnd: params.end_date,
       };
 
       setActiveCharts((prev) => [...prev, newChart]);
+      return { success: true };
 
     } catch (error) {
       console.error("Failed to fetch data", error);
@@ -143,6 +146,7 @@ const Index = () => {
         description: String(error),
         variant: "destructive"
       });
+      return { success: false, errorMessage: String(error) };
     }
   };
 
@@ -428,7 +432,11 @@ const Index = () => {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">
-        <DashboardSidebar onItemClick={handleItemClick} />
+        <DashboardSidebar 
+          onItemClick={handleItemClick} 
+          patientIds={patientIds} 
+          onCloseAll={handleCloseAll}
+        />
 
         <main className="flex-1 flex flex-col overflow-hidden">
           {/* Tab Navigation */}

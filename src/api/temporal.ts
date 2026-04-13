@@ -109,6 +109,30 @@ export const fetchMultiplePatientsAbstraction = async (params: PatternQueryParam
     return data;
 };
 
+export interface NumericPatternQueryParams extends PatternQueryParams {
+    ranges?: { min: number; max: number }[];
+}
+
+export const fetchMultiplePatientsNumericAbstraction = async (params: NumericPatternQueryParams): Promise<PatternResponse> => {
+    const response = await fetch(`http://localhost:8000/api/v1/visitors-queries/multiple-patients-numeric-abstraction`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Fetch Multiple Patients Numeric Abstraction Failed:', response.status, response.statusText, errorText);
+        throw new Error(`Failed to fetch numeric pattern data: ${response.statusText} - ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    return data;
+};
+
 export const getAllOnePatientRaw = async (): Promise<TemporalRow[]> => {
     const response = await fetch('/getAllOnePatientRaw');
     if (!response.ok) {

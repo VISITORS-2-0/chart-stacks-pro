@@ -70,8 +70,9 @@ export function TemporalChartCard({
     const filteredData = useMemo(() => {
         if (!data) return [];
 
-        // If external drill-down is provided, assume parent manages filtering/data
-        if (onDrillDown) return data;
+        // We no longer bypass filtering here even if onDrillDown is provided,
+        // because we still want to benefit from the generic client-side filtering 
+        // fallback for single patients or raw data sets.
 
         // If 'years', show everything (charts handle aggregation)
         // If 'months', filter by focusDate year

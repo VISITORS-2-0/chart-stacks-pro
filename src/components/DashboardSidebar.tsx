@@ -23,7 +23,7 @@ import { ChevronRight } from "lucide-react";
 import { useTakMenu, TakItem } from "@/services/takApi";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-export type ChartType = "scatter" | "bar" | "line" | "continuous-interval";
+export type ChartType = "scatter" | "bar" | "line" | "continuous-interval" | "analytics";
 
 export interface MenuItem {
   id: string;
@@ -176,20 +176,13 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
     // 2. Resolve Chart Type
     let chartType: ChartType = "scatter"; // Default
     const count = overridePatientIds ? overridePatientIds.length : patientIds.length;
+
     if (output_type === "categorial" && duration_type === "interval") {
       chartType = count > 1 ? "line" : "bar";
     } else if (output_type === "range" && duration_type === "point") {
       chartType = "scatter";
     } else if (output_type === "range" && duration_type === "interval") {
-      if (count > 1) {
-        toast({
-          title: "Under Development",
-          description: `Continuous interval charts for multiple patients are under development.`,
-          variant: "default",
-        });
-        return { success: false, errorMessage: `Under Development (${output_type} + ${duration_type} for multiple patients)` };
-      }
-      chartType = "continuous-interval";
+      chartType = count > 1 ? "analytics" : "continuous-interval"; // "analytics" will drop through to PatientStatusAnalytics
     }
 
     return await onItemClick({

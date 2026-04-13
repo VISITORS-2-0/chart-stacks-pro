@@ -7,6 +7,7 @@ import { PatientStateGantt } from "./PatientStateGantt";
 import { PatientContinuousIntervalChart } from "./PatientContinuousIntervalChart";
 import { PatientMultiLineChart } from "./PatientMultiLineChart";
 import { SinglePatientAbstractionPanel, AbstractionInterval, ValueLevel } from "./SinglePatientAbstractionPanel";
+import { RangeCutoffConfig } from "./RangeCutoffConfig";
 import { useState, useMemo } from "react";
 
 export type ZoomLevel = 'years' | 'months' | 'days';
@@ -23,6 +24,9 @@ interface TemporalChartCardProps {
     onDrillDown?: (date: Date, currentLevel: ZoomLevel) => void;
     onZoomOut?: (currentLevel: ZoomLevel) => void;
     onNavigate?: (direction: 'next' | 'prev', currentZoom: ZoomLevel, focusDate: Date | null) => void;
+    cutoffs?: number[];
+    isCutoffsBalanced?: boolean;
+    onApplyCutoffs?: (cutoffs: number[], isBalanced: boolean) => void;
 }
 
 export function TemporalChartCard({
@@ -37,6 +41,9 @@ export function TemporalChartCard({
     onDrillDown,
     onZoomOut,
     onNavigate,
+    cutoffs,
+    isCutoffsBalanced,
+    onApplyCutoffs,
 }: TemporalChartCardProps) {
     const singlePatient = useOnePatientRaw();
     const multiPatientAbstract = useMultiPatientAbstract();
@@ -199,6 +206,15 @@ export function TemporalChartCard({
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    {onApplyCutoffs && isMultiPatient && conceptData !== undefined && chartType === 'analytics' && (conceptData.min !== undefined || conceptData['min-value'] !== undefined) && (
+                        <RangeCutoffConfig
+                            minValue={conceptData.min ?? conceptData['min-value'] ?? 0}
+                            maxValue={conceptData.max ?? conceptData['max-value'] ?? 100}
+                            currentCutoffs={cutoffs}
+                            isBalanced={isCutoffsBalanced}
+                            onApply={onApplyCutoffs}
+                        />
+                    )}
                     {zoomLevel !== 'years' && (
                         <Button
                             variant="outline"

@@ -8,7 +8,7 @@ import { PatternExplorer } from "./PatternExplorer";
 import { DataExport } from "./DataExport";
 
 import { TimeRange } from "@/components/FilterBar";
-import { fetchAbstractionData, fetchRawData, fetchMultiplePatientsAbstraction, QueryParams, PatternQueryParams } from "@/api/temporal";
+import { fetchAbstractionData, fetchRawData, fetchMultiplePatientsAbstraction, fetchMultiplePatientsNumericAbstraction, QueryParams, PatternQueryParams, NumericPatternQueryParams } from "@/api/temporal";
 import { calculateDateRange } from "@/utils/dateUtils";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -20,6 +20,8 @@ interface ActiveChart extends MenuItem {
   currentInterval?: string; // Track current interval for Pattern charts (YE, ME, D)
   currentStart?: string;
   currentEnd?: string;
+  cutoffs?: number[];
+  isBalanced?: boolean;
 }
 
 type TabValue = "exploration" | "population" | "pattern" | "export" | string;
@@ -34,7 +36,61 @@ const Index = () => {
   const [patientCount] = useState(10000);
   const { toast } = useToast();
 
-  const handleItemClick = async (item: MenuItem, overridePatientIds?: string[]): Promise<{success: boolean, errorMessage?: string}> => {
+  const buildRanges = (cutoffs?: number[], conceptData?: any) => {
+    if (!cutoffs || cutoffs.length === 0) return undefined;
+    const minValue = conceptData?.min ?? conceptData?.['min-value'] ?? 0;
+    const maxValue = conceptData?.max ?? conceptData?.['max-value'] ?? 100;
+    const ranges = [];
+    let prev = minValue;
+    for (const cut of cutoffs) {
+      ranges.push({ min: prev, max: cut });
+      prev = cut;
+    }
+    ranges.push({ min: prev, max: maxValue });
+    return ranges;
+  };
+
+  const handleApplyCutoffs = async (chartId: string, cutoffs: number[], isBalanced: boolean) => {
+    const chartIndex = activeCharts.findIndex(c => c.id === chartId);
+    if (chartIndex === -1) return;
+
+    const chart = activeCharts[chartIndex];
+    if (!chart.originalItem) return;
+
+    try {
+      const { start_date, end_date } = calculateDateRange(timeRange);
+      const reqStart = chart.currentStart || start_date;
+      const reqEnd = chart.currentEnd || end_date;
+      const fetchInterval = chart.currentInterval || 'YE';
+
+      const patternParams: NumericPatternQueryParams = {
+        patients_list: patientIds,
+        concept_name: chart.title,
+        start_date: reqStart,
+        end_date: reqEnd,
+        interval_str: fetchInterval,
+        method: 'most_time_spent',
+        ranges: buildRanges(cutoffs, chart.conceptData)
+      };
+
+      const response = await fetchMultiplePatientsNumericAbstraction(patternParams);
+
+      const updatedCharts = [...activeCharts];
+      updatedCharts[chartIndex] = {
+        ...chart,
+        externalData: processPatternResult(response.result, fetchInterval),
+        conceptData: response.concept_data,
+        cutoffs,
+        isBalanced
+      };
+      setActiveCharts(updatedCharts);
+    } catch (error) {
+      console.error("Failed to apply cutoffs", error);
+      toast({ title: "Error applying cutoffs", description: String(error), variant: "destructive" });
+    }
+  };
+
+  const handleItemClick = async (item: MenuItem, overridePatientIds?: string[]): Promise<{ success: boolean, errorMessage?: string }> => {
     // Check if chart already exists
     const exists = activeCharts.some((chart) => chart.id === item.id);
     if (exists) return { success: true };
@@ -65,15 +121,35 @@ const Index = () => {
 
       // 3. Call API based on type
       const parentSection = item.parent as string;
+      const isContinuousPattern = item.originalItem?.output_type === "range" && item.originalItem?.duration_type === "interval";
+      let isRawType = parentSection.toLowerCase().includes('raw') || isContinuousPattern;
 
-      const isRawType = parentSection.toLowerCase().includes('raw');
-
-      if (parentSection === "State" || parentSection === "Pattern" || parentSection === "Context") {
-        if (parentSection === "State") {
+      if (currentPatientIds.length === 1) {
+        if (isRawType) {
+          const response = await fetchRawData(params);
+          resultData = response.result;
+          conceptData = response.concept_data;
+        } else {
           const response = await fetchAbstractionData(params);
           resultData = response.result;
           conceptData = response.concept_data;
-        } else if (parentSection === "Pattern") {
+        }
+      } else {
+        if (isContinuousPattern) {
+          const patternParams: NumericPatternQueryParams = {
+            ...params,
+            interval_str: 'YE',
+            method: 'most_time_spent'
+          };
+          const response = await fetchMultiplePatientsNumericAbstraction(patternParams);
+          conceptData = response.concept_data;
+          resultData = processPatternResult(response.result, 'YE');
+          isRawType = false;
+        } else if (isRawType) {
+          const response = await fetchRawData(params);
+          resultData = response.result;
+          conceptData = response.concept_data;
+        } else {
           const patternParams: PatternQueryParams = {
             ...params,
             interval_str: 'YE',
@@ -81,49 +157,8 @@ const Index = () => {
           };
           const response = await fetchMultiplePatientsAbstraction(patternParams);
           conceptData = response.concept_data;
-
-          // Transform Pattern Result to PatientStatusProcessedRow format
-          resultData = response.result.map(item => {
-            const d = new Date(item.StartTime);
-            const yStr = d.getFullYear().toString();
-
-            const row: any = {
-              month: yStr, // Using YYYY as key as we default to 'YE'
-              // Also add a "year" property or similar if needed, but "month" is what PatientStatusAnalytics expects for x-axis key currently
-            };
-
-            // Flatted Value_Dict
-            if (item.Value_Dict) {
-              Object.entries(item.Value_Dict).forEach(([key, val]) => {
-                row[key] = val;
-                // Calculate percentage
-                row[`${key}Pct`] = item.TotalPatientsWithData > 0 ? (val / item.TotalPatientsWithData) * 100 : 0;
-              });
-            }
-            return row;
-          });
-
-          // Sort by time
-          resultData.sort((a: any, b: any) => a.month.localeCompare(b.month));
-
-        } else {
-          // Fallback to abstract (Context)
-          const response = await fetchAbstractionData(params);
-          resultData = response.result;
-          conceptData = response.concept_data;
+          resultData = processPatternResult(response.result, 'YE');
         }
-      } else if (isRawType) {
-        console.log("Sending Raw Data Request with params:", JSON.stringify(params, null, 2));
-        const response = await fetchRawData(params);
-        console.log("Received Raw Data Response:", JSON.stringify(response, null, 2));
-
-        resultData = response.result;
-        conceptData = response.concept_data;
-
-      } else {
-        const response = await fetchAbstractionData(params);
-        resultData = response.result;
-        conceptData = response.concept_data;
       }
 
       const newChart: ActiveChart = {
@@ -131,7 +166,7 @@ const Index = () => {
         externalData: resultData,
         conceptData: conceptData,
         isRaw: isRawType,
-        currentInterval: item.parent === 'Pattern' ? 'YE' : undefined,
+        currentInterval: (!isRawType && currentPatientIds.length > 1) ? 'YE' : undefined,
         currentStart: params.start_date,
         currentEnd: params.end_date,
       };
@@ -182,8 +217,8 @@ const Index = () => {
     if (chartIndex === -1) return;
 
     const chart = activeCharts[chartIndex];
-    // Only for Pattern charts for now
-    if (chart.parent !== 'Pattern') return;
+    // Only for multi-patient abstractions
+    if (patientIds.length <= 1 || chart.isRaw) return;
 
     const currentInterval = chart.currentInterval || 'YE';
     let nextInterval = 'YE';
@@ -211,16 +246,31 @@ const Index = () => {
     }
 
     try {
-      const params: PatternQueryParams = {
-        patients_list: patientIds,
-        concept_name: chart.title,
-        start_date: startDateStr,
-        end_date: endDateStr,
-        interval_str: nextInterval,
-        method: 'most_time_spent'
-      };
+      const isContinuous = chart.originalItem?.output_type === "range" && chart.originalItem?.duration_type === "interval";
+      let response;
 
-      const response = await fetchMultiplePatientsAbstraction(params);
+      if (isContinuous) {
+        const params: NumericPatternQueryParams = {
+          patients_list: patientIds,
+          concept_name: chart.title,
+          start_date: startDateStr,
+          end_date: endDateStr,
+          interval_str: nextInterval,
+          method: 'most_time_spent',
+          ranges: buildRanges(chart.cutoffs, chart.conceptData)
+        };
+        response = await fetchMultiplePatientsNumericAbstraction(params);
+      } else {
+        const params: PatternQueryParams = {
+          patients_list: patientIds,
+          concept_name: chart.title,
+          start_date: startDateStr,
+          end_date: endDateStr,
+          interval_str: nextInterval,
+          method: 'most_time_spent'
+        };
+        response = await fetchMultiplePatientsAbstraction(params);
+      }
 
       // Update Chart
       const updatedCharts = [...activeCharts];
@@ -247,7 +297,7 @@ const Index = () => {
     }
 
     const chart = activeCharts[chartIndex];
-    if (chart.parent !== 'Pattern' || !chart.currentInterval) return;
+    if (patientIds.length <= 1 || chart.isRaw || !chart.currentInterval) return;
 
     let prevInterval = '';
     let startDateStr = '';
@@ -274,16 +324,30 @@ const Index = () => {
     }
 
     try {
-      const params: PatternQueryParams = {
-        patients_list: patientIds,
-        concept_name: chart.title,
-        start_date: startDateStr,
-        end_date: endDateStr,
-        interval_str: prevInterval,
-        method: 'most_time_spent'
-      };
-
-      const response = await fetchMultiplePatientsAbstraction(params);
+      const isContinuous = chart.originalItem?.output_type === "range" && chart.originalItem?.duration_type === "interval";
+      let response;
+      if (isContinuous) {
+        const params: NumericPatternQueryParams = {
+          patients_list: patientIds,
+          concept_name: chart.title,
+          start_date: startDateStr,
+          end_date: endDateStr,
+          interval_str: prevInterval,
+          method: 'most_time_spent',
+          ranges: buildRanges(chart.cutoffs, chart.conceptData)
+        };
+        response = await fetchMultiplePatientsNumericAbstraction(params);
+      } else {
+        const params: PatternQueryParams = {
+          patients_list: patientIds,
+          concept_name: chart.title,
+          start_date: startDateStr,
+          end_date: endDateStr,
+          interval_str: prevInterval,
+          method: 'most_time_spent'
+        };
+        response = await fetchMultiplePatientsAbstraction(params);
+      }
 
       const updatedCharts = [...activeCharts];
       updatedCharts[chartIndex] = {
@@ -308,7 +372,7 @@ const Index = () => {
     if (chartIndex === -1) return;
 
     const chart = activeCharts[chartIndex];
-    if (chart.parent !== 'Pattern') return; // Only abstractions for now
+    if (patientIds.length <= 1 || chart.isRaw) return;
 
     let startDateStr = '';
     let endDateStr = '';
@@ -357,16 +421,30 @@ const Index = () => {
     }
 
     try {
-      const params: PatternQueryParams = {
-        patients_list: patientIds,
-        concept_name: chart.title,
-        start_date: startDateStr,
-        end_date: endDateStr,
-        interval_str: fetchInterval,
-        method: 'most_time_spent'
-      };
-
-      const response = await fetchMultiplePatientsAbstraction(params);
+      const isContinuous = chart.originalItem?.output_type === "range" && chart.originalItem?.duration_type === "interval";
+      let response;
+      if (isContinuous) {
+        const params: NumericPatternQueryParams = {
+          patients_list: patientIds,
+          concept_name: chart.title,
+          start_date: startDateStr,
+          end_date: endDateStr,
+          interval_str: fetchInterval,
+          method: 'most_time_spent',
+          ranges: buildRanges(chart.cutoffs, chart.conceptData)
+        };
+        response = await fetchMultiplePatientsNumericAbstraction(params);
+      } else {
+        const params: PatternQueryParams = {
+          patients_list: patientIds,
+          concept_name: chart.title,
+          start_date: startDateStr,
+          end_date: endDateStr,
+          interval_str: fetchInterval,
+          method: 'most_time_spent'
+        };
+        response = await fetchMultiplePatientsAbstraction(params);
+      }
 
       const updatedCharts = [...activeCharts];
       updatedCharts[chartIndex] = {
@@ -410,6 +488,7 @@ const Index = () => {
           onChartDrillDown={handleChartDrillDown}
           onChartZoomOut={handleChartZoomOut}
           onChartNavigate={handleChartNavigate}
+          onApplyCutoffs={handleApplyCutoffs}
         />
       );
     }
@@ -432,9 +511,9 @@ const Index = () => {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">
-        <DashboardSidebar 
-          onItemClick={handleItemClick} 
-          patientIds={patientIds} 
+        <DashboardSidebar
+          onItemClick={handleItemClick}
+          patientIds={patientIds}
           onCloseAll={handleCloseAll}
         />
 

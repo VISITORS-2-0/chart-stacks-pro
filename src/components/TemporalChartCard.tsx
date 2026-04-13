@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOnePatientRaw, useMultiPatientAbstract, useMultiPatientRaw } from "../hooks/useTemporalData";
 import { PatientStatusAnalytics } from "./PatientStatusAnalytics";
 import { PatientStateGantt } from "./PatientStateGantt";
+import { PatientContinuousIntervalChart } from "./PatientContinuousIntervalChart";
 import { PatientMultiLineChart } from "./PatientMultiLineChart";
 import { SinglePatientAbstractionPanel, AbstractionInterval, ValueLevel } from "./SinglePatientAbstractionPanel";
+import { RangeCutoffConfig } from "./RangeCutoffConfig";
 import { useState, useMemo } from "react";
 
 export type ZoomLevel = 'years' | 'months' | 'days';
@@ -22,6 +24,9 @@ interface TemporalChartCardProps {
     onDrillDown?: (date: Date, currentLevel: ZoomLevel) => void;
     onZoomOut?: (currentLevel: ZoomLevel) => void;
     onNavigate?: (direction: 'next' | 'prev', currentZoom: ZoomLevel, focusDate: Date | null) => void;
+    cutoffs?: number[];
+    isCutoffsBalanced?: boolean;
+    onApplyCutoffs?: (cutoffs: number[], isBalanced: boolean) => void;
 }
 
 export function TemporalChartCard({
@@ -36,6 +41,9 @@ export function TemporalChartCard({
     onDrillDown,
     onZoomOut,
     onNavigate,
+    cutoffs,
+    isCutoffsBalanced,
+    onApplyCutoffs,
 }: TemporalChartCardProps) {
     const singlePatient = useOnePatientRaw();
     const multiPatientAbstract = useMultiPatientAbstract();
@@ -69,8 +77,9 @@ export function TemporalChartCard({
     const filteredData = useMemo(() => {
         if (!data) return [];
 
-        // If external drill-down is provided, assume parent manages filtering/data
-        if (onDrillDown) return data;
+        // We no longer bypass filtering here even if onDrillDown is provided,
+        // because we still want to benefit from the generic client-side filtering 
+        // fallback for single patients or raw data sets.
 
         // If 'years', show everything (charts handle aggregation)
         // If 'months', filter by focusDate year
@@ -197,6 +206,15 @@ export function TemporalChartCard({
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    {onApplyCutoffs && isMultiPatient && conceptData !== undefined && chartType === 'analytics' && (conceptData.min !== undefined || conceptData['min-value'] !== undefined) && (
+                        <RangeCutoffConfig
+                            minValue={conceptData.min ?? conceptData['min-value'] ?? 0}
+                            maxValue={conceptData.max ?? conceptData['max-value'] ?? 100}
+                            currentCutoffs={cutoffs}
+                            isBalanced={isCutoffsBalanced}
+                            onApply={onApplyCutoffs}
+                        />
+                    )}
                     {zoomLevel !== 'years' && (
                         <Button
                             variant="outline"
@@ -228,7 +246,15 @@ export function TemporalChartCard({
                 )}
 
                 {!loading && !error && filteredData.length > 0 && (
-                    isRaw ? (
+                    chartType === 'continuous-interval' ? (
+                        <PatientContinuousIntervalChart
+                            data={data as any}
+                            zoomLevel={zoomLevel}
+                            onDrillDown={handleDrillDown}
+                            conceptData={conceptData}
+                            focusDate={focusDate}
+                        />
+                    ) : isRaw ? (
                         <PatientMultiLineChart
                             data={filteredData as any}
                             zoomLevel={zoomLevel}

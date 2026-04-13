@@ -35,7 +35,7 @@ export function RangeCutoffConfig({ minValue, maxValue, currentCutoffs, isBalanc
     const handleCountChange = (value: string) => {
         const count = parseInt(value, 10);
         setCutoffCount(count);
-        
+
         // Adjust custom cutoffs array size
         setCustomCutoffs(prev => {
             if (prev.length === count) return prev;
@@ -65,7 +65,7 @@ export function RangeCutoffConfig({ minValue, maxValue, currentCutoffs, isBalanc
         } else {
             // Validate custom cutoffs
             finalCutoffs = customCutoffs.map(c => parseFloat(c));
-            
+
             // Check for valid numbers
             if (finalCutoffs.some(isNaN)) {
                 setError('All cutoffs must be valid numbers.');
@@ -99,15 +99,15 @@ export function RangeCutoffConfig({ minValue, maxValue, currentCutoffs, isBalanc
                     Range Settings
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80" align="end">
+            <PopoverContent className="w-80 max-h-[45vh] overflow-y-auto" align="end">
                 <div className="space-y-4">
                     <h4 className="font-medium leading-none text-sm">Numeric Ranges Configuration</h4>
                     <p className="text-sm text-muted-foreground">
                         Define how the data defaults to buckets. Range lies between {minValue} and {maxValue}.
                     </p>
 
-                    <RadioGroup 
-                        value={isBalanced ? "balanced" : "unbalanced"} 
+                    <RadioGroup
+                        value={isBalanced ? "balanced" : "unbalanced"}
                         onValueChange={(val) => setIsBalanced(val === "balanced")}
                         className="flex flex-col space-y-1"
                     >
@@ -143,10 +143,10 @@ export function RangeCutoffConfig({ minValue, maxValue, currentCutoffs, isBalanc
                             {customCutoffs.map((val, idx) => (
                                 <div key={idx} className="flex items-center gap-3">
                                     <span className="text-xs text-muted-foreground w-12 text-right">Cutoff {idx + 1}</span>
-                                    <Input 
-                                        type="number" 
+                                    <Input
+                                        type="number"
                                         step="any"
-                                        value={val} 
+                                        value={val}
                                         onChange={(e) => handleCustomChange(idx, e.target.value)}
                                         className="h-8"
                                         placeholder="Value"

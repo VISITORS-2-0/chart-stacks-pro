@@ -281,8 +281,6 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
                     );
                 })}
             </div>
-
-
         </div>
     );
 }

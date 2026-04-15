@@ -17,6 +17,7 @@ interface ActiveChart extends MenuItem {
   isRaw?: boolean;
   cutoffs?: number[];
   isBalanced?: boolean;
+  patientIds?: string[];
 }
 
 interface DataExplorationProps {
@@ -114,7 +115,7 @@ export function DataExploration({
                   id={chart.id}
                   title={chart.title}
                   onRemove={onRemoveChart}
-                  isMultiPatient={patientIds.length > 1}
+                  patientIds={chart.patientIds || patientIds}
                   isRaw={chart.isRaw}
                   chartType={chart.chartType}
                   externalData={chart.externalData}

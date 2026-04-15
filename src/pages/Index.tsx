@@ -22,6 +22,7 @@ interface ActiveChart extends MenuItem {
   currentEnd?: string;
   cutoffs?: number[];
   isBalanced?: boolean;
+  patientIds?: string[];
 }
 
 type TabValue = "exploration" | "population" | "pattern" | "export" | string;
@@ -64,7 +65,7 @@ const Index = () => {
       const fetchInterval = chart.currentInterval || 'YE';
 
       const patternParams: NumericPatternQueryParams = {
-        patients_list: patientIds,
+        patients_list: chart.patientIds || patientIds,
         concept_name: chart.title,
         start_date: reqStart,
         end_date: reqEnd,
@@ -169,6 +170,7 @@ const Index = () => {
         currentInterval: (!isRawType && currentPatientIds.length > 1) ? 'YE' : undefined,
         currentStart: params.start_date,
         currentEnd: params.end_date,
+        patientIds: currentPatientIds,
       };
 
       setActiveCharts((prev) => [...prev, newChart]);
@@ -218,7 +220,8 @@ const Index = () => {
 
     const chart = activeCharts[chartIndex];
     // Only for multi-patient abstractions
-    if (patientIds.length <= 1 || chart.isRaw) return;
+    const currentChartPatientIds = chart.patientIds || patientIds;
+    if (currentChartPatientIds.length <= 1 || chart.isRaw) return;
 
     const currentInterval = chart.currentInterval || 'YE';
     let nextInterval = 'YE';
@@ -251,7 +254,7 @@ const Index = () => {
 
       if (isContinuous) {
         const params: NumericPatternQueryParams = {
-          patients_list: patientIds,
+          patients_list: currentChartPatientIds,
           concept_name: chart.title,
           start_date: startDateStr,
           end_date: endDateStr,
@@ -262,7 +265,7 @@ const Index = () => {
         response = await fetchMultiplePatientsNumericAbstraction(params);
       } else {
         const params: PatternQueryParams = {
-          patients_list: patientIds,
+          patients_list: currentChartPatientIds,
           concept_name: chart.title,
           start_date: startDateStr,
           end_date: endDateStr,
@@ -297,7 +300,8 @@ const Index = () => {
     }
 
     const chart = activeCharts[chartIndex];
-    if (patientIds.length <= 1 || chart.isRaw || !chart.currentInterval) return;
+    const currentChartPatientIds = chart.patientIds || patientIds;
+    if (currentChartPatientIds.length <= 1 || chart.isRaw || !chart.currentInterval) return;
 
     let prevInterval = '';
     let startDateStr = '';
@@ -328,7 +332,7 @@ const Index = () => {
       let response;
       if (isContinuous) {
         const params: NumericPatternQueryParams = {
-          patients_list: patientIds,
+          patients_list: currentChartPatientIds,
           concept_name: chart.title,
           start_date: startDateStr,
           end_date: endDateStr,
@@ -339,7 +343,7 @@ const Index = () => {
         response = await fetchMultiplePatientsNumericAbstraction(params);
       } else {
         const params: PatternQueryParams = {
-          patients_list: patientIds,
+          patients_list: currentChartPatientIds,
           concept_name: chart.title,
           start_date: startDateStr,
           end_date: endDateStr,
@@ -372,7 +376,8 @@ const Index = () => {
     if (chartIndex === -1) return;
 
     const chart = activeCharts[chartIndex];
-    if (patientIds.length <= 1 || chart.isRaw) return;
+    const currentChartPatientIds = chart.patientIds || patientIds;
+    if (currentChartPatientIds.length <= 1 || chart.isRaw) return;
 
     let startDateStr = '';
     let endDateStr = '';
@@ -436,7 +441,7 @@ const Index = () => {
         response = await fetchMultiplePatientsNumericAbstraction(params);
       } else {
         const params: PatternQueryParams = {
-          patients_list: patientIds,
+          patients_list: currentChartPatientIds,
           concept_name: chart.title,
           start_date: startDateStr,
           end_date: endDateStr,

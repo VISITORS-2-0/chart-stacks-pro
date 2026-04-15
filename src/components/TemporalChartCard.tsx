@@ -1,6 +1,7 @@
 import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useOnePatientRaw, useMultiPatientAbstract, useMultiPatientRaw } from "../hooks/useTemporalData";
 import { PatientStatusAnalytics } from "./PatientStatusAnalytics";
 import { PatientStateGantt } from "./PatientStateGantt";
@@ -16,7 +17,7 @@ interface TemporalChartCardProps {
     id: string;
     title: string;
     onRemove: (id: string) => void;
-    isMultiPatient?: boolean;
+    patientIds?: string[];
     isRaw?: boolean;
     chartType?: string;
     externalData?: any[];
@@ -33,7 +34,6 @@ export function TemporalChartCard({
     id,
     title,
     onRemove,
-    isMultiPatient = false,
     isRaw = false,
     chartType,
     externalData,
@@ -44,7 +44,10 @@ export function TemporalChartCard({
     cutoffs,
     isCutoffsBalanced,
     onApplyCutoffs,
+    patientIds,
 }: TemporalChartCardProps) {
+    const isMultiPatient = patientIds ? patientIds.length > 1 : false;
+
     const singlePatient = useOnePatientRaw();
     const multiPatientAbstract = useMultiPatientAbstract();
     const multiPatientRaw = useMultiPatientRaw();
@@ -216,7 +219,26 @@ export function TemporalChartCard({
         <Card className="border border-border shadow-sm animate-in fade-in-50 duration-300 w-full h-[500px] flex flex-col">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="flex flex-col gap-1">
-                    <CardTitle className="text-lg font-semibold">{title}</CardTitle>
+                    <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg font-semibold">{title}</CardTitle>
+                        {patientIds && patientIds.length > 0 && (
+                            <TooltipProvider>
+                                <Tooltip delayDuration={300}>
+                                    <TooltipTrigger>
+                                        <span className="text-sm font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded cursor-help inline-flex items-center">
+                                            {patientIds.length === 1
+                                                ? `Patient ${patientIds[0]}`
+                                                : `${patientIds.length} Patients: ${patientIds.slice(0, 3).join(', ')}${patientIds.length > 3 ? '...' : ''}`}
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-[300px] flex-wrap break-words" side="bottom" align="start">
+                                        <p className="text-xs font-semibold mb-1 w-full flex">Patients Included:</p>
+                                        <p className="text-xs w-full flex">{patientIds.join(', ')}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+                    </div>
                     <p className="text-xs text-muted-foreground">
                         {loading ? "Loading..." : `${filteredData.length} data points`} ({zoomLevel})
                     </p>

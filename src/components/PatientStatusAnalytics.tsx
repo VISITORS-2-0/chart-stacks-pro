@@ -2,7 +2,6 @@ import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TemporalRow, PatientStatusProcessedRow } from '../types/temporal';
 
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface PatientStatusAnalyticsProps {
@@ -202,17 +201,20 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
     const isZoomedIn = zoomLevel === 'months' || zoomLevel === 'days';
 
     return (
-        <div className="w-full h-full flex flex-col p-4 relative">
-            <div className="w-full h-full flex flex-col space-y-4">
+        <div className="w-full h-full overflow-y-auto p-4 relative flex flex-col">
+            <div
+                className="w-full flex-1 flex flex-col space-y-4 min-h-0"
+                style={{ minHeight: `${categories.length * 125}px` }}
+            >
                 {categories.map((category: string, index: number) => {
                     const isLast = index === categories.length - 1;
 
                     return (
-                        <div key={category} className="flex-1 min-h-0 relative">
-                            <h3 className="text-sm font-medium mb-1 text-center" style={{ color: categoryColors[category] }}>
+                        <div key={category} className="flex-1 flex flex-col relative w-full min-h-0">
+                            <h3 className="text-sm font-medium mb-1 text-center shrink-0" style={{ color: categoryColors[category] }}>
                                 {category.replace('_', ' ')}
                             </h3>
-                            <div className="w-full h-[calc(100%-1.5rem)]">
+                            <div className="w-full flex-1 min-h-0">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart
                                         data={chartData}
@@ -254,8 +256,10 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
                                         />
                                         <YAxis
                                             domain={[0, 100]}
+                                            ticks={[0, 50, 100]}
                                             tickFormatter={(value) => `${value}%`}
                                             fontSize={12}
+                                            width={45}
                                         />
                                         <Tooltip content={<CustomTooltip />} />
                                         <Bar
@@ -274,29 +278,7 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
                 })}
             </div>
 
-            {isZoomedIn && onNavigate && (
-                <div className="flex justify-center items-center gap-4 mt-4 shrink-0">
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8 bg-background/80 backdrop-blur-sm"
-                        onClick={() => onNavigate('prev')}
-                    >
-                        <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <span className="text-sm font-semibold text-muted-foreground bg-background/80 px-2 py-1 rounded min-w-[120px] text-center">
-                        {focusDate ? (zoomLevel === 'months' ? focusDate.getFullYear() : focusDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })) : ''}
-                    </span>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8 bg-background/80 backdrop-blur-sm"
-                        onClick={() => onNavigate('next')}
-                    >
-                        <ChevronRight className="h-4 w-4" />
-                    </Button>
-                </div>
-            )}
+
         </div>
     );
 }

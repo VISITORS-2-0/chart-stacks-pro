@@ -1,4 +1,4 @@
-import { X, ZoomIn, ZoomOut } from "lucide-react";
+import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOnePatientRaw, useMultiPatientAbstract, useMultiPatientRaw } from "../hooks/useTemporalData";
@@ -196,6 +196,22 @@ export function TemporalChartCard({
         }
     };
 
+    const handleNavigateWrapper = (dir: 'next' | 'prev') => {
+        if (!focusDate) return;
+        const y = focusDate.getFullYear();
+        const m = focusDate.getMonth();
+        let newFocus = new Date(focusDate);
+        if (zoomLevel === 'months') {
+            newFocus.setFullYear(y + (dir === 'next' ? 1 : -1));
+        } else if (zoomLevel === 'days') {
+            newFocus.setMonth(m + (dir === 'next' ? 1 : -1));
+        }
+        setFocusDate(newFocus);
+        if (onNavigate) {
+            onNavigate(dir, zoomLevel, focusDate);
+        }
+    };
+
     return (
         <Card className="border border-border shadow-sm animate-in fade-in-50 duration-300 w-full h-[500px] flex flex-col">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -206,6 +222,29 @@ export function TemporalChartCard({
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    {(zoomLevel === 'months' || zoomLevel === 'days') && !!onNavigate && (
+                        <div className="flex justify-center items-center gap-1 shrink-0 bg-muted/50 rounded-md p-1 border">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => handleNavigateWrapper('prev')}
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <span className="text-xs font-semibold text-muted-foreground px-2 text-center min-w-[90px]">
+                                {focusDate ? (zoomLevel === 'months' ? focusDate.getFullYear() : focusDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })) : ''}
+                            </span>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => handleNavigateWrapper('next')}
+                            >
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    )}
                     {onApplyCutoffs && isMultiPatient && conceptData !== undefined && chartType === 'analytics' && (conceptData.min !== undefined || conceptData['min-value'] !== undefined) && (
                         <RangeCutoffConfig
                             minValue={conceptData.min ?? conceptData['min-value'] ?? 0}
@@ -277,20 +316,7 @@ export function TemporalChartCard({
                             focusDate={focusDate}
                             onDrillDown={handleDrillDown}
                             conceptData={conceptData}
-                            onNavigate={(dir) => {
-                                if (focusDate) {
-                                    const y = focusDate.getFullYear();
-                                    const m = focusDate.getMonth();
-                                    let newFocus = new Date(focusDate);
-                                    if (zoomLevel === 'months') {
-                                        newFocus.setFullYear(y + (dir === 'next' ? 1 : -1));
-                                    } else if (zoomLevel === 'days') {
-                                        newFocus.setMonth(m + (dir === 'next' ? 1 : -1));
-                                    }
-                                    setFocusDate(newFocus);
-                                }
-                                if (onNavigate) onNavigate(dir, zoomLevel, focusDate);
-                            }}
+                            onNavigate={handleNavigateWrapper}
                         />
                     )
                 )}

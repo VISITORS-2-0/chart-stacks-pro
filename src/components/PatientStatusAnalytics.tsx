@@ -204,13 +204,17 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
         <div className="w-full h-full overflow-y-auto p-4 relative flex flex-col">
             <div
                 className="w-full flex-1 flex flex-col space-y-4 min-h-0"
-                style={{ minHeight: `${categories.length * 125}px` }}
+                style={{ minHeight: `${(categories.length * 125) + 30}px` }}
             >
                 {categories.map((category: string, index: number) => {
                     const isLast = index === categories.length - 1;
 
                     return (
-                        <div key={category} className="flex-1 flex flex-col relative w-full min-h-0">
+                        <div
+                            key={category}
+                            className="flex flex-col relative w-full min-h-0"
+                            style={{ flex: isLast ? '1 1 155px' : '1 1 125px' }}
+                        >
                             <h3 className="text-sm font-medium mb-1 text-center shrink-0" style={{ color: categoryColors[category] }}>
                                 {category.replace('_', ' ')}
                             </h3>

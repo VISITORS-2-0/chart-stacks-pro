@@ -15,6 +15,9 @@ interface ActiveChart extends MenuItem {
   externalData?: any[];
   conceptData?: any;
   isRaw?: boolean;
+  cutoffs?: number[];
+  isBalanced?: boolean;
+  patientIds?: string[];
 }
 
 interface DataExplorationProps {
@@ -31,6 +34,7 @@ interface DataExplorationProps {
   onChartDrillDown?: (chartId: string, date: Date, currentZoomLevel: ZoomLevel) => void;
   onChartZoomOut?: (chartId: string) => void;
   onChartNavigate?: (chartId: string, direction: 'next' | 'prev', currentZoom: ZoomLevel, focusDate: Date | null) => void;
+  onApplyCutoffs?: (chartId: string, cutoffs: number[], isBalanced: boolean) => void;
 }
 
 export function DataExploration({
@@ -45,7 +49,8 @@ export function DataExploration({
   patientCount,
   onChartDrillDown,
   onChartZoomOut,
-  onChartNavigate
+  onChartNavigate,
+  onApplyCutoffs
 }: DataExplorationProps) {
   const [brushRange, setBrushRange] = useState<{ startIndex?: number; endIndex?: number }>({});
 
@@ -110,7 +115,7 @@ export function DataExploration({
                   id={chart.id}
                   title={chart.title}
                   onRemove={onRemoveChart}
-                  isMultiPatient={chart.chartType === 'line' || chart.chartType === 'scatter'} // 'scatter' from Raw is also multi-patient effectively for this purpose?
+                  patientIds={chart.patientIds || patientIds}
                   isRaw={chart.isRaw}
                   chartType={chart.chartType}
                   externalData={chart.externalData}
@@ -118,6 +123,9 @@ export function DataExploration({
                   onDrillDown={(date, level) => onChartDrillDown && onChartDrillDown(chart.id, date, level)}
                   onZoomOut={() => onChartZoomOut && onChartZoomOut(chart.id)}
                   onNavigate={(direction, currentZoom, focusDate) => onChartNavigate && onChartNavigate(chart.id, direction, currentZoom, focusDate)}
+                  cutoffs={chart.cutoffs}
+                  isCutoffsBalanced={chart.isBalanced}
+                  onApplyCutoffs={(cutoffs, isBalanced) => onApplyCutoffs && onApplyCutoffs(chart.id, cutoffs, isBalanced)}
                 />
               ))}
             </div>

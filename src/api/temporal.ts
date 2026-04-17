@@ -4,12 +4,13 @@ import { TemporalRow, PatientStatusProcessedRow } from '../types/temporal';
 const DATA_SERVICE_URL = import.meta.env.VITE_DATA_SERVICE_URL || '';
 
 export interface ConceptData {
+    id?: string;
     name: string;
-    type: string;
-    allowed_values?: {
-        values: string[];
-        ordering: string;
-    };
+    type?: string;
+    concept_type?: string;
+    values?: string[];
+    "min-value"?: number;
+    "max-value"?: number;
 }
 
 export interface AbstractionResponse {
@@ -105,6 +106,30 @@ export const fetchMultiplePatientsAbstraction = async (params: PatternQueryParam
     }
 
     const data = await response.json();
+    return data;
+};
+
+export interface NumericPatternQueryParams extends PatternQueryParams {
+    ranges?: { min: number; max: number }[];
+}
+
+export const fetchMultiplePatientsNumericAbstraction = async (params: NumericPatternQueryParams): Promise<PatternResponse> => {
+    const response = await fetch(`http://localhost:8000/api/v1/visitors-queries/multiple-patients-numeric-abstraction`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Fetch Multiple Patients Numeric Abstraction Failed:', response.status, response.statusText, errorText);
+        throw new Error(`Failed to fetch numeric pattern data: ${response.statusText} - ${errorText}`);
+    }
+
+    const data = await response.json();
+
     return data;
 };
 

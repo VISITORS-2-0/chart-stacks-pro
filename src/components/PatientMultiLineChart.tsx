@@ -440,6 +440,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                                 shape="circle"
                                 name="Max"
                                 isAnimationActive={false}
+                                activeShape={false}
                             />
 
                             {/* Min Line - Blue */}
@@ -452,6 +453,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                                 shape="circle"
                                 name="Min"
                                 isAnimationActive={false}
+                                activeShape={false}
                             />
 
                             <Scatter
@@ -465,6 +467,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                                 onClick={handlePointClick}
                                 cursor="pointer"
                                 isAnimationActive={false}
+                                activeShape={false}
                             />
 
                             {/* Dummy Data for Hovering Empty Buckets */}
@@ -475,7 +478,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                                 name="Empty"
                                 opacity={0}
                                 isAnimationActive={false}
-                                activeShape={() => null}
+                                activeShape={false}
                             />
                         </ScatterChart>
                     </ResponsiveContainer>

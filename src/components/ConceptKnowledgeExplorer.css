@@ -193,6 +193,43 @@
   text-align: center;
 }
 
+/* Metadata Styles */
+.metadata-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed hsl(var(--border));
+}
+
+.metadata-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0;
+  gap: 1rem;
+}
+
+.metadata-indent {
+  padding-left: 1.25rem;
+  border-left: 2px solid hsl(var(--border));
+  margin-left: 0.25rem;
+}
+
+.metadata-label {
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap;
+}
+
+.metadata-value {
+  color: hsl(var(--foreground));
+  text-align: right;
+  word-break: break-all;
+}
+
 @media (max-width: 1024px) {
   .explorer-grid {
     display: flex;

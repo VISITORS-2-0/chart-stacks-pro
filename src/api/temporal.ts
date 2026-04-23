@@ -32,6 +32,19 @@ export interface ConceptKnowledgeResponse {
     "siblings": string[];
     "values"?: string[];
     "context"?: any;
+    "good_before"?: string;
+    "good_after"?: string;
+    "persistence"?: {
+        "local"?: string;
+        "global"?: string;
+    };
+    "mapping_function"?: string;
+    "time_steady"?: string;
+    "min"?: number | string;
+    "max"?: number | string;
+    "min-value"?: number | string;
+    "max-value"?: number | string;
+    "xml"?: any;
 }
 
 export interface QueryParams {

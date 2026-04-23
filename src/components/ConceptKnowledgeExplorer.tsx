@@ -107,6 +107,82 @@ export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> =
     );
   };
 
+  const renderMetadata = (data: any) => {
+    const xml = data?.xml;
+    if (!xml) return null;
+
+    // Helper to get formatted value with granularity
+    const formatValue = (obj: any) => {
+      if (!obj) return undefined;
+      if (typeof obj === 'string' || typeof obj === 'number') return String(obj);
+      const val = obj["@value"];
+      const gran = obj["@granularity"];
+      if (val !== undefined && gran !== undefined) return `${val} ${gran}`;
+      if (val !== undefined) return String(val);
+      return undefined;
+    };
+
+    // Find allowed values container (can be ordinal, numeric, or trend)
+    const allowedValues = 
+      xml["ordinal-allowed-values"] || 
+      xml["numeric-allowed-values"] || 
+      xml["trend-values"] ||
+      xml["gradient-trend-allowed-values"];
+    
+    // Robust search for persistence components
+    const persistence = xml.persistence || allowedValues?.persistence;
+    const localP = xml["local-persistence"] || persistence?.["local-persistence"];
+    const globalP = xml["global-persistence"] || persistence?.["global-persistence"];
+
+    const fields = [
+      { 
+        label: "Local Persistence", 
+        value: localP?.["@granularity"] || (localP ? "" : undefined) 
+      },
+      { 
+        label: "Good Before", 
+        value: formatValue(localP?.["good-before"] || localP?.good_before),
+        indent: true
+      },
+      { 
+        label: "Good After", 
+        value: formatValue(localP?.["good-after"] || localP?.good_after),
+        indent: true
+      },
+      { 
+        label: "Global Persistence", 
+        value: globalP?.["@granularity"] || formatValue(globalP) 
+      },
+    ];
+
+    const type = data["@concept-type"] || data.concept_type;
+    if (type === "state") {
+      const mf = xml["mapping-function"];
+      const criteria = mf?.["@rank-selection-criteria"];
+      fields.push({ label: "Mapping Function", value: criteria ? `Rank: ${criteria}` : undefined });
+    } else if (type === "trend") {
+      const sigVar = xml["@significant-variation"] || xml["significant-variation"] || xml["significant_variation"];
+      const timeSteady = xml["time-steady"] || xml["time_steady"];
+      fields.push({ label: "Significant Variation", value: formatValue(sigVar) });
+      fields.push({ label: "Time Steady", value: formatValue(timeSteady) });
+    }
+
+    const validFields = fields.filter(f => f.value !== undefined && f.value !== null);
+
+    if (validFields.length === 0) return null;
+
+    return (
+      <div className="metadata-container">
+        {validFields.map((field: any, idx) => (
+          <div key={idx} className={cn("metadata-item", field.indent && "metadata-indent")}>
+            <span className="metadata-label">{field.label}:</span>
+            <span className="metadata-value">{String(field.value)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   if (error) {
     return (
       <div className={cn("flex flex-col items-center justify-center p-8 text-center space-y-4", className)}>
@@ -133,7 +209,6 @@ export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> =
   return (
     <div className={cn("explorer-container", className)}>
       <div className="explorer-grid">
-        {/* Center */}
         <div className="explorer-cell explorer-center">
           <Card className="explorer-card center-card">
             <div className="explorer-card-header">
@@ -142,33 +217,98 @@ export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> =
                 Current Concept
               </span>
             </div>
-            <div className="explorer-card-content flex flex-col items-center justify-center p-4">
-              {loading ? (
-                <div className="w-full space-y-3">
-                  <Skeleton className="h-6 w-3/4 mx-auto" />
-                  <Skeleton className="h-4 w-1/2 mx-auto" />
-                  <div className="flex gap-1 justify-center">
-                    <Skeleton className="h-5 w-16" />
-                    <Skeleton className="h-5 w-16" />
-                  </div>
+            <div className="explorer-card-content p-0">
+              <ScrollArea className="h-full">
+                <div className="flex flex-col items-center p-4 min-h-full">
+                  {loading ? (
+                    <div className="w-full space-y-3">
+                      <Skeleton className="h-6 w-3/4 mx-auto" />
+                      <Skeleton className="h-4 w-1/2 mx-auto" />
+                      <div className="flex gap-1 justify-center">
+                        <Skeleton className="h-5 w-16" />
+                        <Skeleton className="h-5 w-16" />
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-center space-y-2 w-full">
+                        <h2 className="text-xl font-bold tracking-tight text-foreground break-all">
+                          {data?.["@name"]}
+                        </h2>
+                        <div className="flex flex-wrap gap-1 justify-center">
+                          <Badge variant="outline" className="capitalize">
+                            {data?.["@concept-type"]}
+                          </Badge>
+                          {(() => {
+                            const xml = data?.xml;
+                            const allowedValues = 
+                              xml?.["ordinal-allowed-values"] || 
+                              xml?.["numeric-allowed-values"] || 
+                              xml?.["trend-values"] ||
+                              xml?.["gradient-trend-allowed-values"];
+
+                            // Prioritize explicit min/max from the response
+                            const minVal = data?.min || 
+                                          data?.["min-value"] || 
+                                          allowedValues?.min || 
+                                          allowedValues?.["min-value"] || 
+                                          allowedValues?.["@min-value"] ||
+                                          xml?.min || 
+                                          xml?.["min-value"] ||
+                                          xml?.["@min-value"];
+
+                            const maxVal = data?.max || 
+                                          data?.["max-value"] || 
+                                          allowedValues?.max || 
+                                          allowedValues?.["max-value"] || 
+                                          allowedValues?.["@max-value"] ||
+                                          xml?.max || 
+                                          xml?.["max-value"] ||
+                                          xml?.["@max-value"];
+                            
+                            if (minVal !== undefined && maxVal !== undefined) {
+                              return (
+                                <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20">
+                                  {minVal} - {maxVal}
+                                </Badge>
+                              );
+                            }
+
+                            if (!data?.values || data.values.length === 0) return null;
+                            const numbers = data.values.map(v => parseFloat(v));
+                            const allNumbers = numbers.length > 0 && numbers.every(n => !isNaN(n));
+                            
+                            if (allNumbers) {
+                              if (numbers.length > 1) {
+                                const min = Math.min(...numbers);
+                                const max = Math.max(...numbers);
+                                return (
+                                  <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20">
+                                    {min} - {max}
+                                  </Badge>
+                                );
+                              } else {
+                                return (
+                                  <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20">
+                                    {data.values[0]}
+                                  </Badge>
+                                );
+                              }
+                            }
+                            
+                            return data.values.map(v => (
+                              <Badge key={v} variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20">
+                                {v}
+                              </Badge>
+                            ));
+                          })()}
+                        </div>
+                      </div>
+                      {data && renderMetadata(data)}
+                    </>
+                  )}
                 </div>
-              ) : (
-                <div className="text-center space-y-2">
-                  <h2 className="text-xl font-bold tracking-tight text-foreground break-all">
-                    {data?.["@name"]}
-                  </h2>
-                  <div className="flex flex-wrap gap-1 justify-center">
-                    <Badge variant="outline" className="capitalize">
-                      {data?.["@concept-type"]}
-                    </Badge>
-                    {data?.values?.map(v => (
-                      <Badge key={v} variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20">
-                        {v}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
+              </ScrollArea>
             </div>
           </Card>
           
@@ -176,7 +316,6 @@ export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> =
           <div className="connector connector-vertical connector-top" />
           <div className="connector connector-vertical connector-bottom" />
           <div className="connector connector-horizontal connector-left" />
-          <div className="connector connector-horizontal connector-right" />
         </div>
 
         {/* Top: Abstracted Into */}
@@ -209,15 +348,6 @@ export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> =
           )}
         </div>
 
-        {/* Right: Context */}
-        <div className="explorer-cell explorer-right">
-          {renderList(
-            "Context", 
-            contextItems, 
-            "No context available",
-            <ArrowRight className="h-4 w-4 text-purple-500" />
-          )}
-        </div>
       </div>
     </div>
   );

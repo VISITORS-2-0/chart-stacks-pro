@@ -11,6 +11,8 @@ import { TimeRange } from "@/components/FilterBar";
 import { fetchAbstractionData, fetchRawData, fetchMultiplePatientsAbstraction, fetchMultiplePatientsNumericAbstraction, QueryParams, PatternQueryParams, NumericPatternQueryParams } from "@/api/temporal";
 import { calculateDateRange } from "@/utils/dateUtils";
 import { useToast } from "@/components/ui/use-toast";
+import { useGeneratedDataMode } from "@/contexts/GeneratedDataContext";
+import { GlobalToggle } from "@/components/GlobalToggle";
 
 interface ActiveChart extends MenuItem {
   // data: Array<{ date: string; value: number }>;
@@ -30,6 +32,7 @@ type TabValue = "exploration" | "population" | "pattern" | "export" | string;
 const Index = () => {
   const [activeCharts, setActiveCharts] = useState<ActiveChart[]>([]);
   const [activeTab, setActiveTab] = useState<TabValue>("exploration");
+  const { useGeneratedData } = useGeneratedDataMode();
 
   // Lifted State
   const [patientIds, setPatientIds] = useState<string[]>([]);
@@ -71,7 +74,8 @@ const Index = () => {
         end_date: reqEnd,
         interval_str: fetchInterval,
         method: 'most_time_spent',
-        ranges: buildRanges(cutoffs, chart.conceptData)
+        ranges: buildRanges(cutoffs, chart.conceptData),
+        use_generated_data: useGeneratedData
       };
 
       const response = await fetchMultiplePatientsNumericAbstraction(patternParams);
@@ -113,7 +117,8 @@ const Index = () => {
       patients_list: currentPatientIds,
       concept_name: item.title,
       start_date,
-      end_date
+      end_date,
+      use_generated_data: useGeneratedData
     };
 
     try {
@@ -260,7 +265,8 @@ const Index = () => {
           end_date: endDateStr,
           interval_str: nextInterval,
           method: 'most_time_spent',
-          ranges: buildRanges(chart.cutoffs, chart.conceptData)
+          ranges: buildRanges(chart.cutoffs, chart.conceptData),
+          use_generated_data: useGeneratedData
         };
         response = await fetchMultiplePatientsNumericAbstraction(params);
       } else {
@@ -270,7 +276,8 @@ const Index = () => {
           start_date: startDateStr,
           end_date: endDateStr,
           interval_str: nextInterval,
-          method: 'most_time_spent'
+          method: 'most_time_spent',
+          use_generated_data: useGeneratedData
         };
         response = await fetchMultiplePatientsAbstraction(params);
       }
@@ -338,7 +345,8 @@ const Index = () => {
           end_date: endDateStr,
           interval_str: prevInterval,
           method: 'most_time_spent',
-          ranges: buildRanges(chart.cutoffs, chart.conceptData)
+          ranges: buildRanges(chart.cutoffs, chart.conceptData),
+          use_generated_data: useGeneratedData
         };
         response = await fetchMultiplePatientsNumericAbstraction(params);
       } else {
@@ -348,7 +356,8 @@ const Index = () => {
           start_date: startDateStr,
           end_date: endDateStr,
           interval_str: prevInterval,
-          method: 'most_time_spent'
+          method: 'most_time_spent',
+          use_generated_data: useGeneratedData
         };
         response = await fetchMultiplePatientsAbstraction(params);
       }
@@ -436,7 +445,8 @@ const Index = () => {
           end_date: endDateStr,
           interval_str: fetchInterval,
           method: 'most_time_spent',
-          ranges: buildRanges(chart.cutoffs, chart.conceptData)
+          ranges: buildRanges(chart.cutoffs, chart.conceptData),
+          use_generated_data: useGeneratedData
         };
         response = await fetchMultiplePatientsNumericAbstraction(params);
       } else {
@@ -446,7 +456,8 @@ const Index = () => {
           start_date: startDateStr,
           end_date: endDateStr,
           interval_str: fetchInterval,
-          method: 'most_time_spent'
+          method: 'most_time_spent',
+          use_generated_data: useGeneratedData
         };
         response = await fetchMultiplePatientsAbstraction(params);
       }
@@ -573,6 +584,8 @@ const Index = () => {
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
               )}
             </button>
+            <div className="flex-1" />
+            <GlobalToggle />
           </div>
 
           {/* Active Screen */}

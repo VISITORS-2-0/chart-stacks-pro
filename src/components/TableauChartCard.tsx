@@ -3,6 +3,7 @@ import { TableauViz } from "@tableau/embedding-api-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+import { GraphContextModal } from "./GraphContextModal";
 
 interface TableauChartCardProps {
     id: string;
@@ -34,7 +35,10 @@ export function TableauChartCard({
         <Card className="border border-border shadow-sm animate-in fade-in-50 duration-300 w-full h-[600px] flex flex-col">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="flex flex-col gap-1">
-                    <CardTitle className="text-lg font-semibold">{title} (Tableau)</CardTitle>
+                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                        {title} (Tableau)
+                        <GraphContextModal conceptName={title} />
+                    </CardTitle>
                     <p className="text-xs text-muted-foreground">
                         PatientID: {patientId} (Parameter)
                     </p>

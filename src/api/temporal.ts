@@ -23,6 +23,30 @@ export interface RawDataResponse {
     result: TemporalRow[];
 }
 
+export interface ConceptKnowledgeResponse {
+    "@id": string;
+    "@name": string;
+    "@concept-type": string;
+    "derived-from": string[];
+    "derived_into": string[];
+    "siblings": string[];
+    "values"?: string[];
+    "context"?: any;
+    "good_before"?: string;
+    "good_after"?: string;
+    "persistence"?: {
+        "local"?: string;
+        "global"?: string;
+    };
+    "mapping_function"?: string;
+    "time_steady"?: string;
+    "min"?: number | string;
+    "max"?: number | string;
+    "min-value"?: number | string;
+    "max-value"?: number | string;
+    "xml"?: any;
+}
+
 export interface QueryParams {
     patients_list: string[];
     concept_name: string;
@@ -201,4 +225,23 @@ export const getAllMultiPatientAbstract = async (): Promise<PatientStatusProcess
             "HighPct": 13.4
         }
     ];
+};
+
+export const fetchConceptKnowledge = async (conceptName: string): Promise<ConceptKnowledgeResponse> => {
+    const baseUrl = import.meta.env.VITE_DATA_SERVICE_URL || 'http://localhost:8000';
+    const response = await fetch(`${baseUrl}/api/v1/concept/${encodeURIComponent(conceptName)}/knowledge-exploration`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Fetch Concept Knowledge Failed:', response.status, response.statusText, errorText);
+        throw new Error(`Failed to fetch concept knowledge: ${response.statusText} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data;
 };

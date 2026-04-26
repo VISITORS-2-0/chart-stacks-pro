@@ -10,6 +10,7 @@ import { PatientMultiLineChart } from "./PatientMultiLineChart";
 import { SinglePatientAbstractionPanel, AbstractionInterval, ValueLevel } from "./SinglePatientAbstractionPanel";
 import { RangeCutoffConfig } from "./RangeCutoffConfig";
 import { useState, useMemo } from "react";
+import { GraphContextModal } from "./GraphContextModal";
 
 export type ZoomLevel = 'years' | 'months' | 'days';
 
@@ -238,6 +239,7 @@ export function TemporalChartCard({
                                 </Tooltip>
                             </TooltipProvider>
                         )}
+                        <GraphContextModal conceptName={title} />
                     </div>
                     <p className="text-xs text-muted-foreground">
                         {loading ? "Loading..." : `${filteredData.length} data points`} ({zoomLevel})

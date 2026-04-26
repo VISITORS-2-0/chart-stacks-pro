@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { GeneratedDataProvider } from "@/contexts/GeneratedDataContext";
 import Index from "./pages/Index";
 import DemoAbstraction from "./pages/DemoAbstraction";
+import ExplorerDemo from "./pages/ExplorerDemo";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();

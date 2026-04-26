@@ -52,6 +52,7 @@ export interface QueryParams {
     concept_name: string;
     start_date: string;
     end_date: string;
+    use_generated_data?: boolean;
 }
 
 export const fetchAbstractionData = async (params: QueryParams): Promise<AbstractionResponse> => {

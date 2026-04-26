@@ -132,6 +132,9 @@ export const FilterBar = ({
                     selected={localStartDate}
                     onSelect={setLocalStartDate}
                     className="pointer-events-auto"
+                    captionLayout="dropdown-buttons"
+                    fromYear={1900}
+                    toYear={new Date().getFullYear()}
                   />
                 </div>
                 <div className="space-y-2">
@@ -142,6 +145,9 @@ export const FilterBar = ({
                     onSelect={setLocalEndDate}
                     disabled={(date) => localStartDate ? date < localStartDate : false}
                     className="pointer-events-auto"
+                    captionLayout="dropdown-buttons"
+                    fromYear={1900}
+                    toYear={new Date().getFullYear()}
                   />
                 </div>
                 <Button

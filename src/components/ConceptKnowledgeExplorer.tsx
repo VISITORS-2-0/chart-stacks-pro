@@ -88,7 +88,7 @@ export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> =
                     key={item}
                     variant="ghost"
                     size="sm"
-                    className="concept-pill"
+                    className="concept-pill justify-start text-left w-full"
                     onClick={() => handleConceptClick(item)}
                     title={`Explore ${item}`}
                   >
@@ -103,7 +103,7 @@ export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> =
             )}
           </ScrollArea>
         </div>
-      </div>
+      </div >
     );
   };
 

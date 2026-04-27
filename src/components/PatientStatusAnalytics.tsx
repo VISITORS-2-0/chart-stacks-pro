@@ -215,7 +215,7 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
                             className="flex flex-col relative w-full min-h-0"
                             style={{ flex: isLast ? '1 1 155px' : '1 1 125px' }}
                         >
-                            <h3 className="text-sm font-medium mb-1 text-center shrink-0" style={{ color: categoryColors[category] }}>
+                            <h3 className="text-sm font-medium mb-1 text-left ml-[15px] shrink-0" style={{ color: categoryColors[category] }}>
                                 {category.replace('_', ' ')}
                             </h3>
                             <div className="w-full flex-1 min-h-0">

@@ -96,10 +96,6 @@ const Index = () => {
   };
 
   const handleItemClick = async (item: MenuItem, overridePatientIds?: string[]): Promise<{ success: boolean, errorMessage?: string }> => {
-    // Check if chart already exists
-    const exists = activeCharts.some((chart) => chart.id === item.id);
-    if (exists) return { success: true };
-
     // 1. Validation
     const currentPatientIds = overridePatientIds || patientIds;
     if (currentPatientIds.length === 0) {
@@ -113,6 +109,20 @@ const Index = () => {
 
     // 2. Prepare Params
     const { start_date, end_date } = calculateDateRange(timeRange);
+
+    // Check if identical chart already exists
+    const exists = activeCharts.some((chart) => {
+      const sameConcept = chart.originalItem?.id === item.originalItem?.id || chart.title === item.title;
+      const samePatients = 
+        chart.patientIds?.length === currentPatientIds.length && 
+        chart.patientIds.every(id => currentPatientIds.includes(id));
+      const sameTimeRange = chart.currentStart === start_date && chart.currentEnd === end_date;
+      
+      return sameConcept && samePatients && sameTimeRange;
+    });
+
+    if (exists) return { success: true };
+
     const params: QueryParams = {
       patients_list: currentPatientIds,
       concept_name: item.title,
@@ -169,6 +179,7 @@ const Index = () => {
 
       const newChart: ActiveChart = {
         ...item,
+        id: `${item.id}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         externalData: resultData,
         conceptData: conceptData,
         isRaw: isRawType,

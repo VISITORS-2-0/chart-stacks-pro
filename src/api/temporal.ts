@@ -27,7 +27,7 @@ export interface ConceptKnowledgeResponse {
     "@id": string;
     "@name": string;
     "@concept-type": string;
-    "derived-from": string[];
+    "derived_from": string[];
     "derived_into": string[];
     "siblings": string[];
     "values"?: string[];

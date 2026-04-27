@@ -1,19 +1,19 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle 
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle
 } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
 import { Skeleton } from "./ui/skeleton";
-import { 
-  ArrowUp, 
-  ArrowDown, 
-  ArrowLeft, 
-  ArrowRight, 
+import {
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
   Info,
   RefreshCcw,
   AlertCircle
@@ -27,9 +27,9 @@ interface ConceptKnowledgeExplorerProps {
   className?: string;
 }
 
-export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> = ({ 
+export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> = ({
   initialConceptName = "Absolute_Contra_Indication_state",
-  className 
+  className
 }) => {
   const [currentConcept, setCurrentConcept] = useState<string>(initialConceptName);
   const [data, setData] = useState<ConceptKnowledgeResponse | null>(null);
@@ -123,35 +123,35 @@ export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> =
     };
 
     // Find allowed values container (can be ordinal, numeric, or trend)
-    const allowedValues = 
-      xml["ordinal-allowed-values"] || 
-      xml["numeric-allowed-values"] || 
+    const allowedValues =
+      xml["ordinal-allowed-values"] ||
+      xml["numeric-allowed-values"] ||
       xml["trend-values"] ||
       xml["gradient-trend-allowed-values"];
-    
+
     // Robust search for persistence components
     const persistence = xml.persistence || allowedValues?.persistence;
     const localP = xml["local-persistence"] || persistence?.["local-persistence"];
     const globalP = xml["global-persistence"] || persistence?.["global-persistence"];
 
     const fields = [
-      { 
-        label: "Local Persistence", 
-        value: localP?.["@granularity"] || (localP ? "" : undefined) 
+      {
+        label: "Local Persistence",
+        value: localP?.["@granularity"] || (localP ? "" : undefined)
       },
-      { 
-        label: "Good Before", 
+      {
+        label: "Good Before",
         value: formatValue(localP?.["good-before"] || localP?.good_before),
         indent: true
       },
-      { 
-        label: "Good After", 
+      {
+        label: "Good After",
         value: formatValue(localP?.["good-after"] || localP?.good_after),
         indent: true
       },
-      { 
-        label: "Global Persistence", 
-        value: globalP?.["@granularity"] || formatValue(globalP) 
+      {
+        label: "Global Persistence",
+        value: globalP?.["@granularity"] || formatValue(globalP)
       },
     ];
 
@@ -200,9 +200,9 @@ export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> =
   }
 
   const contextData = data?.context;
-  const contextItems = Array.isArray(contextData) 
-    ? contextData 
-    : contextData && typeof contextData === 'object' 
+  const contextItems = Array.isArray(contextData)
+    ? contextData
+    : contextData && typeof contextData === 'object'
       ? Object.keys(contextData).map(key => `${key}: ${contextData[key]}`)
       : contextData ? [String(contextData)] : [];
 
@@ -241,31 +241,31 @@ export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> =
                           </Badge>
                           {(() => {
                             const xml = data?.xml;
-                            const allowedValues = 
-                              xml?.["ordinal-allowed-values"] || 
-                              xml?.["numeric-allowed-values"] || 
+                            const allowedValues =
+                              xml?.["ordinal-allowed-values"] ||
+                              xml?.["numeric-allowed-values"] ||
                               xml?.["trend-values"] ||
                               xml?.["gradient-trend-allowed-values"];
 
                             // Prioritize explicit min/max from the response
-                            const minVal = data?.min || 
-                                          data?.["min-value"] || 
-                                          allowedValues?.min || 
-                                          allowedValues?.["min-value"] || 
-                                          allowedValues?.["@min-value"] ||
-                                          xml?.min || 
-                                          xml?.["min-value"] ||
-                                          xml?.["@min-value"];
+                            const minVal = data?.min ||
+                              data?.["min-value"] ||
+                              allowedValues?.min ||
+                              allowedValues?.["min-value"] ||
+                              allowedValues?.["@min-value"] ||
+                              xml?.min ||
+                              xml?.["min-value"] ||
+                              xml?.["@min-value"];
 
-                            const maxVal = data?.max || 
-                                          data?.["max-value"] || 
-                                          allowedValues?.max || 
-                                          allowedValues?.["max-value"] || 
-                                          allowedValues?.["@max-value"] ||
-                                          xml?.max || 
-                                          xml?.["max-value"] ||
-                                          xml?.["@max-value"];
-                            
+                            const maxVal = data?.max ||
+                              data?.["max-value"] ||
+                              allowedValues?.max ||
+                              allowedValues?.["max-value"] ||
+                              allowedValues?.["@max-value"] ||
+                              xml?.max ||
+                              xml?.["max-value"] ||
+                              xml?.["@max-value"];
+
                             if (minVal !== undefined && maxVal !== undefined) {
                               return (
                                 <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20">
@@ -277,7 +277,7 @@ export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> =
                             if (!data?.values || data.values.length === 0) return null;
                             const numbers = data.values.map(v => parseFloat(v));
                             const allNumbers = numbers.length > 0 && numbers.every(n => !isNaN(n));
-                            
+
                             if (allNumbers) {
                               if (numbers.length > 1) {
                                 const min = Math.min(...numbers);
@@ -295,7 +295,7 @@ export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> =
                                 );
                               }
                             }
-                            
+
                             return data.values.map(v => (
                               <Badge key={v} variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20">
                                 {v}
@@ -311,7 +311,7 @@ export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> =
               </ScrollArea>
             </div>
           </Card>
-          
+
           {/* Connectors (Desktop only) */}
           <div className="connector connector-vertical connector-top" />
           <div className="connector connector-vertical connector-bottom" />
@@ -321,8 +321,8 @@ export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> =
         {/* Top: Abstracted Into */}
         <div className="explorer-cell explorer-top">
           {renderList(
-            "Abstracted Into", 
-            data?.derived_into, 
+            "Abstracted Into",
+            data?.derived_into,
             "No concepts derived into this",
             <ArrowUp className="h-4 w-4 text-orange-500" />
           )}
@@ -331,8 +331,8 @@ export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> =
         {/* Bottom: Abstracted From */}
         <div className="explorer-cell explorer-bottom">
           {renderList(
-            "Abstracted From", 
-            data?.["derived-from"], 
+            "Abstracted From",
+            data?.["derived_from"],
             "No concepts derived from this",
             <ArrowDown className="h-4 w-4 text-green-500" />
           )}
@@ -341,8 +341,8 @@ export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> =
         {/* Left: Siblings */}
         <div className="explorer-cell explorer-left">
           {renderList(
-            "Siblings", 
-            data?.siblings, 
+            "Siblings",
+            data?.siblings,
             "No siblings found",
             <ArrowLeft className="h-4 w-4 text-blue-500" />
           )}

@@ -45,6 +45,23 @@ export interface ConceptKnowledgeResponse {
     "min-value"?: number | string;
     "max-value"?: number | string;
     "xml"?: any;
+    "mapping_abstractions"?: MappingAbstractions;
+}
+
+export interface ConditionMapping {
+    abstracted_from_concept: string;
+    values_accepted: string;
+}
+
+export interface CategoryMapping {
+    order: number;
+    category: string;
+    logical_operation: string | null;
+    conditions: ConditionMapping[];
+}
+
+export interface MappingAbstractions {
+    category_mappings: CategoryMapping[];
 }
 
 export interface QueryParams {

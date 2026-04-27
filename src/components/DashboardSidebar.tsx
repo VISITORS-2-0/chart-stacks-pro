@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/collapsible";
 import { ChevronRight } from "lucide-react";
 import { useTakMenu, TakItem } from "@/services/takApi";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export type ChartType = "scatter" | "bar" | "line" | "continuous-interval" | "analytics";
 
@@ -236,6 +236,7 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
       )}
       <Dialog open={testResults !== null && !isTesting} onOpenChange={(open) => { if (!open) setTestResults(null); }}>
         <DialogContent className="max-h-[80vh] overflow-y-auto max-w-2xl">
+          <DialogDescription className="sr-only">Test Results Details</DialogDescription>
           <DialogHeader>
             <DialogTitle>Test Results</DialogTitle>
           </DialogHeader>
@@ -358,6 +359,7 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
 
       <Dialog open={showTestOptions} onOpenChange={setShowTestOptions}>
         <DialogContent>
+          <DialogDescription className="sr-only">Select how many items to test</DialogDescription>
           <DialogHeader>
             <DialogTitle>Select Test Mode</DialogTitle>
           </DialogHeader>

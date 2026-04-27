@@ -316,6 +316,7 @@ export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> =
           <div className="connector connector-vertical connector-top" />
           <div className="connector connector-vertical connector-bottom" />
           <div className="connector connector-horizontal connector-left" />
+          <div className="connector connector-horizontal connector-right" />
         </div>
 
         {/* Top: Abstracted Into */}
@@ -345,6 +346,16 @@ export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> =
             data?.siblings,
             "No siblings found",
             <ArrowLeft className="h-4 w-4 text-blue-500" />
+          )}
+        </div>
+
+        {/* Right: Context */}
+        <div className="explorer-cell explorer-right">
+          {renderList(
+            "Context",
+            contextItems.length > 0 ? (contextItems as string[]) : undefined,
+            "No context found",
+            <ArrowRight className="h-4 w-4 text-purple-500" />
           )}
         </div>
 

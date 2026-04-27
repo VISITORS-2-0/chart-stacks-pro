@@ -1,26 +1,33 @@
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .explorer-container {
   display: flex;
-  justify-content: center;
-  align-items: center; /* Back to centering since we aim for perfect fit */
   width: 100%;
   height: 100%;
   padding: 1rem;
-  overflow: hidden; /* Prevent global scroll */
+  overflow: auto;
+  /* Allow scroll if content exceeds popup bounds */
 }
 
 .explorer-grid {
   display: grid;
-  grid-template-columns: 240px 280px 240px;
-  grid-template-rows: 160px 220px 160px;
+  grid-template-columns: 190px 240px 190px;
+  grid-template-rows: 150px 200px 150px;
   gap: 1.25rem;
   position: relative;
   align-items: stretch;
-  /* Natural width based on columns will be centered by explorer-container */
+  margin: auto;
+  /* Replaces flex center for proper scrolling */
 }
 
 .explorer-cell {
@@ -164,7 +171,9 @@
   font-weight: normal;
   transition: all 0.2s;
   height: auto;
-  padding: 0.5rem 0.75rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.75rem;
+  /* Smaller font size */
 }
 
 .concept-pill:hover {
@@ -198,10 +207,14 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  padding-top: 1rem;
+  gap: 0.35rem;
+  /* Reduced gap */
+  margin-top: 0.75rem;
+  /* Reduced margin */
+  padding-top: 0.75rem;
   border-top: 1px dashed hsl(var(--border));
+  font-size: 0.75rem;
+  /* Smaller font size */
 }
 
 .metadata-item {
@@ -238,33 +251,33 @@
     max-width: 500px;
     gap: 1.5rem;
   }
-  
+
   .explorer-cell {
     width: 100%;
     height: auto;
     min-height: 150px;
   }
-  
+
   .connector {
     display: none;
   }
-  
+
   .explorer-center {
     order: 1;
   }
-  
+
   .explorer-top {
     order: 2;
   }
-  
+
   .explorer-bottom {
     order: 3;
   }
-  
+
   .explorer-left {
     order: 4;
   }
-  
+
   .explorer-right {
     order: 5;
   }

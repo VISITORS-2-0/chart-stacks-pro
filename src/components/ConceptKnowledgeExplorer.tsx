@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { fetchConceptKnowledge, ConceptKnowledgeResponse } from "../api/temporal";
 import { cn } from "@/lib/utils";
+import { MappingAbstractionsModal } from "./MappingAbstractionsModal";
 import "./ConceptKnowledgeExplorer.css";
 
 interface ConceptKnowledgeExplorerProps {
@@ -211,11 +212,16 @@ export const ConceptKnowledgeExplorer: React.FC<ConceptKnowledgeExplorerProps> =
       <div className="explorer-grid">
         <div className="explorer-cell explorer-center">
           <Card className="explorer-card center-card">
-            <div className="explorer-card-header">
+            <div className="explorer-card-header flex items-center justify-between w-full">
               <span className="text-sm font-bold flex items-center gap-2 text-primary">
                 <Info className="h-4 w-4" />
                 Current Concept
               </span>
+              <MappingAbstractionsModal 
+                 conceptName={data?.["@name"] || currentConcept}
+                 preloadedData={data?.mapping_abstractions}
+                 conceptType={data?.["@concept-type"]}
+              />
             </div>
             <div className="explorer-card-content p-0">
               <ScrollArea className="h-full">

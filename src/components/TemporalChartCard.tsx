@@ -11,6 +11,7 @@ import { SinglePatientAbstractionPanel, AbstractionInterval, ValueLevel } from "
 import { RangeCutoffConfig } from "./RangeCutoffConfig";
 import { useState, useMemo } from "react";
 import { GraphContextModal } from "./GraphContextModal";
+import { MappingAbstractionsModal } from "./MappingAbstractionsModal";
 
 export type ZoomLevel = 'years' | 'months' | 'days';
 
@@ -240,6 +241,10 @@ export function TemporalChartCard({
                             </TooltipProvider>
                         )}
                         <GraphContextModal conceptName={title} />
+                        <MappingAbstractionsModal 
+                           conceptName={title} 
+                           conceptType={conceptData?.concept_type || conceptData?.["@concept-type"]} 
+                        />
                     </div>
                     <p className="text-xs text-muted-foreground">
                         {loading ? "Loading..." : `${filteredData.length} data points`} ({zoomLevel})

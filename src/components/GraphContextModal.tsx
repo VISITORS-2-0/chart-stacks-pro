@@ -6,6 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { ConceptKnowledgeExplorer } from "./ConceptKnowledgeExplorer";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,9 @@ export const GraphContextModal: React.FC<GraphContextModalProps> = ({
         </TooltipContent>
       </Tooltip>
       <DialogContent className="max-w-5xl h-[80vh] flex flex-col p-0">
+        <DialogDescription className="sr-only">
+          Explore context and relations for {conceptName}
+        </DialogDescription>
         <DialogHeader className="p-6 pb-2">
           <DialogTitle className="text-xl font-bold flex items-center gap-2">
             Context Explorer: {conceptName}

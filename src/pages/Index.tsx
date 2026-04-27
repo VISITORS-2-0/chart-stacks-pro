@@ -112,7 +112,7 @@ const Index = () => {
 
     // Check if identical chart already exists
     const exists = activeCharts.some((chart) => {
-      const sameConcept = chart.originalItem?.id === item.originalItem?.id || chart.title === item.title;
+      const sameConcept = (chart.originalItem?.id !== undefined && chart.originalItem?.id === item.originalItem?.id) || chart.title === item.title;
       const samePatients = 
         chart.patientIds?.length === currentPatientIds.length && 
         chart.patientIds.every(id => currentPatientIds.includes(id));

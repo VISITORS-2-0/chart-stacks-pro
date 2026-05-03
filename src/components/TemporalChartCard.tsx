@@ -241,9 +241,9 @@ export function TemporalChartCard({
                             </TooltipProvider>
                         )}
                         <GraphContextModal conceptName={title} />
-                        <MappingAbstractionsModal 
-                           conceptName={title} 
-                           conceptType={conceptData?.concept_type || conceptData?.["@concept-type"]} 
+                        <MappingAbstractionsModal
+                            conceptName={title}
+                            conceptType={conceptData?.concept_type || conceptData?.["@concept-type"]}
                         />
                     </div>
                     <p className="text-xs text-muted-foreground">
@@ -291,7 +291,7 @@ export function TemporalChartCard({
                             onClick={handleZoomOut}
                         >
                             <ZoomOut className="h-3 w-3" />
-                            Drop Frame
+                            Zoom Out
                         </Button>
                     )}
                     <Button

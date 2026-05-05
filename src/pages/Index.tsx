@@ -205,7 +205,10 @@ const Index = () => {
 
   const processPatternResult = (result: any[], intervalStr: string) => {
     const transformed = result.map(item => {
-      const d = new Date(item.StartTime);
+      const startMs = new Date(item.StartTime).getTime();
+      const endMs = new Date(item.EndTime).getTime();
+      const d = new Date((startMs + endMs) / 2);
+      
       const yStr = d.getFullYear().toString();
       const mStr = String(d.getMonth() + 1).padStart(2, '0');
       const dStr = String(d.getDate()).padStart(2, '0');

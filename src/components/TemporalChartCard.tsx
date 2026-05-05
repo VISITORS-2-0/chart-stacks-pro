@@ -99,15 +99,26 @@ export function TemporalChartCard({
 
         return data.filter((row: any) => {
             if (row.StartTime) {
-                const rowDate = new Date(row.StartTime);
-                if (isNaN(rowDate.getTime())) return false;
+                const rowStart = new Date(row.StartTime);
+                if (isNaN(rowStart.getTime())) return false;
+                
+                let rowEnd = rowStart;
+                if (row.EndTime) {
+                    const parsedEnd = new Date(row.EndTime);
+                    if (!isNaN(parsedEnd.getTime())) {
+                        rowEnd = parsedEnd;
+                    }
+                }
 
                 if (zoomLevel === 'months') {
-                    return rowDate.getFullYear() === focusDate.getFullYear();
+                    const viewStart = new Date(focusDate.getFullYear(), 0, 1).getTime();
+                    const viewEnd = new Date(focusDate.getFullYear(), 11, 31, 23, 59, 59, 999).getTime();
+                    return rowStart.getTime() <= viewEnd && rowEnd.getTime() >= viewStart;
                 }
                 if (zoomLevel === 'days') {
-                    return rowDate.getFullYear() === focusDate.getFullYear() &&
-                        rowDate.getMonth() === focusDate.getMonth();
+                    const viewStart = new Date(focusDate.getFullYear(), focusDate.getMonth(), 1).getTime();
+                    const viewEnd = new Date(focusDate.getFullYear(), focusDate.getMonth() + 1, 0, 23, 59, 59, 999).getTime();
+                    return rowStart.getTime() <= viewEnd && rowEnd.getTime() >= viewStart;
                 }
                 return true;
             } else if (row.month) {

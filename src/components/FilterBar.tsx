@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Calendar, Users, XCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { PatientMultiSelect } from "@/components/PatientMultiSelect";
@@ -54,6 +54,13 @@ export const FilterBar = ({
   const [localStartDate, setLocalStartDate] = useState<Date | undefined>(timeRange.startDate);
   const [localEndDate, setLocalEndDate] = useState<Date | undefined>(timeRange.endDate);
   const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setLocalStartDate(timeRange.startDate);
+      setLocalEndDate(timeRange.endDate);
+    }
+  }, [isOpen, timeRange.startDate, timeRange.endDate]);
 
   const getTimeRangeLabel = () => {
     if (timeRange.type === "relative" && timeRange.relative) {
@@ -130,6 +137,7 @@ export const FilterBar = ({
                   <CalendarComponent
                     mode="single"
                     selected={localStartDate}
+                    defaultMonth={localStartDate}
                     onSelect={setLocalStartDate}
                     className="pointer-events-auto"
                     captionLayout="dropdown-buttons"
@@ -142,6 +150,7 @@ export const FilterBar = ({
                   <CalendarComponent
                     mode="single"
                     selected={localEndDate}
+                    defaultMonth={localEndDate || localStartDate}
                     onSelect={setLocalEndDate}
                     disabled={(date) => localStartDate ? date < localStartDate : false}
                     className="pointer-events-auto"

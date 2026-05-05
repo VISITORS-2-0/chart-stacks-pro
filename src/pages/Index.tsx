@@ -22,12 +22,24 @@ interface ActiveChart extends MenuItem {
   currentInterval?: string; // Track current interval for Pattern charts (YE, ME, D)
   currentStart?: string;
   currentEnd?: string;
+  originalStart?: string;
+  originalEnd?: string;
   cutoffs?: number[];
   isBalanced?: boolean;
   patientIds?: string[];
 }
 
 type TabValue = "exploration" | "population" | "pattern" | "export" | string;
+
+const clampDateStr = (dateStr: string, minDateStr?: string, maxDateStr?: string) => {
+  const dateMs = new Date(dateStr).getTime();
+  const minMs = minDateStr ? new Date(minDateStr).getTime() : -Infinity;
+  const maxMs = maxDateStr ? new Date(maxDateStr).getTime() : Infinity;
+  
+  if (dateMs < minMs && minDateStr) return minDateStr;
+  if (dateMs > maxMs && maxDateStr) return maxDateStr;
+  return dateStr;
+};
 
 const Index = () => {
   const [activeCharts, setActiveCharts] = useState<ActiveChart[]>([]);
@@ -186,6 +198,8 @@ const Index = () => {
         currentInterval: (!isRawType && currentPatientIds.length > 1) ? 'YE' : undefined,
         currentStart: params.start_date,
         currentEnd: params.end_date,
+        originalStart: params.start_date,
+        originalEnd: params.end_date,
         patientIds: currentPatientIds,
       };
 
@@ -251,21 +265,24 @@ const Index = () => {
       nextInterval = 'ME';
       // Start of selected year
       const y = date.getFullYear();
-      startDateStr = `${y}-01-01`;
-      endDateStr = `${y}-12-31`;
+      startDateStr = `${y}-01-01T00:00:00`;
+      endDateStr = `${y}-12-31T23:59:59`;
     } else if (currentInterval === 'ME') {
       nextInterval = 'D';
       // Start of selected month
       const y = date.getFullYear();
       const m = date.getMonth() + 1; // getMonth() is 0-indexed
-      startDateStr = `${y}-${m.toString().padStart(2, '0')}-01`;
+      startDateStr = `${y}-${m.toString().padStart(2, '0')}-01T00:00:00`;
       // End of selected month
       const lastDay = new Date(y, m, 0).getDate();
-      endDateStr = `${y}-${m.toString().padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`;
+      endDateStr = `${y}-${m.toString().padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}T23:59:59`;
     } else {
       // Already at 'D', no further drill down
       return;
     }
+
+    startDateStr = clampDateStr(startDateStr, chart.originalStart, chart.originalEnd);
+    endDateStr = clampDateStr(endDateStr, chart.originalStart, chart.originalEnd);
 
     try {
       const isContinuous = chart.originalItem?.output_type === "range" && chart.originalItem?.duration_type === "interval";
@@ -334,18 +351,22 @@ const Index = () => {
       if (chart.currentStart) {
         const date = new Date(chart.currentStart);
         const y = date.getFullYear();
-        startDateStr = `${y}-01-01`;
-        endDateStr = `${y}-12-31`;
+        startDateStr = `${y}-01-01T00:00:00`;
+        endDateStr = `${y}-12-31T23:59:59`;
       }
     } else if (chart.currentInterval === 'ME') {
       prevInterval = 'YE';
       // Revert to global time range
-      const { start_date, end_date } = calculateDateRange(timeRange);
-      startDateStr = start_date;
-      endDateStr = end_date;
+      startDateStr = chart.originalStart || '';
+      endDateStr = chart.originalEnd || '';
     } else {
       // Already at YE, no further zoom out
       return;
+    }
+
+    if (prevInterval !== 'YE') {
+      startDateStr = clampDateStr(startDateStr, chart.originalStart, chart.originalEnd);
+      endDateStr = clampDateStr(endDateStr, chart.originalStart, chart.originalEnd);
     }
 
     try {
@@ -413,8 +434,8 @@ const Index = () => {
       // We are looking at a full year, broken into months
       // Next -> next year, Prev -> previous year
       const targetYear = y + (direction === 'next' ? 1 : -1);
-      startDateStr = `${targetYear}-01-01`;
-      endDateStr = `${targetYear}-12-31`;
+      startDateStr = `${targetYear}-01-01T00:00:00`;
+      endDateStr = `${targetYear}-12-31T23:59:59`;
       fetchInterval = 'ME';
     } else if (currentZoom === 'days') {
       // We are looking at a full month, broken into days
@@ -435,18 +456,15 @@ const Index = () => {
       const startD = new Date(targetYear, targetMonth, 1);
       const endD = new Date(targetYear, targetMonth + 1, 0); // 0 gets last day of previous month
 
-      startDateStr = `${startD.getFullYear()}-${String(startD.getMonth() + 1).padStart(2, '0')}-01`;
-      endDateStr = `${endD.getFullYear()}-${String(endD.getMonth() + 1).padStart(2, '0')}-${String(endD.getDate()).padStart(2, '0')}`;
+      startDateStr = `${startD.getFullYear()}-${String(startD.getMonth() + 1).padStart(2, '0')}-01T00:00:00`;
+      endDateStr = `${endD.getFullYear()}-${String(endD.getMonth() + 1).padStart(2, '0')}-${String(endD.getDate()).padStart(2, '0')}T23:59:59`;
       fetchInterval = 'D';
-
-      // Important: We need to update the focusDate in TemporalChartCard so the calendar math holds up.
-      // But since focusDate is internal state there, we can either pass it back down,
-      // OR let the TemporalChartCard manage its own onNavigate local state change,
-      // BUT we already shift data so filtering would clash if TemporalChartCard doesn't update focusDate.
-      // Easiest is to let TemporalChartCard handle its local state jump and we just fetch the data window.
     } else {
       return;
     }
+
+    startDateStr = clampDateStr(startDateStr, chart.originalStart, chart.originalEnd);
+    endDateStr = clampDateStr(endDateStr, chart.originalStart, chart.originalEnd);
 
     try {
       const isContinuous = chart.originalItem?.output_type === "range" && chart.originalItem?.duration_type === "interval";

@@ -15,6 +15,7 @@ interface ActiveChart extends MenuItem {
   externalData?: any[];
   conceptData?: any;
   isRaw?: boolean;
+  currentInterval?: string;
   cutoffs?: number[];
   isBalanced?: boolean;
   patientIds?: string[];
@@ -120,6 +121,7 @@ export function DataExploration({
                   chartType={chart.chartType}
                   externalData={chart.externalData}
                   conceptData={chart.conceptData}
+                  currentInterval={chart.currentInterval}
                   onDrillDown={(date, level) => onChartDrillDown && onChartDrillDown(chart.id, date, level)}
                   onZoomOut={() => onChartZoomOut && onChartZoomOut(chart.id)}
                   onNavigate={(direction, currentZoom, focusDate) => onChartNavigate && onChartNavigate(chart.id, direction, currentZoom, focusDate)}

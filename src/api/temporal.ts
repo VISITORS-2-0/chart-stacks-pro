@@ -92,8 +92,6 @@ export const fetchAbstractionData = async (params: QueryParams): Promise<Abstrac
 };
 
 export const fetchRawData = async (params: QueryParams): Promise<RawDataResponse> => {
-    console.log("fetchRawData");
-    console.log(params);
     const response = await fetch(`http://localhost:8000/api/v1/visitors-queries/raw-data`, {
         method: 'POST',
 
@@ -110,8 +108,6 @@ export const fetchRawData = async (params: QueryParams): Promise<RawDataResponse
     }
 
     const data = await response.json();
-    console.log("fetchRawData response");
-    console.log(data);
 
     return data;
 };

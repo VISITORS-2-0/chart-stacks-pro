@@ -105,7 +105,11 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
 
         let keysToGenerate: string[] = [];
 
-        if (zoomLevel === 'months' && focusDate) {
+        if (zoomLevel === 'months' && !focusDate) {
+            return processedData.sort((a, b) => a.month.localeCompare(b.month));
+        } else if (zoomLevel === 'days' && !focusDate) {
+            return processedData.sort((a, b) => a.month.localeCompare(b.month));
+        } else if (zoomLevel === 'months' && focusDate) {
             const y = focusDate.getFullYear();
             for (let m = 1; m <= 12; m++) {
                 keysToGenerate.push(`${y}-${String(m).padStart(2, '0')}`);

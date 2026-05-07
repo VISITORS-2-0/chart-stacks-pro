@@ -136,9 +136,14 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
 
         } else if (zoomLevel === 'months') {
             // Context: Year
-            for (let y = startYear; y <= endYear + 1; y++) {
-                const tickTime = new Date(y, 0, 1).getTime();
-                if (tickTime >= domainStart && tickTime <= domainEnd) {
+            for (let y = startYear; y <= endYear; y++) {
+                const yearStart = new Date(y, 0, 1).getTime();
+                const yearEnd = new Date(y, 11, 31, 23, 59, 59).getTime();
+                const visibleStart = Math.max(yearStart, domainStart);
+                const visibleEnd = Math.min(yearEnd, domainEnd);
+
+                if (visibleStart <= visibleEnd) {
+                    const tickTime = visibleStart + (visibleEnd - visibleStart) / 2;
                     contextTicks.push(tickTime);
                 }
 
@@ -152,13 +157,18 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
             }
         } else {
             // zoomLevel === 'days'
-            // Performance warning: plotting days for multiple years will create thousands of ticks.
-            // But since the user wants horizontal scrolling across the whole span at any zoom,
-            // we must generate them, or relies on Rechart's auto ticks. We'll generate them here.
             for (let y = startYear; y <= endYear; y++) {
                 for (let m = 0; m < 12; m++) {
                     // Context: Month
-                    contextTicks.push(new Date(y, m, 15).getTime());
+                    const monthStart = new Date(y, m, 1).getTime();
+                    const monthEnd = new Date(y, m + 1, 0, 23, 59, 59).getTime();
+                    const visibleStart = Math.max(monthStart, domainStart);
+                    const visibleEnd = Math.min(monthEnd, domainEnd);
+
+                    if (visibleStart <= visibleEnd) {
+                        const tickTime = visibleStart + (visibleEnd - visibleStart) / 2;
+                        contextTicks.push(tickTime);
+                    }
 
                     const lastDay = new Date(y, m + 1, 0).getDate();
                     // Detail: Days

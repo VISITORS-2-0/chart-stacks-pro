@@ -30,6 +30,7 @@ interface TemporalChartCardProps {
     cutoffs?: number[];
     isCutoffsBalanced?: boolean;
     onApplyCutoffs?: (cutoffs: number[], isBalanced: boolean) => void;
+    currentInterval?: string;
 }
 
 export function TemporalChartCard({
@@ -47,6 +48,7 @@ export function TemporalChartCard({
     isCutoffsBalanced,
     onApplyCutoffs,
     patientIds,
+    currentInterval,
 }: TemporalChartCardProps) {
     const isMultiPatient = patientIds ? patientIds.length > 1 : false;
 
@@ -55,7 +57,11 @@ export function TemporalChartCard({
     const multiPatientRaw = useMultiPatientRaw();
 
     // Zoom State
-    const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('years');
+    const [zoomLevel, setZoomLevel] = useState<ZoomLevel>(
+        currentInterval === 'D' ? 'days' :
+            currentInterval === 'ME' ? 'months' :
+                'years'
+    );
     const [focusDate, setFocusDate] = useState<Date | null>(null);
 
     // Determine which data hook to use (only if no externalData)
@@ -101,7 +107,7 @@ export function TemporalChartCard({
             if (row.StartTime) {
                 const rowStart = new Date(row.StartTime);
                 if (isNaN(rowStart.getTime())) return false;
-                
+
                 let rowEnd = rowStart;
                 if (row.EndTime) {
                     const parsedEnd = new Date(row.EndTime);
@@ -213,10 +219,28 @@ export function TemporalChartCard({
     };
 
     const handleNavigateWrapper = (dir: 'next' | 'prev') => {
-        if (!focusDate) return;
-        const y = focusDate.getFullYear();
-        const m = focusDate.getMonth();
-        let newFocus = new Date(focusDate);
+        let currentFocus = focusDate;
+        if (!currentFocus) {
+            if (!filteredData || filteredData.length === 0) return;
+            const firstRow = filteredData[0];
+            let dateVal: Date | null = null;
+            if (firstRow.StartTime) {
+                dateVal = new Date(firstRow.StartTime);
+            } else if (firstRow.month) {
+                const parts = firstRow.month.split('-');
+                if (parts.length >= 2) {
+                    dateVal = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
+                } else {
+                    dateVal = new Date(parseInt(parts[0], 10), 0, 1);
+                }
+            }
+            if (!dateVal || isNaN(dateVal.getTime())) return;
+            currentFocus = dateVal;
+        }
+
+        const y = currentFocus.getFullYear();
+        const m = currentFocus.getMonth();
+        let newFocus = new Date(currentFocus);
         if (zoomLevel === 'months') {
             newFocus.setFullYear(y + (dir === 'next' ? 1 : -1));
         } else if (zoomLevel === 'days') {
@@ -224,8 +248,50 @@ export function TemporalChartCard({
         }
         setFocusDate(newFocus);
         if (onNavigate) {
-            onNavigate(dir, zoomLevel, focusDate);
+            onNavigate(dir, zoomLevel, newFocus);
         }
+    };
+
+    const getNavigationLabel = () => {
+        if (focusDate) {
+            return zoomLevel === 'months'
+                ? focusDate.getFullYear().toString()
+                : focusDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+        }
+        if (!filteredData || filteredData.length === 0) return '';
+
+        let minTime = Infinity, maxTime = -Infinity;
+
+        filteredData.forEach((row: any) => {
+            let t = NaN;
+            if (row.StartTime) t = new Date(row.StartTime).getTime();
+            else if (row.month) {
+                const parts = row.month.split('-');
+                if (parts.length === 3) t = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                else if (parts.length === 2) t = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1).getTime();
+                else t = new Date(parseInt(parts[0]), 0, 1).getTime();
+            }
+            if (!isNaN(t)) {
+                if (t < minTime) minTime = t;
+                if (t > maxTime) maxTime = t;
+            }
+        });
+
+        if (minTime === Infinity) return '';
+
+        const minD = new Date(minTime);
+        const maxD = new Date(maxTime);
+
+        if (zoomLevel === 'months') {
+            if (minD.getFullYear() === maxD.getFullYear()) return minD.getFullYear().toString();
+            return `${minD.getFullYear()}-${maxD.getFullYear()}`;
+        } else if (zoomLevel === 'days') {
+            const minStr = minD.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+            const maxStr = maxD.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+            if (minStr === maxStr) return minStr;
+            return `${minStr} - ${maxStr}`;
+        }
+        return '';
     };
 
     return (
@@ -273,7 +339,7 @@ export function TemporalChartCard({
                                 <ChevronLeft className="h-4 w-4" />
                             </Button>
                             <span className="text-xs font-semibold text-muted-foreground px-2 text-center min-w-[90px]">
-                                {focusDate ? (zoomLevel === 'months' ? focusDate.getFullYear() : focusDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })) : ''}
+                                {getNavigationLabel()}
                             </span>
                             <Button
                                 variant="ghost"

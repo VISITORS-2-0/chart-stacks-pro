@@ -31,11 +31,22 @@ interface ActiveChart extends MenuItem {
 
 type TabValue = "exploration" | "population" | "pattern" | "export" | string;
 
+const calculateDefaultGranularity = (startDateStr: string, endDateStr: string): 'YE' | 'ME' | 'D' => {
+  const start = new Date(startDateStr);
+  const end = new Date(endDateStr);
+  const diffTime = Math.abs(end.getTime() - start.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays >= 365) return 'YE';
+  if (start.getMonth() !== end.getMonth() || start.getFullYear() !== end.getFullYear() || diffDays >= 28) return 'ME';
+  return 'D';
+};
+
 const clampDateStr = (dateStr: string, minDateStr?: string, maxDateStr?: string) => {
   const dateMs = new Date(dateStr).getTime();
   const minMs = minDateStr ? new Date(minDateStr).getTime() : -Infinity;
   const maxMs = maxDateStr ? new Date(maxDateStr).getTime() : Infinity;
-  
+
   if (dateMs < minMs && minDateStr) return minDateStr;
   if (dateMs > maxMs && maxDateStr) return maxDateStr;
   return dateStr;
@@ -77,7 +88,7 @@ const Index = () => {
       const { start_date, end_date } = calculateDateRange(timeRange);
       const reqStart = chart.currentStart || start_date;
       const reqEnd = chart.currentEnd || end_date;
-      const fetchInterval = chart.currentInterval || 'YE';
+      const fetchInterval = chart.currentInterval || calculateDefaultGranularity(reqStart, reqEnd);
 
       const patternParams: NumericPatternQueryParams = {
         patients_list: chart.patientIds || patientIds,
@@ -95,7 +106,7 @@ const Index = () => {
       const updatedCharts = [...activeCharts];
       updatedCharts[chartIndex] = {
         ...chart,
-        externalData: processPatternResult(response.result, fetchInterval),
+        externalData: processPatternResult(response.result, fetchInterval, (chart.patientIds || patientIds).length),
         conceptData: response.concept_data,
         cutoffs,
         isBalanced
@@ -125,11 +136,11 @@ const Index = () => {
     // Check if identical chart already exists
     const exists = activeCharts.some((chart) => {
       const sameConcept = (chart.originalItem?.id !== undefined && chart.originalItem?.id === item.originalItem?.id) || chart.title === item.title;
-      const samePatients = 
-        chart.patientIds?.length === currentPatientIds.length && 
+      const samePatients =
+        chart.patientIds?.length === currentPatientIds.length &&
         chart.patientIds.every(id => currentPatientIds.includes(id));
       const sameTimeRange = chart.currentStart === start_date && chart.currentEnd === end_date;
-      
+
       return sameConcept && samePatients && sameTimeRange;
     });
 
@@ -152,6 +163,8 @@ const Index = () => {
       const isContinuousPattern = item.originalItem?.output_type === "range" && item.originalItem?.duration_type === "interval";
       let isRawType = parentSection.toLowerCase().includes('raw') || isContinuousPattern;
 
+      const defaultInterval = calculateDefaultGranularity(params.start_date, params.end_date);
+
       if (currentPatientIds.length === 1) {
         if (isRawType) {
           const response = await fetchRawData(params);
@@ -166,12 +179,12 @@ const Index = () => {
         if (isContinuousPattern) {
           const patternParams: NumericPatternQueryParams = {
             ...params,
-            interval_str: 'YE',
+            interval_str: defaultInterval,
             method: 'most_time_spent'
           };
           const response = await fetchMultiplePatientsNumericAbstraction(patternParams);
           conceptData = response.concept_data;
-          resultData = processPatternResult(response.result, 'YE');
+          resultData = processPatternResult(response.result, defaultInterval, currentPatientIds.length);
           isRawType = false;
         } else if (isRawType) {
           const response = await fetchRawData(params);
@@ -180,12 +193,12 @@ const Index = () => {
         } else {
           const patternParams: PatternQueryParams = {
             ...params,
-            interval_str: 'YE',
+            interval_str: defaultInterval,
             method: 'most_time_spent'
           };
           const response = await fetchMultiplePatientsAbstraction(patternParams);
           conceptData = response.concept_data;
-          resultData = processPatternResult(response.result, 'YE');
+          resultData = processPatternResult(response.result, defaultInterval, currentPatientIds.length);
         }
       }
 
@@ -195,7 +208,7 @@ const Index = () => {
         externalData: resultData,
         conceptData: conceptData,
         isRaw: isRawType,
-        currentInterval: (!isRawType && currentPatientIds.length > 1) ? 'YE' : undefined,
+        currentInterval: (!isRawType && currentPatientIds.length > 1) ? defaultInterval : undefined,
         currentStart: params.start_date,
         currentEnd: params.end_date,
         originalStart: params.start_date,
@@ -217,12 +230,12 @@ const Index = () => {
     }
   };
 
-  const processPatternResult = (result: any[], intervalStr: string) => {
+  const processPatternResult = (result: any[], intervalStr: string, totalPatients: number) => {
     const transformed = result.map(item => {
       const startMs = new Date(item.StartTime).getTime();
       const endMs = new Date(item.EndTime).getTime();
       const d = new Date((startMs + endMs) / 2);
-      
+
       const yStr = d.getFullYear().toString();
       const mStr = String(d.getMonth() + 1).padStart(2, '0');
       const dStr = String(d.getDate()).padStart(2, '0');
@@ -239,7 +252,7 @@ const Index = () => {
       if (item.Value_Dict) {
         Object.entries(item.Value_Dict).forEach(([k, v]: [string, any]) => {
           row[k] = v;
-          row[`${k}Pct`] = item.TotalPatientsWithData > 0 ? (v / item.TotalPatientsWithData) * 100 : 0;
+          row[`${k}Pct`] = totalPatients > 0 ? (v / totalPatients) * 100 : 0;
         });
       }
       return row;
@@ -317,7 +330,7 @@ const Index = () => {
       const updatedCharts = [...activeCharts];
       updatedCharts[chartIndex] = {
         ...chart,
-        externalData: processPatternResult(response.result, nextInterval),
+        externalData: processPatternResult(response.result, nextInterval, currentChartPatientIds.length),
         currentInterval: nextInterval,
         currentStart: startDateStr,
         currentEnd: endDateStr,
@@ -400,7 +413,7 @@ const Index = () => {
       const updatedCharts = [...activeCharts];
       updatedCharts[chartIndex] = {
         ...chart,
-        externalData: processPatternResult(response.result, prevInterval),
+        externalData: processPatternResult(response.result, prevInterval, currentChartPatientIds.length),
         currentInterval: prevInterval,
         currentStart: startDateStr,
         currentEnd: endDateStr,
@@ -497,7 +510,7 @@ const Index = () => {
       const updatedCharts = [...activeCharts];
       updatedCharts[chartIndex] = {
         ...chart,
-        externalData: processPatternResult(response.result, fetchInterval),
+        externalData: processPatternResult(response.result, fetchInterval, currentChartPatientIds.length),
         currentInterval: fetchInterval,
         currentStart: startDateStr,
         currentEnd: endDateStr,

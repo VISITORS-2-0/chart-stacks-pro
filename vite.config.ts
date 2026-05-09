@@ -25,6 +25,7 @@ export default defineConfig(({ mode }) => {
           secure: false,
         },
       },
+      cors: true,
     },
     plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
     resolve: {

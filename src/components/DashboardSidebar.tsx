@@ -292,15 +292,21 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
       <Sidebar className="w-64 border-r border-primary/20 bg-primary text-primary-foreground">
         <SidebarContent className="bg-primary">
           <SidebarGroup>
-            <div className="px-4 py-3 border-b border-primary-foreground/10 flex justify-between items-center">
-              <SidebarGroupLabel className="text-xl font-bold text-primary-foreground tracking-wider p-0">
-                VISITORS
-              </SidebarGroupLabel>
-              {import.meta.env.VITE_APP_ENV === 'test' && (
-                <Button size="sm" variant="secondary" onClick={() => setShowTestOptions(true)} disabled={isTesting}>
-                  Run Tests
-                </Button>
-              )}
+            <div className="px-4 py-3 border-b border-primary-foreground/10 flex flex-col gap-2">
+              <div className="flex justify-between items-center">
+                <SidebarGroupLabel className="text-xl font-bold text-primary-foreground tracking-wider p-0">
+                  VISITORS
+                </SidebarGroupLabel>
+                {import.meta.env.VITE_APP_ENV === 'test' && (
+                  <Button size="sm" variant="secondary" onClick={() => setShowTestOptions(true)} disabled={isTesting}>
+                    Run Tests
+                  </Button>
+                )}
+              </div>
+              <div className="text-[10px] break-all flex flex-col gap-1 text-primary-foreground/70">
+                <h1 className="font-semibold">URL: {import.meta.env.VITE_DATA_SERVICE_URL}</h1>
+                <h1 className="font-semibold">Menu: {(import.meta.env.VITE_DATA_SERVICE_URL || '').replace(/\/$/, '')}/api/v1/concept/menu</h1>
+              </div>
             </div>
             <SidebarGroupContent className="px-4 py-2">
               <div className="relative">

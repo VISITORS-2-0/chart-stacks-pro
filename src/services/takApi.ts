@@ -11,6 +11,13 @@ export interface TakItem {
 
 export type TakMenuResponse = TakItem[];
 
+const DATA_SERVICE_URL = (import.meta.env.VITE_DATA_SERVICE_URL || '').replace(/\/$/, '');
+
+const dataServiceUrl = (path: string) => {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `${DATA_SERVICE_URL}${normalizedPath}`;
+};
+
 export const useTakMenu = () => {
     const [data, setData] = useState<TakMenuResponse | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
@@ -19,7 +26,7 @@ export const useTakMenu = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await fetch('/api/v1/concept/menu');
+                const response = await fetch("https://visitors-web-backend.vercel.app/api/v1/concept/menu");
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }

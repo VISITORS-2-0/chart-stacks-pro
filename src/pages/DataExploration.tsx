@@ -5,13 +5,9 @@ import { FilterBar, TimeRange } from "@/components/FilterBar";
 // import { generateMockData } from "@/utils/chartData"; // Deprecated
 import type { MenuItem } from "@/components/DashboardSidebar";
 import type { ZoomLevel } from "@/components/TemporalChartCard";
-// import { fetchAbstractionData, fetchRawData, QueryParams } from "@/api/temporal"; // Moved to Index
-// import { calculateDateRange } from "@/utils/dateUtils"; // Moved to Index
-// import { toast } from "sonner"; 
-// import { useToast } from "@/components/ui/use-toast"; // Moved logic to Index
+import type { Group } from "@/services/groupsApi";
 
 interface ActiveChart extends MenuItem {
-  // data: Array<{ date: string; value: number }>; // Old structure
   externalData?: any[];
   conceptData?: any;
   isRaw?: boolean;
@@ -26,7 +22,6 @@ interface DataExplorationProps {
   onAddChart: (item: MenuItem) => void;
   onRemoveChart: (id: string) => void;
   onCloseAll: () => void;
-  // Lifted Props
   patientIds: string[];
   setPatientIds: (ids: string[]) => void;
   timeRange: TimeRange;
@@ -36,6 +31,7 @@ interface DataExplorationProps {
   onChartZoomOut?: (chartId: string) => void;
   onChartNavigate?: (chartId: string, direction: 'next' | 'prev', currentZoom: ZoomLevel, focusDate: Date | null) => void;
   onApplyCutoffs?: (chartId: string, cutoffs: number[], isBalanced: boolean) => void;
+  groups?: Group[];
 }
 
 export function DataExploration({
@@ -51,7 +47,8 @@ export function DataExploration({
   onChartDrillDown,
   onChartZoomOut,
   onChartNavigate,
-  onApplyCutoffs
+  onApplyCutoffs,
+  groups
 }: DataExplorationProps) {
   const [brushRange, setBrushRange] = useState<{ startIndex?: number; endIndex?: number }>({});
 
@@ -93,6 +90,7 @@ export function DataExploration({
         patientCount={patientCount}
         onCloseAll={onCloseAll}
         hasCharts={activeCharts.length > 0}
+        groups={groups}
       />
 
       <div className="flex-1 overflow-auto">

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Search, Calendar, Users, XCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { PatientMultiSelect } from "@/components/PatientMultiSelect";
+import { GroupMultiSelect } from "@/components/GroupMultiSelect";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -12,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
+import type { Group } from "@/services/groupsApi";
 
 interface FilterBarProps {
   patientIds: string[];
@@ -21,6 +23,7 @@ interface FilterBarProps {
   patientCount: number;
   onCloseAll: () => void;
   hasCharts: boolean;
+  groups?: Group[];
 }
 
 export interface TimeRange {
@@ -50,6 +53,7 @@ export const FilterBar = ({
   patientCount,
   onCloseAll,
   hasCharts,
+  groups,
 }: FilterBarProps) => {
   const [localStartDate, setLocalStartDate] = useState<Date | undefined>(timeRange.startDate);
   const [localEndDate, setLocalEndDate] = useState<Date | undefined>(timeRange.endDate);
@@ -89,15 +93,38 @@ export const FilterBar = ({
     }
   };
 
+  // Split patientIds into individual patients and group ids
+  const selectedPatients = patientIds.filter(id => !id.startsWith("group:"));
+  const selectedGroups = patientIds.filter(id => id.startsWith("group:"));
+
+  const handlePatientsChange = (newPatients: string[]) => {
+    onPatientIdsChange([...newPatients, ...selectedGroups]);
+  };
+
+  const handleGroupsChange = (newGroups: string[]) => {
+    onPatientIdsChange([...selectedPatients, ...newGroups]);
+  };
+
   return (
     <div className="bg-card border-b border-border px-6 py-4 space-y-4">
 
-      {/* Row 1: Patient Selection */}
-      <div className="w-full">
-        <PatientMultiSelect
-          selectedIds={patientIds}
-          onChange={onPatientIdsChange}
-        />
+      {/* Row 1: Patient & Group Selection */}
+      <div className="w-full flex gap-4 flex-col sm:flex-row">
+        <div className="flex-1">
+          <Label className="mb-1.5 block text-xs text-muted-foreground">Select Patients</Label>
+          <PatientMultiSelect
+            selectedIds={selectedPatients}
+            onChange={handlePatientsChange}
+          />
+        </div>
+        <div className="flex-1">
+          <Label className="mb-1.5 block text-xs text-muted-foreground">Select Groups</Label>
+          <GroupMultiSelect
+            selectedIds={selectedGroups}
+            onChange={handleGroupsChange}
+            groups={groups}
+          />
+        </div>
       </div>
 
       {/* Row 2: Controls */}
@@ -186,4 +213,4 @@ export const FilterBar = ({
       </div>
     </div>
   );
-};
+};;

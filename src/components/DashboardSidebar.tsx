@@ -224,10 +224,6 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
                 VISITORS
               </SidebarGroupLabel>
             </div>
-            <div className="text-[10px] break-all flex flex-col gap-1 text-primary-foreground/70">
-              <h1 className="font-semibold">URL: {DATA_SERVICE_URL}</h1>
-              <h1 className="font-semibold">Menu: {getApiUrl('/api/v1/concept/menu')}</h1>
-            </div>
           </div>
           <div className="p-4 text-red-400">Error loading menu: {error}</div>
         </SidebarContent>

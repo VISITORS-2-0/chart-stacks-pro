@@ -1,9 +1,4 @@
 import { MongoClient, Db } from 'mongodb';
-import dotenv from 'dotenv';
-import path from 'path';
-
-// Load .env from project root if running locally
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 const uri = process.env.MONGODB_URI;
 

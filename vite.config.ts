@@ -9,6 +9,11 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const dataServiceUrl = env.VITE_DATA_SERVICE_URL;
 
+  // Manually map non-VITE prefixed variables that our local backend plugins need
+  if (env.MONGODB_URI) {
+    process.env.MONGODB_URI = env.MONGODB_URI;
+  }
+
   if (!dataServiceUrl) {
     console.log("VITE_DATA_SERVICE_URL could not load well");
   }

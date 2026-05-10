@@ -22,6 +22,7 @@ import {
 import { ChevronRight } from "lucide-react";
 import { useTakMenu, TakItem } from "@/services/takApi";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { DATA_SERVICE_URL, getApiUrl } from "@/config/api";
 
 export type ChartType = "scatter" | "bar" | "line" | "continuous-interval" | "analytics";
 
@@ -224,8 +225,8 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
               </SidebarGroupLabel>
             </div>
             <div className="text-[10px] break-all flex flex-col gap-1 text-primary-foreground/70">
-              <h1 className="font-semibold">URL: {import.meta.env.VITE_DATA_SERVICE_URL}</h1>
-              <h1 className="font-semibold">Menu: {(import.meta.env.VITE_DATA_SERVICE_URL || '').replace(/\/$/, '')}/api/v1/concept/menu</h1>
+              <h1 className="font-semibold">URL: {DATA_SERVICE_URL}</h1>
+              <h1 className="font-semibold">Menu: {getApiUrl('/api/v1/concept/menu')}</h1>
             </div>
           </div>
           <div className="p-4 text-red-400">Error loading menu: {error}</div>
@@ -313,10 +314,6 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
                     Run Tests
                   </Button>
                 )}
-              </div>
-              <div className="text-[10px] break-all flex flex-col gap-1 text-primary-foreground/70">
-                <h1 className="font-semibold">URL: {import.meta.env.VITE_DATA_SERVICE_URL}</h1>
-                <h1 className="font-semibold">Menu: {(import.meta.env.VITE_DATA_SERVICE_URL || '').replace(/\/$/, '')}/api/v1/concept/menu</h1>
               </div>
             </div>
             <SidebarGroupContent className="px-4 py-2">

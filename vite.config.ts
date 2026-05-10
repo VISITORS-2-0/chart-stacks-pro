@@ -6,8 +6,11 @@ import { componentTagger } from "lovable-tagger";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const menuServiceUrl = env.MENU_SERVICE_URL || 'http://localhost:3000';
-  const dataServiceUrl = "https://visitors-web-backend.vercel.app";
+  const dataServiceUrl = env.VITE_DATA_SERVICE_URL;
+
+  if (!dataServiceUrl) {
+    console.log("VITE_DATA_SERVICE_URL could not load well");
+  }
 
   return {
     server: {

@@ -64,12 +64,27 @@ export interface MappingAbstractions {
     category_mappings: CategoryMapping[];
 }
 
+export interface RelativeTimeDelta {
+    value: number;
+    unit: 'h' | 'd' | 'w' | 'm' | 'y';
+}
+
+// TODO: Add reference_value support for non-event concept-value pairs (e.g. Hgb-State = Moderate)
+export interface RelativeTimeConfig {
+    reference_concept: string;
+    reference_value: string | null;
+    occurrence_index: number; // 0=first, 1=second, -1=last
+    start_delta: RelativeTimeDelta;
+    end_delta: RelativeTimeDelta;
+}
+
 export interface QueryParams {
     patients_list: string[];
     concept_name: string;
-    start_date: string;
-    end_date: string;
+    start_date: string | null;
+    end_date: string | null;
     use_generated_data?: boolean;
+    relative_time?: RelativeTimeConfig;
 }
 
 export const fetchAbstractionData = async (params: QueryParams): Promise<AbstractionResponse> => {

@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 
 import { TemporalChartCard } from "@/components/TemporalChartCard";
 import { FilterBar, TimeRange } from "@/components/FilterBar";
+import { RelativeTimeBar } from "@/components/RelativeTimeBar";
+import type { RelativeTimeConfig } from "@/components/RelativeTimeBar";
 // import { generateMockData } from "@/utils/chartData"; // Deprecated
 import type { MenuItem } from "@/components/DashboardSidebar";
 import type { ZoomLevel } from "@/components/TemporalChartCard";
@@ -19,6 +21,7 @@ interface ActiveChart extends MenuItem {
   cutoffs?: number[];
   isBalanced?: boolean;
   patientIds?: string[];
+  relativeEventName?: string;
 }
 
 interface DataExplorationProps {
@@ -26,7 +29,7 @@ interface DataExplorationProps {
   onAddChart: (item: MenuItem) => void;
   onRemoveChart: (id: string) => void;
   onCloseAll: () => void;
-  // Lifted Props
+  // Lifted absolute time props
   patientIds: string[];
   setPatientIds: (ids: string[]) => void;
   timeRange: TimeRange;
@@ -36,6 +39,11 @@ interface DataExplorationProps {
   onChartZoomOut?: (chartId: string) => void;
   onChartNavigate?: (chartId: string, direction: 'next' | 'prev', currentZoom: ZoomLevel, focusDate: Date | null) => void;
   onApplyCutoffs?: (chartId: string, cutoffs: number[], isBalanced: boolean) => void;
+  // Relative time props
+  isRelativeMode: boolean;
+  setIsRelativeMode: (enabled: boolean) => void;
+  relativeConfig: RelativeTimeConfig;
+  setRelativeConfig: (config: RelativeTimeConfig) => void;
 }
 
 export function DataExploration({
@@ -51,7 +59,11 @@ export function DataExploration({
   onChartDrillDown,
   onChartZoomOut,
   onChartNavigate,
-  onApplyCutoffs
+  onApplyCutoffs,
+  isRelativeMode,
+  setIsRelativeMode,
+  relativeConfig,
+  setRelativeConfig,
 }: DataExplorationProps) {
   const [brushRange, setBrushRange] = useState<{ startIndex?: number; endIndex?: number }>({});
 
@@ -94,6 +106,12 @@ export function DataExploration({
         onCloseAll={onCloseAll}
         hasCharts={activeCharts.length > 0}
       />
+      <RelativeTimeBar
+        isEnabled={isRelativeMode}
+        onToggle={setIsRelativeMode}
+        config={relativeConfig}
+        onConfigChange={setRelativeConfig}
+      />
 
       <div className="flex-1 overflow-auto">
         <div className="container max-w-7xl p-6">
@@ -122,6 +140,8 @@ export function DataExploration({
                   externalData={chart.externalData}
                   conceptData={chart.conceptData}
                   currentInterval={chart.currentInterval}
+                  isRelative={chart.isRelative}
+                  relativeEventName={chart.relativeEventName}
                   onDrillDown={(date, level) => onChartDrillDown && onChartDrillDown(chart.id, date, level)}
                   onZoomOut={() => onChartZoomOut && onChartZoomOut(chart.id)}
                   onNavigate={(direction, currentZoom, focusDate) => onChartNavigate && onChartNavigate(chart.id, direction, currentZoom, focusDate)}

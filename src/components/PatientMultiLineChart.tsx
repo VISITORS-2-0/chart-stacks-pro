@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceArea } from 'recharts';
 import { TemporalRow } from '../types/temporal';
+import { formatRelativeTime, formatRelativeTooltipTime } from '@/utils/dateUtils';
 
 interface PatientMultiLineChartProps {
     data: TemporalRow[];
@@ -8,9 +9,11 @@ interface PatientMultiLineChartProps {
     focusDate?: Date | null;
     onDrillDown?: (dateStr: string) => void;
     onZoomOut?: () => void;
+    isRelative?: boolean;
+    relativeGranularity?: 'D' | 'ME' | 'YE';
 }
 
-export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, onDrillDown, onZoomOut }: PatientMultiLineChartProps) {
+export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, onDrillDown, onZoomOut, isRelative = false, relativeGranularity = 'YE' }: PatientMultiLineChartProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     // Shared X-Axis logic: Use numeric timestamps to allow precise plotting
     const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
@@ -185,6 +188,12 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
     }, [scatterData, zoomLevel]);
 
     const detailTickFormatter = (unixTime: number) => {
+        if (isRelative) {
+            // Use zoomLevel (local state, updates on every zoom) rather than
+            // relativeGranularity (only updates after a server re-fetch).
+            const gran = zoomLevel === 'days' ? 'D' : zoomLevel === 'months' ? 'ME' : 'YE';
+            return formatRelativeTime(unixTime, gran);
+        }
         const date = new Date(unixTime);
         if (zoomLevel === 'years') {
             return date.getFullYear().toString();
@@ -196,6 +205,16 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
     };
 
     const contextTickFormatter = (unixTime: number) => {
+        if (isRelative) {
+            // Show the coarser-unit label as a context axis when zoomed in.
+            // e.g. when viewing days, show the month label as context below.
+            if (zoomLevel === 'days') {
+                const gran: 'ME' = 'ME';
+                return formatRelativeTime(unixTime, gran);
+            }
+            // For years/months zoom levels, suppress the context axis.
+            return '';
+        }
         const date = new Date(unixTime);
         if (zoomLevel === 'years') {
             return date.getFullYear().toString();
@@ -256,11 +275,15 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
             const pointsInBucket = scatterData.filter(pt => pt.x >= hoveredRange.start && pt.x <= hoveredRange.end);
 
             if (pointsInBucket.length === 0) {
-                const date = new Date(hoveredRange.start);
                 let dateStr = "";
-                if (zoomLevel === 'years') dateStr = date.getFullYear().toString();
-                else if (zoomLevel === 'months') dateStr = date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-                else dateStr = date.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+                if (isRelative) {
+                    dateStr = formatRelativeTooltipTime(hoveredRange.start);
+                } else {
+                    const date = new Date(hoveredRange.start);
+                    if (zoomLevel === 'years') dateStr = date.getFullYear().toString();
+                    else if (zoomLevel === 'months') dateStr = date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+                    else dateStr = date.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+                }
 
                 return (
                     <div className="bg-popover border border-border text-popover-foreground rounded-md shadow-md p-3 text-sm">
@@ -278,10 +301,14 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                 }
             }
 
+            const timeLabel = isRelative
+                ? formatRelativeTooltipTime(displayPoint.date.getTime())
+                : new Date(displayPoint.date).toLocaleString();
+
             return (
                 <div className="bg-popover border border-border text-popover-foreground rounded-md shadow-md p-3 text-sm">
                     <div className="font-semibold mb-1">
-                        {new Date(displayPoint.date).toLocaleString()}
+                        {timeLabel}
                     </div>
                     <div className="grid gap-1 mt-1">
                         <div className="text-muted-foreground">Value: <span className="font-medium text-foreground">{displayPoint.y}</span></div>

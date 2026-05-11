@@ -2,6 +2,7 @@
 import React, { useMemo, useState, useLayoutEffect, useRef } from 'react';
 import { ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, Scatter } from 'recharts';
 import { TemporalRow } from '../types/temporal';
+import { formatRelativeTime, formatRelativeCompact } from '@/utils/dateUtils';
 
 interface PatientStateGanttProps {
     data: TemporalRow[];
@@ -10,6 +11,8 @@ interface PatientStateGanttProps {
     conceptData?: any;
     onZoomOut?: () => void;
     focusDate?: Date | null;
+    isRelative?: boolean;
+    relativeGranularity?: 'D' | 'ME' | 'YE';
 }
 
 // Custom Shape to render the "Gantt" bars using Scatter points
@@ -59,7 +62,7 @@ const GanttBar = (props: any) => {
     );
 };
 
-export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate }: PatientStateGanttProps) {
+export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, isRelative = false, relativeGranularity = 'YE' }: PatientStateGanttProps) {
     const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [visibleWindow, setVisibleWindow] = useState<{ start: number, end: number } | null>(null);
@@ -313,6 +316,12 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
     };
 
     const tickFormatter = (time: number) => {
+        if (isRelative) {
+            // Derive granularity from local zoomLevel (updates on every zoom in/out)
+            // rather than relativeGranularity (only updates after server re-fetch).
+            const gran = zoomLevel === 'days' ? 'D' : zoomLevel === 'months' ? 'ME' : 'YE';
+            return formatRelativeTime(time, gran);
+        }
         const d = new Date(time);
         if (zoomLevel === 'years') return d.getFullYear().toString();
         if (zoomLevel === 'months') return d.toLocaleDateString(undefined, { month: 'short' });
@@ -432,8 +441,8 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
                     }}
                 >
                     <div className="font-bold mb-1" style={{ color: barTooltip.data.fill }}>{barTooltip.data.value}</div>
-                    <div>Start: {new Date(barTooltip.data.start).toLocaleString()}</div>
-                    <div>End: {new Date(barTooltip.data.end).toLocaleString()}</div>
+                    <div>Start: {isRelative ? formatRelativeCompact(barTooltip.data.start) : new Date(barTooltip.data.start).toLocaleString()}</div>
+                    <div>End: {isRelative ? formatRelativeCompact(barTooltip.data.end) : new Date(barTooltip.data.end).toLocaleString()}</div>
                     <div>Duration: {Math.round((barTooltip.data.end - barTooltip.data.start) / (1000 * 60 * 60))} hrs</div>
                 </div>
             )}

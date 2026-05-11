@@ -1,6 +1,7 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TemporalRow, PatientStatusProcessedRow } from '../types/temporal';
+import { formatRelativeTimeFromMonthKey } from '@/utils/dateUtils';
 
 import { Button } from '@/components/ui/button';
 
@@ -11,9 +12,11 @@ interface PatientStatusAnalyticsProps {
     conceptData?: any;
     focusDate?: Date | null;
     onNavigate?: (direction: 'next' | 'prev') => void;
+    isRelative?: boolean;
+    relativeGranularity?: 'D' | 'ME' | 'YE';
 }
 
-export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, onNavigate }: PatientStatusAnalyticsProps) {
+export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, onNavigate, isRelative = false, relativeGranularity = 'YE' }: PatientStatusAnalyticsProps) {
     const componentId = React.useId();
     const syncId = `patientStatus-${componentId}`;
 
@@ -190,9 +193,13 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
             const pct = payload[0].value;
             const color = payload[0].fill;
 
+            const timeLabel = isRelative && label
+                ? formatRelativeTimeFromMonthKey(label, relativeGranularity)
+                : label;
+
             return (
                 <div className="bg-background border border-border p-2 rounded shadow-md text-xs">
-                    <p className="font-semibold mb-1">{`Time: ${label}`}</p>
+                    <p className="font-semibold mb-1">{`Time: ${timeLabel}`}</p>
                     <p style={{ color }}>
                         {`${category.replace('_', ' ')}: ${count} patients (${Number(pct).toFixed(1)}%)`}
                     </p>
@@ -243,6 +250,11 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
                                             height={30}
                                             tickFormatter={(val) => {
                                                 if (!val) return val;
+
+                                                // Relative time mode: compute offset from anchor date
+                                                if (isRelative) {
+                                                    return formatRelativeTimeFromMonthKey(val, relativeGranularity);
+                                                }
 
                                                 const parts = val.split('-');
 

@@ -3,9 +3,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { DashboardSidebar, MenuItem } from "@/components/DashboardSidebar";
 import { generateMockData } from "@/utils/chartData";
 import { DataExploration } from "./DataExploration";
-import { PopulationQuery } from "./PopulationQuery";
-import { PatternExplorer } from "./PatternExplorer";
-import { DataExport } from "./DataExport";
+import { ManageGroups } from "./ManageGroups";
 
 import { TimeRange } from "@/components/FilterBar";
 import type { RelativeTimeConfig } from "@/components/RelativeTimeBar";
@@ -14,6 +12,8 @@ import { calculateDateRange } from "@/utils/dateUtils";
 import { useToast } from "@/components/ui/use-toast";
 import { useGeneratedDataMode } from "@/contexts/GeneratedDataContext";
 import { GlobalToggle } from "@/components/GlobalToggle";
+import { fetchGroups, Group } from "@/services/groupsApi";
+import { useEffect } from "react";
 
 interface ActiveChart extends MenuItem {
   externalData?: any[];
@@ -31,7 +31,7 @@ interface ActiveChart extends MenuItem {
   relativeEventName?: string; // The reference event name for display in the chart header
 }
 
-type TabValue = "exploration" | "population" | "pattern" | "export" | string;
+type TabValue = "exploration" | "manage-groups" | string;
 
 const calculateDefaultGranularity = (startDateStr: string, endDateStr: string): 'YE' | 'ME' | 'D' => {
   const start = new Date(startDateStr);
@@ -77,6 +77,7 @@ const Index = () => {
 
   // Lifted State
   const [patientIds, setPatientIds] = useState<string[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [timeRange, setTimeRange] = useState<TimeRange>({ type: "relative", relative: "5y" });
   const [patientCount] = useState(10000);
   const { toast } = useToast();
@@ -90,6 +91,28 @@ const Index = () => {
     start_delta: { value: 0, unit: "d" },
     end_delta: { value: 35, unit: "d" },
   });
+
+  const loadGroupsFromApi = () => {
+    fetchGroups().then((res) => {
+      setGroups(res);
+      setPatientIds([]);
+    }).catch(err => console.error('Failed to load groups', err));
+  };
+
+  useEffect(() => {
+    loadGroupsFromApi();
+  }, []);
+
+  const resolvePatientIds = (selectedIds: string[]) => {
+    const individualIds = selectedIds.filter(id => !id.startsWith('group:'));
+    const groupNames = selectedIds.filter(id => id.startsWith('group:')).map(id => id.substring(6));
+
+    const groupPatientIds = groups
+      .filter(g => groupNames.includes(g.name))
+      .flatMap(g => g.patientIds);
+
+    return Array.from(new Set([...individualIds, ...groupPatientIds]));
+  };
 
   const buildRanges = (cutoffs?: number[], conceptData?: any) => {
     if (!cutoffs || cutoffs.length === 0) return undefined;
@@ -130,8 +153,11 @@ const Index = () => {
         fetchInterval = chart.currentInterval || calculateDefaultGranularity(reqStart!, reqEnd!);
       }
 
+      const chartPatientIds = chart.patientIds || patientIds;
+      const resolvedIds = resolvePatientIds(chartPatientIds);
+
       const patternParams: NumericPatternQueryParams = {
-        patients_list: chart.patientIds || patientIds,
+        patients_list: resolvedIds,
         concept_name: chart.title,
         start_date: reqStart,
         end_date: reqEnd,
@@ -147,7 +173,7 @@ const Index = () => {
       const updatedCharts = [...activeCharts];
       updatedCharts[chartIndex] = {
         ...chart,
-        externalData: processPatternResult(response.result, fetchInterval, (chart.patientIds || patientIds).length),
+        externalData: processPatternResult(response.result, fetchInterval, resolvedIds.length),
         conceptData: response.concept_data,
         cutoffs,
         isBalanced
@@ -162,7 +188,9 @@ const Index = () => {
   const handleItemClick = async (item: MenuItem, overridePatientIds?: string[]): Promise<{ success: boolean, errorMessage?: string }> => {
     // 1. Validation
     const currentPatientIds = overridePatientIds || patientIds;
-    if (currentPatientIds.length === 0) {
+    const resolvedIds = resolvePatientIds(currentPatientIds);
+
+    if (resolvedIds.length === 0) {
       toast({
         title: "No Patient Selected",
         description: "Please select at least one patient before adding a chart.",
@@ -177,13 +205,13 @@ const Index = () => {
     // For duplicate-chart check, use a stable key that incorporates mode
     const { start_date: absStart, end_date: absEnd } = calculateDateRange(timeRange);
     const dedupStart = useRelative ? `rel:${relativeConfig.reference_concept}:${relativeConfig.occurrence_index}:${relativeConfig.start_delta.value}${relativeConfig.start_delta.unit}` : absStart;
-    const dedupEnd   = useRelative ? `${relativeConfig.end_delta.value}${relativeConfig.end_delta.unit}` : absEnd;
+    const dedupEnd = useRelative ? `${relativeConfig.end_delta.value}${relativeConfig.end_delta.unit}` : absEnd;
 
     const exists = activeCharts.some((chart) => {
       const sameConcept = (chart.originalItem?.id !== undefined && chart.originalItem?.id === item.originalItem?.id) || chart.title === item.title;
       const samePatients =
-        chart.patientIds?.length === currentPatientIds.length &&
-        chart.patientIds.every(id => currentPatientIds.includes(id));
+        chart.patientIds?.length === resolvedIds.length &&
+        chart.patientIds.every(id => resolvedIds.includes(id));
       const sameTimeRange = chart.currentStart === dedupStart && chart.currentEnd === dedupEnd;
       const sameMode = (chart.isRelative ?? false) === useRelative;
       return sameConcept && samePatients && sameTimeRange && sameMode;
@@ -193,10 +221,10 @@ const Index = () => {
 
     // Build the base query params
     const params: QueryParams = {
-      patients_list: currentPatientIds,
+      patients_list: resolvedIds,
       concept_name: item.title,
       start_date: useRelative ? null : absStart,
-      end_date:   useRelative ? null : absEnd,
+      end_date: useRelative ? null : absEnd,
       use_generated_data: useGeneratedData,
       ...(useRelative ? { relative_time: relativeConfig } : {}),
     };
@@ -215,7 +243,7 @@ const Index = () => {
       const isContinuousPattern = item.originalItem?.output_type === "range" && item.originalItem?.duration_type === "interval";
       let isRawType = parentSection.toLowerCase().includes('raw') || isContinuousPattern;
 
-      if (currentPatientIds.length === 1) {
+      if (resolvedIds.length === 1) {
         if (isRawType) {
           const response = await fetchRawData(params);
           resultData = response.result;
@@ -234,7 +262,7 @@ const Index = () => {
           };
           const response = await fetchMultiplePatientsNumericAbstraction(patternParams);
           conceptData = response.concept_data;
-          resultData = processPatternResult(response.result, defaultInterval, currentPatientIds.length);
+          resultData = processPatternResult(response.result, defaultInterval, resolvedIds.length);
           isRawType = false;
         } else if (isRawType) {
           const response = await fetchRawData(params);
@@ -248,7 +276,7 @@ const Index = () => {
           };
           const response = await fetchMultiplePatientsAbstraction(patternParams);
           conceptData = response.concept_data;
-          resultData = processPatternResult(response.result, defaultInterval, currentPatientIds.length);
+          resultData = processPatternResult(response.result, defaultInterval, resolvedIds.length);
         }
       }
 
@@ -262,13 +290,13 @@ const Index = () => {
         // In absolute mode, only store for multi-patient pattern charts.
         currentInterval: useRelative
           ? defaultInterval
-          : ((!isRawType && currentPatientIds.length > 1) ? defaultInterval : undefined),
+          : ((!isRawType && resolvedIds.length > 1) ? defaultInterval : undefined),
         // Store dedup keys as currentStart/End so equality checks work for both modes
         currentStart: dedupStart,
         currentEnd: dedupEnd,
         originalStart: useRelative ? undefined : absStart,
         originalEnd: useRelative ? undefined : absEnd,
-        patientIds: currentPatientIds,
+        patientIds: resolvedIds,
         isRelative: useRelative,
         relativeEventName: useRelative ? relativeConfig.reference_concept : undefined,
       };
@@ -327,7 +355,8 @@ const Index = () => {
 
     // Server-side drill-down only applies to multi-patient pattern charts.
     // Single-patient and raw charts zoom client-side via TemporalChartCard's local zoomLevel.
-    if (currentChartPatientIds.length <= 1 || chart.isRaw) return;
+    const resolvedIds = resolvePatientIds(currentChartPatientIds);
+    if (resolvedIds.length <= 1 || chart.isRaw) return;
 
     const currentInterval = chart.currentInterval || 'YE';
     let nextInterval = 'YE';
@@ -371,7 +400,7 @@ const Index = () => {
 
       if (isContinuous) {
         const params: NumericPatternQueryParams = {
-          patients_list: currentChartPatientIds,
+          patients_list: resolvedIds,
           concept_name: chart.title,
           start_date: startDateStr,
           end_date: endDateStr,
@@ -384,7 +413,7 @@ const Index = () => {
         response = await fetchMultiplePatientsNumericAbstraction(params);
       } else {
         const params: PatternQueryParams = {
-          patients_list: currentChartPatientIds,
+          patients_list: resolvedIds,
           concept_name: chart.title,
           start_date: startDateStr,
           end_date: endDateStr,
@@ -399,7 +428,7 @@ const Index = () => {
       const updatedCharts = [...activeCharts];
       updatedCharts[chartIndex] = {
         ...chart,
-        externalData: processPatternResult(response.result, nextInterval, currentChartPatientIds.length),
+        externalData: processPatternResult(response.result, nextInterval, resolvedIds.length),
         currentInterval: nextInterval,
         ...(chartIsRelative ? {} : { currentStart: startDateStr!, currentEnd: endDateStr! }),
         conceptData: response.concept_data,
@@ -424,7 +453,8 @@ const Index = () => {
 
     // Server-side zoom-out only applies to multi-patient pattern charts.
     // Single-patient and raw charts zoom client-side via TemporalChartCard's local zoomLevel.
-    if (currentChartPatientIds.length <= 1 || chart.isRaw || !chart.currentInterval) return;
+    const resolvedIds = resolvePatientIds(currentChartPatientIds);
+    if (resolvedIds.length <= 1 || chart.isRaw || !chart.currentInterval) return;
 
     const currentInterval = chart.currentInterval || 'YE';
     let prevInterval = '';
@@ -467,7 +497,7 @@ const Index = () => {
       let response;
       if (isContinuous) {
         const params: NumericPatternQueryParams = {
-          patients_list: currentChartPatientIds,
+          patients_list: resolvedIds,
           concept_name: chart.title,
           start_date: startDateStr,
           end_date: endDateStr,
@@ -480,7 +510,7 @@ const Index = () => {
         response = await fetchMultiplePatientsNumericAbstraction(params);
       } else {
         const params: PatternQueryParams = {
-          patients_list: currentChartPatientIds,
+          patients_list: resolvedIds,
           concept_name: chart.title,
           start_date: startDateStr,
           end_date: endDateStr,
@@ -495,7 +525,7 @@ const Index = () => {
       const updatedCharts = [...activeCharts];
       updatedCharts[chartIndex] = {
         ...chart,
-        externalData: processPatternResult(response.result, prevInterval, currentChartPatientIds.length),
+        externalData: processPatternResult(response.result, prevInterval, resolvedIds.length),
         currentInterval: prevInterval,
         ...(chartIsRelative ? {} : { currentStart: startDateStr!, currentEnd: endDateStr! }),
         conceptData: response.concept_data,
@@ -515,8 +545,9 @@ const Index = () => {
 
     const chart = activeCharts[chartIndex];
     const currentChartPatientIds = chart.patientIds || patientIds;
+    const resolvedIds = resolvePatientIds(currentChartPatientIds);
     // Navigation is not meaningful in relative mode
-    if (currentChartPatientIds.length <= 1 || chart.isRaw || chart.isRelative) return;
+    if (resolvedIds.length <= 1 || chart.isRaw || chart.isRelative) return;
 
     let startDateStr = '';
     let endDateStr = '';
@@ -566,7 +597,7 @@ const Index = () => {
       let response;
       if (isContinuous) {
         const params: NumericPatternQueryParams = {
-          patients_list: patientIds,
+          patients_list: resolvedIds,
           concept_name: chart.title,
           start_date: startDateStr,
           end_date: endDateStr,
@@ -578,7 +609,7 @@ const Index = () => {
         response = await fetchMultiplePatientsNumericAbstraction(params);
       } else {
         const params: PatternQueryParams = {
-          patients_list: currentChartPatientIds,
+          patients_list: resolvedIds,
           concept_name: chart.title,
           start_date: startDateStr,
           end_date: endDateStr,
@@ -592,7 +623,7 @@ const Index = () => {
       const updatedCharts = [...activeCharts];
       updatedCharts[chartIndex] = {
         ...chart,
-        externalData: processPatternResult(response.result, fetchInterval, currentChartPatientIds.length),
+        externalData: processPatternResult(response.result, fetchInterval, resolvedIds.length),
         currentInterval: fetchInterval,
         currentStart: startDateStr,
         currentEnd: endDateStr,
@@ -637,20 +668,13 @@ const Index = () => {
           setIsRelativeMode={setIsRelativeMode}
           relativeConfig={relativeConfig}
           setRelativeConfig={setRelativeConfig}
+          groups={groups}
         />
       );
     }
 
-    if (activeTab === "population") {
-      return <PopulationQuery />;
-    }
-
-    if (activeTab === "pattern") {
-      return <PatternExplorer />;
-    }
-
-    if (activeTab === "export") {
-      return <DataExport />;
+    if (activeTab === "manage-groups") {
+      return <ManageGroups onGroupsChange={loadGroupsFromApi} />;
     }
 
     return null;
@@ -681,38 +705,14 @@ const Index = () => {
               )}
             </button>
             <button
-              onClick={() => setActiveTab("population")}
-              className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === "population"
+              onClick={() => setActiveTab("manage-groups")}
+              className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === "manage-groups"
                 ? "text-primary"
                 : "text-muted-foreground hover:text-foreground"
                 }`}
             >
-              Population Query
-              {activeTab === "population" && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab("pattern")}
-              className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === "pattern"
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-                }`}
-            >
-              Pattern Explorer
-              {activeTab === "pattern" && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab("export")}
-              className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === "export"
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-                }`}
-            >
-              Data Export
-              {activeTab === "export" && (
+              Manage Groups
+              {activeTab === "manage-groups" && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
               )}
             </button>

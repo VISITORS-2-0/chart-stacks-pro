@@ -11,6 +11,8 @@ export interface TakItem {
 
 export type TakMenuResponse = TakItem[];
 
+import { getApiUrl } from '@/config/api';
+
 export const useTakMenu = () => {
     const [data, setData] = useState<TakMenuResponse | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
@@ -19,7 +21,7 @@ export const useTakMenu = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await fetch('/api/v1/concept/menu');
+                const response = await fetch(getApiUrl("/api/v1/concept/menu"));
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }

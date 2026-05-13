@@ -2,12 +2,21 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
+import { groupsApiMiddleware } from "./src/server/viteGroupsMiddleware";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const menuServiceUrl = env.MENU_SERVICE_URL || 'http://localhost:3000';
-  const dataServiceUrl = env.VITE_DATA_SERVICE_URL || 'http://127.0.0.1:8000';
+  const dataServiceUrl = env.VITE_DATA_SERVICE_URL;
+
+  // Manually map non-VITE prefixed variables that our local backend plugins need
+  if (env.MONGODB_URI) {
+    process.env.MONGODB_URI = env.MONGODB_URI;
+  }
+
+  if (!dataServiceUrl) {
+    console.log("VITE_DATA_SERVICE_URL could not load well");
+  }
 
   return {
     server: {
@@ -25,8 +34,13 @@ export default defineConfig(({ mode }) => {
           secure: false,
         },
       },
+      cors: true,
     },
-    plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+    plugins: [
+      react(), 
+      mode === "development" && componentTagger(),
+      groupsApiMiddleware()
+    ].filter(Boolean),
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

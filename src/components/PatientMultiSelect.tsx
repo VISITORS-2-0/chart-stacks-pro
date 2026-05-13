@@ -34,10 +34,13 @@ export function PatientMultiSelect({ selectedIds, onChange }: PatientMultiSelect
     const [open, setOpen] = useState(false);
 
     const handleSelect = (currentValue: string) => {
-        if (selectedIds.includes(currentValue)) {
-            onChange(selectedIds.filter((id) => id !== currentValue));
+        // Find the exact cased value from AVAILABLE_PATIENTS
+        const realValue = AVAILABLE_PATIENTS.find(v => v.toLowerCase() === currentValue) || currentValue;
+
+        if (selectedIds.includes(realValue)) {
+            onChange(selectedIds.filter((id) => id !== realValue));
         } else {
-            onChange([...selectedIds, currentValue]);
+            onChange([...selectedIds, realValue]);
         }
     };
 
@@ -55,10 +58,15 @@ export function PatientMultiSelect({ selectedIds, onChange }: PatientMultiSelect
 
     const areAllSelected = AVAILABLE_PATIENTS.every(id => selectedIds.includes(id));
 
+    const getDisplaySummary = () => {
+        if (selectedIds.length === 0) return "Select patients...";
+        return `${selectedIds.length} patients selected`;
+    };
+
     return (
         <div className="flex flex-col gap-2 w-full">
             <div className="flex items-center gap-2 w-full">
-                <Popover open={open} onOpenChange={setOpen}>
+                <Popover open={open} onOpenChange={setOpen} modal={true}>
                     <PopoverTrigger asChild>
                         <Button
                             variant="outline"
@@ -66,9 +74,7 @@ export function PatientMultiSelect({ selectedIds, onChange }: PatientMultiSelect
                             aria-expanded={open}
                             className="flex-1 justify-between h-auto min-h-[2.5rem]"
                         >
-                            {selectedIds.length > 0
-                                ? `${selectedIds.length} patients selected`
-                                : "Select patients..."}
+                            {getDisplaySummary()}
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                     </PopoverTrigger>
@@ -76,8 +82,9 @@ export function PatientMultiSelect({ selectedIds, onChange }: PatientMultiSelect
                         <Command>
                             <CommandInput placeholder="Search patient ID..." />
                             <CommandList>
-                                <CommandEmpty>No patient found.</CommandEmpty>
-                                <CommandGroup>
+                                <CommandEmpty>No matching item found.</CommandEmpty>
+
+                                <CommandGroup heading="Patients">
                                     {AVAILABLE_PATIENTS.map((id) => (
                                         <CommandItem
                                             key={id}
@@ -121,22 +128,24 @@ export function PatientMultiSelect({ selectedIds, onChange }: PatientMultiSelect
             </div>
 
             {selectedIds.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedIds.map((id) => (
-                        <Badge key={id} variant="secondary" className="px-2 py-1 gap-1">
-                            {id}
-                            <button
-                                className="ml-1 hover:bg-muted rounded-full p-0.5"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRemove(id);
-                                }}
-                            >
-                                <X className="h-3 w-3" />
-                                <span className="sr-only">Remove {id}</span>
-                            </button>
-                        </Badge>
-                    ))}
+                <div className="max-h-[150px] overflow-y-auto mt-2 p-1 border border-transparent">
+                    <div className="flex flex-wrap gap-2">
+                        {selectedIds.map((id) => (
+                            <Badge key={id} variant="secondary" className="px-2 py-1 gap-1">
+                                {id}
+                                <button
+                                    className="ml-1 hover:bg-muted rounded-full p-0.5"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemove(id);
+                                    }}
+                                >
+                                    <X className="h-3 w-3" />
+                                    <span className="sr-only">Remove {id}</span>
+                                </button>
+                            </Badge>
+                        ))}
+                    </div>
                 </div>
             )}
         </div>

@@ -22,6 +22,7 @@ import {
 import { ChevronRight } from "lucide-react";
 import { useTakMenu, TakItem } from "@/services/takApi";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { DATA_SERVICE_URL, getApiUrl } from "@/config/api";
 
 export type ChartType = "scatter" | "bar" | "line" | "continuous-interval" | "analytics";
 
@@ -216,8 +217,15 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
   if (error) {
     return (
       <Sidebar className="w-64 border-r border-primary/20 bg-primary text-primary-foreground">
-        <SidebarContent className="bg-primary p-4">
-          <div className="text-red-400">Error loading menu: {error}</div>
+        <SidebarContent className="bg-primary">
+          <div className="px-4 py-3 border-b border-primary-foreground/10 flex flex-col gap-2">
+            <div className="flex justify-between items-center">
+              <SidebarGroupLabel className="text-xl font-bold text-primary-foreground tracking-wider p-0">
+                VISITORS
+              </SidebarGroupLabel>
+            </div>
+          </div>
+          <div className="p-4 text-red-400">Error loading menu: {error}</div>
         </SidebarContent>
       </Sidebar>
     );
@@ -292,15 +300,17 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
       <Sidebar className="w-64 border-r border-primary/20 bg-primary text-primary-foreground">
         <SidebarContent className="bg-primary">
           <SidebarGroup>
-            <div className="px-4 py-3 border-b border-primary-foreground/10 flex justify-between items-center">
-              <SidebarGroupLabel className="text-xl font-bold text-primary-foreground tracking-wider p-0">
-                VISITORS
-              </SidebarGroupLabel>
-              {import.meta.env.VITE_APP_ENV === 'test' && (
-                <Button size="sm" variant="secondary" onClick={() => setShowTestOptions(true)} disabled={isTesting}>
-                  Run Tests
-                </Button>
-              )}
+            <div className="px-4 py-3 border-b border-primary-foreground/10 flex flex-col gap-2">
+              <div className="flex justify-between items-center">
+                <SidebarGroupLabel className="text-xl font-bold text-primary-foreground tracking-wider p-0">
+                  VISITORS
+                </SidebarGroupLabel>
+                {import.meta.env.VITE_APP_ENV === 'test' && (
+                  <Button size="sm" variant="secondary" onClick={() => setShowTestOptions(true)} disabled={isTesting}>
+                    Run Tests
+                  </Button>
+                )}
+              </div>
             </div>
             <SidebarGroupContent className="px-4 py-2">
               <div className="relative">

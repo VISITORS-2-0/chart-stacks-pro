@@ -1,7 +1,5 @@
 import { TemporalRow, PatientStatusProcessedRow } from '../types/temporal';
-
-
-const DATA_SERVICE_URL = import.meta.env.VITE_DATA_SERVICE_URL || '';
+import { getApiUrl } from '@/config/api';
 
 export interface ConceptData {
     id?: string;
@@ -88,7 +86,7 @@ export interface QueryParams {
 }
 
 export const fetchAbstractionData = async (params: QueryParams): Promise<AbstractionResponse> => {
-    const response = await fetch(`http://localhost:8000/api/v1/visitors-queries/abstraction`, {
+    const response = await fetch(getApiUrl('/api/v1/visitors-queries/abstraction'), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -107,7 +105,7 @@ export const fetchAbstractionData = async (params: QueryParams): Promise<Abstrac
 };
 
 export const fetchRawData = async (params: QueryParams): Promise<RawDataResponse> => {
-    const response = await fetch(`http://localhost:8000/api/v1/visitors-queries/raw-data`, {
+    const response = await fetch(getApiUrl('/api/v1/visitors-queries/raw-data'), {
         method: 'POST',
 
         headers: {
@@ -144,7 +142,7 @@ export interface PatternQueryParams extends QueryParams {
 }
 
 export const fetchMultiplePatientsAbstraction = async (params: PatternQueryParams): Promise<PatternResponse> => {
-    const response = await fetch(`http://localhost:8000/api/v1/visitors-queries/multiple-patients-abstraction`, {
+    const response = await fetch(getApiUrl('/api/v1/visitors-queries/multiple-patients-abstraction'), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -167,7 +165,7 @@ export interface NumericPatternQueryParams extends PatternQueryParams {
 }
 
 export const fetchMultiplePatientsNumericAbstraction = async (params: NumericPatternQueryParams): Promise<PatternResponse> => {
-    const response = await fetch(`http://localhost:8000/api/v1/visitors-queries/multiple-patients-numeric-abstraction`, {
+    const response = await fetch(getApiUrl('/api/v1/visitors-queries/multiple-patients-numeric-abstraction'), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -256,8 +254,7 @@ export const getAllMultiPatientAbstract = async (): Promise<PatientStatusProcess
 };
 
 export const fetchConceptKnowledge = async (conceptName: string): Promise<ConceptKnowledgeResponse> => {
-    const baseUrl = import.meta.env.VITE_DATA_SERVICE_URL || 'http://localhost:8000';
-    const response = await fetch(`${baseUrl}/api/v1/concept/${encodeURIComponent(conceptName)}/knowledge-exploration`, {
+    const response = await fetch(getApiUrl(`/api/v1/concept/${encodeURIComponent(conceptName)}/knowledge-exploration`), {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',

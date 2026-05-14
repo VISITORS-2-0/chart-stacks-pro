@@ -1,4 +1,4 @@
-import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -31,6 +31,8 @@ interface TemporalChartCardProps {
     isCutoffsBalanced?: boolean;
     onApplyCutoffs?: (cutoffs: number[], isBalanced: boolean) => void;
     currentInterval?: string;
+    isRelative?: boolean;
+    relativeEventName?: string;
 }
 
 export function TemporalChartCard({
@@ -49,8 +51,15 @@ export function TemporalChartCard({
     onApplyCutoffs,
     patientIds,
     currentInterval,
+    isRelative = false,
+    relativeEventName,
 }: TemporalChartCardProps) {
     const isMultiPatient = patientIds ? patientIds.length > 1 : false;
+
+    // Derive granularity for relative-time formatting
+    const relativeGranularity: 'D' | 'ME' | 'YE' =
+        currentInterval === 'D' ? 'D' :
+        currentInterval === 'ME' ? 'ME' : 'YE';
 
     const singlePatient = useOnePatientRaw();
     const multiPatientAbstract = useMultiPatientAbstract();
@@ -322,13 +331,31 @@ export function TemporalChartCard({
                             conceptName={title}
                             conceptType={conceptData?.concept_type || conceptData?.["@concept-type"]}
                         />
+                        {isRelative && (
+                            <TooltipProvider>
+                                <Tooltip delayDuration={200}>
+                                    <TooltipTrigger>
+                                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 cursor-help">
+                                            <Clock className="h-3 w-3" />
+                                            Relative
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" align="start" className="max-w-[280px]">
+                                        <p className="text-xs font-semibold mb-0.5">Relative Time Mode</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            Data aligned to event: <span className="font-medium text-foreground">{relativeEventName || 'Unknown'}</span>
+                                        </p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                        {loading ? "Loading..." : `${filteredData.length} data points`} ({zoomLevel})
+                        {loading ? "Loading..." : `${filteredData.length} data points`} ({isRelative ? relativeGranularity === 'D' ? 'daily' : relativeGranularity === 'ME' ? 'monthly' : 'yearly' : zoomLevel})
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    {(zoomLevel === 'months' || zoomLevel === 'days') && !!onNavigate && (
+                    {(zoomLevel === 'months' || zoomLevel === 'days') && !!onNavigate && !isRelative && (
                         <div className="flex justify-center items-center gap-1 shrink-0 bg-muted/50 rounded-md p-1 border">
                             <Button
                                 variant="ghost"
@@ -398,6 +425,8 @@ export function TemporalChartCard({
                             onDrillDown={handleDrillDown}
                             conceptData={conceptData}
                             focusDate={focusDate}
+                            isRelative={isRelative}
+                            relativeGranularity={relativeGranularity}
                         />
                     ) : isRaw ? (
                         <PatientMultiLineChart
@@ -406,6 +435,8 @@ export function TemporalChartCard({
                             focusDate={focusDate}
                             onDrillDown={handleDrillDown}
                             onZoomOut={handleZoomOut}
+                            isRelative={isRelative}
+                            relativeGranularity={relativeGranularity}
                         />
                     ) : chartType === 'bar' ? (
                         <PatientStateGantt
@@ -414,6 +445,8 @@ export function TemporalChartCard({
                             onDrillDown={handleDrillDown}
                             conceptData={conceptData}
                             focusDate={focusDate}
+                            isRelative={isRelative}
+                            relativeGranularity={relativeGranularity}
                         />
                     ) : (
                         <PatientStatusAnalytics
@@ -423,6 +456,8 @@ export function TemporalChartCard({
                             onDrillDown={handleDrillDown}
                             conceptData={conceptData}
                             onNavigate={handleNavigateWrapper}
+                            isRelative={isRelative}
+                            relativeGranularity={relativeGranularity}
                         />
                     )
                 )}

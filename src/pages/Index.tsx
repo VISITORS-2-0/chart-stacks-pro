@@ -6,6 +6,7 @@ import { DataExploration } from "./DataExploration";
 import { ManageGroups } from "./ManageGroups";
 
 import { TimeRange } from "@/components/FilterBar";
+import type { RelativeTimeConfig } from "@/components/RelativeTimeBar";
 import { fetchAbstractionData, fetchRawData, fetchMultiplePatientsAbstraction, fetchMultiplePatientsNumericAbstraction, QueryParams, PatternQueryParams, NumericPatternQueryParams } from "@/api/temporal";
 import { calculateDateRange } from "@/utils/dateUtils";
 import { useToast } from "@/components/ui/use-toast";
@@ -15,7 +16,6 @@ import { fetchGroups, Group } from "@/services/groupsApi";
 import { useEffect } from "react";
 
 interface ActiveChart extends MenuItem {
-  // data: Array<{ date: string; value: number }>;
   externalData?: any[];
   conceptData?: any;
   isRaw?: boolean;
@@ -27,6 +27,8 @@ interface ActiveChart extends MenuItem {
   cutoffs?: number[];
   isBalanced?: boolean;
   patientIds?: string[];
+  isRelative?: boolean; // Whether this chart was fetched in relative-time mode
+  relativeEventName?: string; // The reference event name for display in the chart header
 }
 
 type TabValue = "exploration" | "manage-groups" | string;
@@ -40,6 +42,22 @@ const calculateDefaultGranularity = (startDateStr: string, endDateStr: string): 
   if (diffDays >= 365) return 'YE';
   if (start.getMonth() !== end.getMonth() || start.getFullYear() !== end.getFullYear() || diffDays >= 28) return 'ME';
   return 'D';
+};
+
+/**
+ * Derive a sensible default interval string from a relative-time config.
+ * Uses the END delta's unit as the primary signal:
+ *   h -> D (hourly data displayed by day)
+ *   d -> D
+ *   w -> ME (weekly ranges displayed by month)
+ *   m -> ME
+ *   y -> YE
+ */
+const granularityFromRelativeConfig = (cfg: { end_delta: { value: number; unit: string } }): 'YE' | 'ME' | 'D' => {
+  const { unit, value } = cfg.end_delta;
+  if (unit === 'y') return 'YE';
+  if (unit === 'm' || unit === 'w') return value > 1 ? 'ME' : 'D';
+  return 'D'; // hours or days
 };
 
 const clampDateStr = (dateStr: string, minDateStr?: string, maxDateStr?: string) => {
@@ -64,6 +82,16 @@ const Index = () => {
   const [patientCount] = useState(10000);
   const { toast } = useToast();
 
+  // Relative Time global state
+  const [isRelativeMode, setIsRelativeMode] = useState(false);
+  const [relativeConfig, setRelativeConfig] = useState<RelativeTimeConfig>({
+    reference_concept: "",
+    reference_value: null,
+    occurrence_index: -1,
+    start_delta: { value: 0, unit: "d" },
+    end_delta: { value: 35, unit: "d" },
+  });
+
   const loadGroupsFromApi = () => {
     fetchGroups().then((res) => {
       setGroups(res);
@@ -78,11 +106,11 @@ const Index = () => {
   const resolvePatientIds = (selectedIds: string[]) => {
     const individualIds = selectedIds.filter(id => !id.startsWith('group:'));
     const groupNames = selectedIds.filter(id => id.startsWith('group:')).map(id => id.substring(6));
-    
+
     const groupPatientIds = groups
       .filter(g => groupNames.includes(g.name))
       .flatMap(g => g.patientIds);
-      
+
     return Array.from(new Set([...individualIds, ...groupPatientIds]));
   };
 
@@ -107,11 +135,23 @@ const Index = () => {
     const chart = activeCharts[chartIndex];
     if (!chart.originalItem) return;
 
+    const chartIsRelative = chart.isRelative ?? false;
+
     try {
-      const { start_date, end_date } = calculateDateRange(timeRange);
-      const reqStart = chart.currentStart || start_date;
-      const reqEnd = chart.currentEnd || end_date;
-      const fetchInterval = chart.currentInterval || calculateDefaultGranularity(reqStart, reqEnd);
+      let fetchInterval: string;
+      let reqStart: string | null;
+      let reqEnd: string | null;
+
+      if (chartIsRelative && relativeConfig.reference_concept) {
+        fetchInterval = chart.currentInterval || granularityFromRelativeConfig(relativeConfig);
+        reqStart = null;
+        reqEnd = null;
+      } else {
+        const { start_date, end_date } = calculateDateRange(timeRange);
+        reqStart = chart.currentStart || start_date;
+        reqEnd = chart.currentEnd || end_date;
+        fetchInterval = chart.currentInterval || calculateDefaultGranularity(reqStart!, reqEnd!);
+      }
 
       const chartPatientIds = chart.patientIds || patientIds;
       const resolvedIds = resolvePatientIds(chartPatientIds);
@@ -124,7 +164,8 @@ const Index = () => {
         interval_str: fetchInterval,
         method: 'most_time_spent',
         ranges: buildRanges(cutoffs, chart.conceptData),
-        use_generated_data: useGeneratedData
+        use_generated_data: useGeneratedData,
+        ...(chartIsRelative && relativeConfig.reference_concept ? { relative_time: relativeConfig } : {}),
       };
 
       const response = await fetchMultiplePatientsNumericAbstraction(patternParams);
@@ -158,29 +199,40 @@ const Index = () => {
       return { success: false, errorMessage: "No Patient Selected" };
     }
 
-    // 2. Prepare Params
-    const { start_date, end_date } = calculateDateRange(timeRange);
+    // 2. Prepare Params — switch between absolute and relative modes
+    const useRelative = isRelativeMode && relativeConfig.reference_concept.trim() !== '';
 
-    // Check if identical chart already exists
+    // For duplicate-chart check, use a stable key that incorporates mode
+    const { start_date: absStart, end_date: absEnd } = calculateDateRange(timeRange);
+    const dedupStart = useRelative ? `rel:${relativeConfig.reference_concept}:${relativeConfig.occurrence_index}:${relativeConfig.start_delta.value}${relativeConfig.start_delta.unit}` : absStart;
+    const dedupEnd = useRelative ? `${relativeConfig.end_delta.value}${relativeConfig.end_delta.unit}` : absEnd;
+
     const exists = activeCharts.some((chart) => {
       const sameConcept = (chart.originalItem?.id !== undefined && chart.originalItem?.id === item.originalItem?.id) || chart.title === item.title;
       const samePatients =
         chart.patientIds?.length === resolvedIds.length &&
         chart.patientIds.every(id => resolvedIds.includes(id));
-      const sameTimeRange = chart.currentStart === start_date && chart.currentEnd === end_date;
-
-      return sameConcept && samePatients && sameTimeRange;
+      const sameTimeRange = chart.currentStart === dedupStart && chart.currentEnd === dedupEnd;
+      const sameMode = (chart.isRelative ?? false) === useRelative;
+      return sameConcept && samePatients && sameTimeRange && sameMode;
     });
 
     if (exists) return { success: true };
 
+    // Build the base query params
     const params: QueryParams = {
       patients_list: resolvedIds,
       concept_name: item.title,
-      start_date,
-      end_date,
-      use_generated_data: useGeneratedData
+      start_date: useRelative ? null : absStart,
+      end_date: useRelative ? null : absEnd,
+      use_generated_data: useGeneratedData,
+      ...(useRelative ? { relative_time: relativeConfig } : {}),
     };
+
+    // Default interval
+    const defaultInterval = useRelative
+      ? granularityFromRelativeConfig(relativeConfig)
+      : calculateDefaultGranularity(absStart, absEnd);
 
     try {
       let resultData;
@@ -190,8 +242,6 @@ const Index = () => {
       const parentSection = item.parent as string;
       const isContinuousPattern = item.originalItem?.output_type === "range" && item.originalItem?.duration_type === "interval";
       let isRawType = parentSection.toLowerCase().includes('raw') || isContinuousPattern;
-
-      const defaultInterval = calculateDefaultGranularity(params.start_date, params.end_date);
 
       if (resolvedIds.length === 1) {
         if (isRawType) {
@@ -236,12 +286,19 @@ const Index = () => {
         externalData: resultData,
         conceptData: conceptData,
         isRaw: isRawType,
-        currentInterval: (!isRawType && resolvedIds.length > 1) ? defaultInterval : undefined,
-        currentStart: params.start_date,
-        currentEnd: params.end_date,
-        originalStart: params.start_date,
-        originalEnd: params.end_date,
+        // In relative mode, always store the interval so all chart types know the granularity.
+        // In absolute mode, only store for multi-patient pattern charts.
+        currentInterval: useRelative
+          ? defaultInterval
+          : ((!isRawType && resolvedIds.length > 1) ? defaultInterval : undefined),
+        // Store dedup keys as currentStart/End so equality checks work for both modes
+        currentStart: dedupStart,
+        currentEnd: dedupEnd,
+        originalStart: useRelative ? undefined : absStart,
+        originalEnd: useRelative ? undefined : absEnd,
         patientIds: resolvedIds,
+        isRelative: useRelative,
+        relativeEventName: useRelative ? relativeConfig.reference_concept : undefined,
       };
 
       setActiveCharts((prev) => [...prev, newChart]);
@@ -293,38 +350,49 @@ const Index = () => {
     if (chartIndex === -1) return;
 
     const chart = activeCharts[chartIndex];
-    // Only for multi-patient abstractions
     const currentChartPatientIds = chart.patientIds || patientIds;
+    const chartIsRelative = chart.isRelative ?? false;
+
+    // Server-side drill-down only applies to multi-patient pattern charts.
+    // Single-patient and raw charts zoom client-side via TemporalChartCard's local zoomLevel.
     const resolvedIds = resolvePatientIds(currentChartPatientIds);
     if (resolvedIds.length <= 1 || chart.isRaw) return;
 
     const currentInterval = chart.currentInterval || 'YE';
     let nextInterval = 'YE';
-    let startDateStr = '';
-    let endDateStr = '';
 
     if (currentInterval === 'YE') {
       nextInterval = 'ME';
-      // Start of selected year
-      const y = date.getFullYear();
-      startDateStr = `${y}-01-01T00:00:00`;
-      endDateStr = `${y}-12-31T23:59:59`;
     } else if (currentInterval === 'ME') {
       nextInterval = 'D';
-      // Start of selected month
-      const y = date.getFullYear();
-      const m = date.getMonth() + 1; // getMonth() is 0-indexed
-      startDateStr = `${y}-${m.toString().padStart(2, '0')}-01T00:00:00`;
-      // End of selected month
-      const lastDay = new Date(y, m, 0).getDate();
-      endDateStr = `${y}-${m.toString().padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}T23:59:59`;
     } else {
       // Already at 'D', no further drill down
       return;
     }
 
-    startDateStr = clampDateStr(startDateStr, chart.originalStart, chart.originalEnd);
-    endDateStr = clampDateStr(endDateStr, chart.originalStart, chart.originalEnd);
+    // In relative mode: re-fetch with finer interval, keeping relative_time config
+    // In absolute mode: compute date range from the clicked date
+    let startDateStr: string | null = '';
+    let endDateStr: string | null = '';
+
+    if (chartIsRelative) {
+      startDateStr = null;
+      endDateStr = null;
+    } else {
+      if (currentInterval === 'YE') {
+        const y = date.getFullYear();
+        startDateStr = `${y}-01-01T00:00:00`;
+        endDateStr = `${y}-12-31T23:59:59`;
+      } else if (currentInterval === 'ME') {
+        const y = date.getFullYear();
+        const m = date.getMonth() + 1;
+        startDateStr = `${y}-${m.toString().padStart(2, '0')}-01T00:00:00`;
+        const lastDay = new Date(y, m, 0).getDate();
+        endDateStr = `${y}-${m.toString().padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}T23:59:59`;
+      }
+      startDateStr = clampDateStr(startDateStr!, chart.originalStart, chart.originalEnd);
+      endDateStr = clampDateStr(endDateStr!, chart.originalStart, chart.originalEnd);
+    }
 
     try {
       const isContinuous = chart.originalItem?.output_type === "range" && chart.originalItem?.duration_type === "interval";
@@ -339,7 +407,8 @@ const Index = () => {
           interval_str: nextInterval,
           method: 'most_time_spent',
           ranges: buildRanges(chart.cutoffs, chart.conceptData),
-          use_generated_data: useGeneratedData
+          use_generated_data: useGeneratedData,
+          ...(chartIsRelative && relativeConfig.reference_concept ? { relative_time: relativeConfig } : {}),
         };
         response = await fetchMultiplePatientsNumericAbstraction(params);
       } else {
@@ -350,19 +419,18 @@ const Index = () => {
           end_date: endDateStr,
           interval_str: nextInterval,
           method: 'most_time_spent',
-          use_generated_data: useGeneratedData
+          use_generated_data: useGeneratedData,
+          ...(chartIsRelative && relativeConfig.reference_concept ? { relative_time: relativeConfig } : {}),
         };
         response = await fetchMultiplePatientsAbstraction(params);
       }
 
-      // Update Chart
       const updatedCharts = [...activeCharts];
       updatedCharts[chartIndex] = {
         ...chart,
         externalData: processPatternResult(response.result, nextInterval, resolvedIds.length),
         currentInterval: nextInterval,
-        currentStart: startDateStr,
-        currentEnd: endDateStr,
+        ...(chartIsRelative ? {} : { currentStart: startDateStr!, currentEnd: endDateStr! }),
         conceptData: response.concept_data,
       };
       setActiveCharts(updatedCharts);
@@ -381,35 +449,47 @@ const Index = () => {
 
     const chart = activeCharts[chartIndex];
     const currentChartPatientIds = chart.patientIds || patientIds;
+    const chartIsRelative = chart.isRelative ?? false;
+
+    // Server-side zoom-out only applies to multi-patient pattern charts.
+    // Single-patient and raw charts zoom client-side via TemporalChartCard's local zoomLevel.
     const resolvedIds = resolvePatientIds(currentChartPatientIds);
     if (resolvedIds.length <= 1 || chart.isRaw || !chart.currentInterval) return;
 
+    const currentInterval = chart.currentInterval || 'YE';
     let prevInterval = '';
-    let startDateStr = '';
-    let endDateStr = '';
+    let startDateStr: string | null = '';
+    let endDateStr: string | null = '';
 
-    if (chart.currentInterval === 'D') {
+    if (currentInterval === 'D') {
       prevInterval = 'ME';
-      // Extract year from currentStart (e.g., "2023-01-15")
-      if (chart.currentStart) {
-        const date = new Date(chart.currentStart);
-        const y = date.getFullYear();
-        startDateStr = `${y}-01-01T00:00:00`;
-        endDateStr = `${y}-12-31T23:59:59`;
-      }
-    } else if (chart.currentInterval === 'ME') {
+    } else if (currentInterval === 'ME') {
       prevInterval = 'YE';
-      // Revert to global time range
-      startDateStr = chart.originalStart || '';
-      endDateStr = chart.originalEnd || '';
     } else {
       // Already at YE, no further zoom out
       return;
     }
 
-    if (prevInterval !== 'YE') {
-      startDateStr = clampDateStr(startDateStr, chart.originalStart, chart.originalEnd);
-      endDateStr = clampDateStr(endDateStr, chart.originalStart, chart.originalEnd);
+    if (chartIsRelative) {
+      startDateStr = null;
+      endDateStr = null;
+    } else {
+      if (currentInterval === 'D') {
+        if (chart.currentStart) {
+          const date = new Date(chart.currentStart);
+          const y = date.getFullYear();
+          startDateStr = `${y}-01-01T00:00:00`;
+          endDateStr = `${y}-12-31T23:59:59`;
+        }
+      } else if (currentInterval === 'ME') {
+        startDateStr = chart.originalStart || '';
+        endDateStr = chart.originalEnd || '';
+      }
+
+      if (prevInterval !== 'YE') {
+        startDateStr = clampDateStr(startDateStr!, chart.originalStart, chart.originalEnd);
+        endDateStr = clampDateStr(endDateStr!, chart.originalStart, chart.originalEnd);
+      }
     }
 
     try {
@@ -424,7 +504,8 @@ const Index = () => {
           interval_str: prevInterval,
           method: 'most_time_spent',
           ranges: buildRanges(chart.cutoffs, chart.conceptData),
-          use_generated_data: useGeneratedData
+          use_generated_data: useGeneratedData,
+          ...(chartIsRelative && relativeConfig.reference_concept ? { relative_time: relativeConfig } : {}),
         };
         response = await fetchMultiplePatientsNumericAbstraction(params);
       } else {
@@ -435,7 +516,8 @@ const Index = () => {
           end_date: endDateStr,
           interval_str: prevInterval,
           method: 'most_time_spent',
-          use_generated_data: useGeneratedData
+          use_generated_data: useGeneratedData,
+          ...(chartIsRelative && relativeConfig.reference_concept ? { relative_time: relativeConfig } : {}),
         };
         response = await fetchMultiplePatientsAbstraction(params);
       }
@@ -445,8 +527,7 @@ const Index = () => {
         ...chart,
         externalData: processPatternResult(response.result, prevInterval, resolvedIds.length),
         currentInterval: prevInterval,
-        currentStart: startDateStr,
-        currentEnd: endDateStr,
+        ...(chartIsRelative ? {} : { currentStart: startDateStr!, currentEnd: endDateStr! }),
         conceptData: response.concept_data,
       };
       setActiveCharts(updatedCharts);
@@ -465,7 +546,8 @@ const Index = () => {
     const chart = activeCharts[chartIndex];
     const currentChartPatientIds = chart.patientIds || patientIds;
     const resolvedIds = resolvePatientIds(currentChartPatientIds);
-    if (resolvedIds.length <= 1 || chart.isRaw) return;
+    // Navigation is not meaningful in relative mode
+    if (resolvedIds.length <= 1 || chart.isRaw || chart.isRelative) return;
 
     let startDateStr = '';
     let endDateStr = '';
@@ -568,10 +650,10 @@ const Index = () => {
       return (
         <DataExploration
           activeCharts={activeCharts}
-          onAddChart={handleItemClick} // This prop might be unused if sidebar handles clicks directly, check Usage
+          onAddChart={handleItemClick}
           onRemoveChart={handleRemoveChart}
           onCloseAll={handleCloseAll}
-          // New Props
+          // Absolute time props
           patientIds={patientIds}
           setPatientIds={setPatientIds}
           timeRange={timeRange}
@@ -581,6 +663,11 @@ const Index = () => {
           onChartZoomOut={handleChartZoomOut}
           onChartNavigate={handleChartNavigate}
           onApplyCutoffs={handleApplyCutoffs}
+          // Relative time props
+          isRelativeMode={isRelativeMode}
+          setIsRelativeMode={setIsRelativeMode}
+          relativeConfig={relativeConfig}
+          setRelativeConfig={setRelativeConfig}
           groups={groups}
         />
       );

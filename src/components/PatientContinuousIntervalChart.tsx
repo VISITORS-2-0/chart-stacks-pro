@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useLayoutEffect, useRef } from 'react';
 import { ComposedChart, XAxis, YAxis, CartesianGrid, ReferenceArea, Scatter, ResponsiveContainer } from 'recharts';
 import { TemporalRow } from '../types/temporal';
+import { formatRelativeTime, formatRelativeCompact } from '@/utils/dateUtils';
 
 interface PatientContinuousIntervalChartProps {
     data: TemporalRow[];
@@ -9,6 +10,8 @@ interface PatientContinuousIntervalChartProps {
     conceptData?: any;
     onZoomOut?: () => void;
     focusDate?: Date | null;
+    isRelative?: boolean;
+    relativeGranularity?: 'D' | 'ME' | 'YE';
 }
 
 const GanttBar = (props: any) => {
@@ -58,7 +61,7 @@ const GanttBar = (props: any) => {
     );
 };
 
-export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate }: PatientContinuousIntervalChartProps) {
+export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, isRelative = false, relativeGranularity = 'YE' }: PatientContinuousIntervalChartProps) {
     const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [visibleWindow, setVisibleWindow] = useState<{ start: number, end: number } | null>(null);
@@ -276,6 +279,10 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
     };
 
     const tickFormatter = (time: number) => {
+        if (isRelative) {
+            const gran = zoomLevel === 'days' ? 'D' : zoomLevel === 'months' ? 'ME' : 'YE';
+            return formatRelativeTime(time, gran);
+        }
         const d = new Date(time);
         if (zoomLevel === 'years') return d.getFullYear().toString();
         if (zoomLevel === 'months') return d.toLocaleDateString(undefined, { month: 'short' });
@@ -388,8 +395,8 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
                     }}
                 >
                     <div className="font-bold mb-1" style={{ color: barTooltip.data.fill }}>Value: {Number(barTooltip.data.value).toFixed(2)}</div>
-                    <div>Start: {new Date(barTooltip.data.start).toLocaleString()}</div>
-                    <div>End: {new Date(barTooltip.data.end).toLocaleString()}</div>
+                    <div>Start: {isRelative ? formatRelativeCompact(barTooltip.data.start) : new Date(barTooltip.data.start).toLocaleString()}</div>
+                    <div>End: {isRelative ? formatRelativeCompact(barTooltip.data.end) : new Date(barTooltip.data.end).toLocaleString()}</div>
                     <div>Duration: {Math.round((barTooltip.data.end - barTooltip.data.start) / (1000 * 60 * 60))} hrs</div>
                 </div>
             )}

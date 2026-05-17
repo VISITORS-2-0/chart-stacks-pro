@@ -12,6 +12,8 @@ interface PatientContinuousIntervalChartProps {
     focusDate?: Date | null;
     isRelative?: boolean;
     relativeGranularity?: 'D' | 'ME' | 'YE';
+    globalStart?: string | number;
+    globalEnd?: string | number;
 }
 
 const GanttBar = (props: any) => {
@@ -61,7 +63,7 @@ const GanttBar = (props: any) => {
     );
 };
 
-export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, isRelative = false, relativeGranularity = 'YE' }: PatientContinuousIntervalChartProps) {
+export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, isRelative = false, relativeGranularity = 'YE', globalStart: globalStartProp, globalEnd: globalEndProp }: PatientContinuousIntervalChartProps) {
     const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [visibleWindow, setVisibleWindow] = useState<{ start: number, end: number } | null>(null);
@@ -111,11 +113,19 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
     }, [data]);
 
     const { xDomain, pixelsPerMs, globalStart, globalEnd, chartWidth } = useMemo(() => {
-        if (!fullChartData.length) return { xDomain: [0, 100], pixelsPerMs: 1, globalStart: 0, globalEnd: 100, chartWidth: '100%' };
+        let minTime = 0;
+        let maxTime = 100;
 
-        const allPoints = fullChartData.flatMap(d => [d.start, d.end]);
-        const minTime = Math.min(...allPoints);
-        const maxTime = Math.max(...allPoints);
+        if (globalStartProp !== undefined && globalEndProp !== undefined) {
+            minTime = new Date(globalStartProp).getTime();
+            maxTime = new Date(globalEndProp).getTime();
+        } else if (fullChartData.length > 0) {
+            const allPoints = fullChartData.flatMap(d => [d.start, d.end]);
+            minTime = Math.min(...allPoints);
+            maxTime = Math.max(...allPoints);
+        } else {
+            return { xDomain: [0, 100], pixelsPerMs: 1, globalStart: 0, globalEnd: 100, chartWidth: '100%' };
+        }
 
         const minDate = new Date(minTime);
         const maxDate = new Date(maxTime);

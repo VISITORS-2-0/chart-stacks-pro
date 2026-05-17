@@ -11,9 +11,11 @@ interface PatientMultiLineChartProps {
     onZoomOut?: () => void;
     isRelative?: boolean;
     relativeGranularity?: 'D' | 'ME' | 'YE';
+    globalStart?: string | number;
+    globalEnd?: string | number;
 }
 
-export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, onDrillDown, onZoomOut, isRelative = false, relativeGranularity = 'YE' }: PatientMultiLineChartProps) {
+export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, onDrillDown, onZoomOut, isRelative = false, relativeGranularity = 'YE', globalStart, globalEnd }: PatientMultiLineChartProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     // Shared X-Axis logic: Use numeric timestamps to allow precise plotting
     const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
@@ -98,11 +100,20 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
 
     // 3. Generate X-Axis Ticks based on Zoom Level
     const { detailAxisTicks, contextAxisTicks, xDomain } = useMemo(() => {
-        if (!scatterData.length) return { detailAxisTicks: [], contextAxisTicks: [], xDomain: ['dataMin', 'dataMax'] };
+        let minTime = 0;
+        let maxTime = 100;
 
-        const timestamps = scatterData.map(d => d.x);
-        const minTime = Math.min(...timestamps);
-        const maxTime = Math.max(...timestamps);
+        if (globalStart !== undefined && globalEnd !== undefined) {
+            minTime = new Date(globalStart).getTime();
+            maxTime = new Date(globalEnd).getTime();
+        } else if (scatterData.length > 0) {
+            const timestamps = scatterData.map(d => d.x);
+            minTime = Math.min(...timestamps);
+            maxTime = Math.max(...timestamps);
+        } else {
+            return { detailAxisTicks: [], contextAxisTicks: [], xDomain: ['dataMin', 'dataMax'] };
+        }
+
         const minDate = new Date(minTime);
         const maxDate = new Date(maxTime);
 

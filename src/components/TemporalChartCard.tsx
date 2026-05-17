@@ -33,6 +33,8 @@ interface TemporalChartCardProps {
     currentInterval?: string;
     isRelative?: boolean;
     relativeEventName?: string;
+    globalStart?: string | number;
+    globalEnd?: string | number;
 }
 
 export function TemporalChartCard({
@@ -53,6 +55,8 @@ export function TemporalChartCard({
     currentInterval,
     isRelative = false,
     relativeEventName,
+    globalStart,
+    globalEnd,
 }: TemporalChartCardProps) {
     const isMultiPatient = patientIds ? patientIds.length > 1 : false;
 
@@ -413,44 +417,46 @@ export function TemporalChartCard({
                 {loading && <div className="h-full flex items-center justify-center text-blue-600">Loading temporal data...</div>}
                 {error && <div className="h-full flex items-center justify-center text-red-600">Error: {error.message}</div>}
 
-                {!loading && !error && filteredData.length === 0 && (
-                    <div className="h-full flex items-center justify-center text-muted-foreground">No data available in this view</div>
-                )}
-
-                {!loading && !error && filteredData.length > 0 && (
+                {!loading && !error && (
                     chartType === 'continuous-interval' ? (
                         <PatientContinuousIntervalChart
-                            data={data as any}
+                            data={data as any || []}
                             zoomLevel={zoomLevel}
                             onDrillDown={handleDrillDown}
                             conceptData={conceptData}
                             focusDate={focusDate}
                             isRelative={isRelative}
                             relativeGranularity={relativeGranularity}
+                            globalStart={globalStart}
+                            globalEnd={globalEnd}
                         />
                     ) : isRaw ? (
                         <PatientMultiLineChart
-                            data={filteredData as any}
+                            data={(filteredData as any) || []}
                             zoomLevel={zoomLevel}
                             focusDate={focusDate}
                             onDrillDown={handleDrillDown}
                             onZoomOut={handleZoomOut}
                             isRelative={isRelative}
                             relativeGranularity={relativeGranularity}
+                            globalStart={globalStart}
+                            globalEnd={globalEnd}
                         />
                     ) : chartType === 'bar' ? (
                         <PatientStateGantt
-                            data={data as any}
+                            data={data as any || []}
                             zoomLevel={zoomLevel}
                             onDrillDown={handleDrillDown}
                             conceptData={conceptData}
                             focusDate={focusDate}
                             isRelative={isRelative}
                             relativeGranularity={relativeGranularity}
+                            globalStart={globalStart}
+                            globalEnd={globalEnd}
                         />
                     ) : (
                         <PatientStatusAnalytics
-                            data={filteredData as any}
+                            data={(filteredData as any) || []}
                             zoomLevel={zoomLevel}
                             focusDate={focusDate}
                             onDrillDown={handleDrillDown}
@@ -458,6 +464,8 @@ export function TemporalChartCard({
                             onNavigate={handleNavigateWrapper}
                             isRelative={isRelative}
                             relativeGranularity={relativeGranularity}
+                            globalStart={globalStart}
+                            globalEnd={globalEnd}
                         />
                     )
                 )}

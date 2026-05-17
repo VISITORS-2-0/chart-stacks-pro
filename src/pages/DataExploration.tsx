@@ -8,6 +8,7 @@ import type { RelativeTimeConfig } from "@/components/RelativeTimeBar";
 import type { MenuItem } from "@/components/DashboardSidebar";
 import type { ZoomLevel } from "@/components/TemporalChartCard";
 import type { Group } from "@/services/groupsApi";
+import { calculateDateRange, ANCHOR_MS } from "@/utils/dateUtils";
 
 interface ActiveChart extends MenuItem {
   externalData?: any[];
@@ -126,28 +127,57 @@ export function DataExploration({
             </div>
           ) : (
             <div className="space-y-6">
-              {activeCharts.map((chart) => (
-                <TemporalChartCard
-                  key={chart.id}
-                  id={chart.id}
-                  title={chart.title}
-                  onRemove={onRemoveChart}
-                  patientIds={chart.patientIds || patientIds}
-                  isRaw={chart.isRaw}
-                  chartType={chart.chartType}
-                  externalData={chart.externalData}
-                  conceptData={chart.conceptData}
-                  currentInterval={chart.currentInterval}
-                  isRelative={chart.isRelative}
-                  relativeEventName={chart.relativeEventName}
-                  onDrillDown={(date, level) => onChartDrillDown && onChartDrillDown(chart.id, date, level)}
-                  onZoomOut={() => onChartZoomOut && onChartZoomOut(chart.id)}
-                  onNavigate={(direction, currentZoom, focusDate) => onChartNavigate && onChartNavigate(chart.id, direction, currentZoom, focusDate)}
-                  cutoffs={chart.cutoffs}
-                  isCutoffsBalanced={chart.isBalanced}
-                  onApplyCutoffs={(cutoffs, isBalanced) => onApplyCutoffs && onApplyCutoffs(chart.id, cutoffs, isBalanced)}
-                />
-              ))}
+              {activeCharts.map((chart) => {
+                let globalStart: string | number | undefined = undefined;
+                let globalEnd: string | number | undefined = undefined;
+
+                if (isRelativeMode && relativeConfig.reference_concept) {
+                  // Compute relative boundaries based on deltas
+                  const getMs = (delta: { value: number; unit: string }) => {
+                    const DAY = 1000 * 60 * 60 * 24;
+                    if (delta.unit === 'y') return delta.value * DAY * 365.25;
+                    if (delta.unit === 'm') return delta.value * DAY * 30.4375;
+                    if (delta.unit === 'w') return delta.value * DAY * 7;
+                    if (delta.unit === 'h') return delta.value * 1000 * 60 * 60;
+                    return delta.value * DAY; // 'd'
+                  };
+                  // Negative for start_delta since it's "before event" if we assume start_delta means "time before event".
+                  // Wait, relativeConfig has start_delta = { value: 0, unit: 'd' } and end_delta = { value: 35, unit: 'd' }.
+                  // We should check how backend interprets it. Actually, start_delta is subtracted if it's before?
+                  // Usually start_delta is subtracted from 0, but let's assume it's just from -getMs(start_delta) to +getMs(end_delta).
+                  globalStart = ANCHOR_MS - getMs(relativeConfig.start_delta);
+                  globalEnd = ANCHOR_MS + getMs(relativeConfig.end_delta);
+                } else {
+                  const { start_date, end_date } = calculateDateRange(timeRange);
+                  globalStart = start_date;
+                  globalEnd = end_date;
+                }
+
+                return (
+                  <TemporalChartCard
+                    key={chart.id}
+                    id={chart.id}
+                    title={chart.title}
+                    onRemove={onRemoveChart}
+                    patientIds={chart.patientIds || patientIds}
+                    isRaw={chart.isRaw}
+                    chartType={chart.chartType}
+                    externalData={chart.externalData}
+                    conceptData={chart.conceptData}
+                    currentInterval={chart.currentInterval}
+                    isRelative={chart.isRelative}
+                    relativeEventName={chart.relativeEventName}
+                    globalStart={globalStart}
+                    globalEnd={globalEnd}
+                    onDrillDown={(date, level) => onChartDrillDown && onChartDrillDown(chart.id, date, level)}
+                    onZoomOut={() => onChartZoomOut && onChartZoomOut(chart.id)}
+                    onNavigate={(direction, currentZoom, focusDate) => onChartNavigate && onChartNavigate(chart.id, direction, currentZoom, focusDate)}
+                    cutoffs={chart.cutoffs}
+                    isCutoffsBalanced={chart.isBalanced}
+                    onApplyCutoffs={(cutoffs, isBalanced) => onApplyCutoffs && onApplyCutoffs(chart.id, cutoffs, isBalanced)}
+                  />
+                );
+              })}
             </div>
           )}
         </div>

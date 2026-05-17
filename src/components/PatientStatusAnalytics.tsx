@@ -14,9 +14,11 @@ interface PatientStatusAnalyticsProps {
     onNavigate?: (direction: 'next' | 'prev') => void;
     isRelative?: boolean;
     relativeGranularity?: 'D' | 'ME' | 'YE';
+    globalStart?: string | number;
+    globalEnd?: string | number;
 }
 
-export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, onNavigate, isRelative = false, relativeGranularity = 'YE' }: PatientStatusAnalyticsProps) {
+export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, onNavigate, isRelative = false, relativeGranularity = 'YE', globalStart, globalEnd }: PatientStatusAnalyticsProps) {
     const componentId = React.useId();
     const syncId = `patientStatus-${componentId}`;
 
@@ -108,41 +110,72 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
 
         let keysToGenerate: string[] = [];
 
-        if (zoomLevel === 'months' && !focusDate) {
-            return processedData.sort((a, b) => a.month.localeCompare(b.month));
-        } else if (zoomLevel === 'days' && !focusDate) {
-            return processedData.sort((a, b) => a.month.localeCompare(b.month));
-        } else if (zoomLevel === 'months' && focusDate) {
-            const y = focusDate.getFullYear();
-            for (let m = 1; m <= 12; m++) {
-                keysToGenerate.push(`${y}-${String(m).padStart(2, '0')}`);
-            }
-        } else if (zoomLevel === 'days' && focusDate) {
-            const y = focusDate.getFullYear();
-            const m = focusDate.getMonth() + 1;
-            const daysInMonth = new Date(y, m, 0).getDate();
-            for (let d = 1; d <= daysInMonth; d++) {
-                keysToGenerate.push(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
-            }
-        } else {
-            // years or fallback: find min/max year from data and pad in between
+        let eStartMs = globalStart !== undefined ? new Date(globalStart).getTime() : NaN;
+        let eEndMs = globalEnd !== undefined ? new Date(globalEnd).getTime() : NaN;
+
+        if (isNaN(eStartMs) || isNaN(eEndMs)) {
             if (processedData.length === 0) return [];
-            let minYear = Infinity;
-            let maxYear = -Infinity;
+            eStartMs = Infinity;
+            eEndMs = -Infinity;
             processedData.forEach(d => {
-                const y = parseInt(d.month.split('-')[0], 10);
-                if (!isNaN(y)) {
-                    if (y < minYear) minYear = y;
-                    if (y > maxYear) maxYear = y;
-                }
+                const parts = d.month.split('-');
+                let ms;
+                if (parts.length === 3) ms = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)).getTime();
+                else if (parts.length === 2) ms = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1).getTime();
+                else ms = new Date(parseInt(parts[0], 10), 0, 1).getTime();
+                if (ms < eStartMs) eStartMs = ms;
+                if (ms > eEndMs) eEndMs = ms;
             });
-            if (minYear !== Infinity && maxYear !== -Infinity && maxYear - minYear < 100) {
-                // Limit to 100 years max to prevent massive loops if there's a bad date
-                for (let y = minYear; y <= maxYear; y++) {
-                    keysToGenerate.push(`${y}`);
+        }
+
+        if (focusDate) {
+            if (zoomLevel === 'months') {
+                const y = focusDate.getFullYear();
+                for (let m = 1; m <= 12; m++) {
+                    keysToGenerate.push(`${y}-${String(m).padStart(2, '0')}`);
+                }
+            } else if (zoomLevel === 'days') {
+                const y = focusDate.getFullYear();
+                const m = focusDate.getMonth() + 1;
+                const daysInMonth = new Date(y, m, 0).getDate();
+                for (let d = 1; d <= daysInMonth; d++) {
+                    keysToGenerate.push(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
                 }
             } else {
-                return processedData.sort((a, b) => a.month.localeCompare(b.month));
+                keysToGenerate.push(`${focusDate.getFullYear()}`);
+            }
+        } else {
+            const sDate = new Date(eStartMs);
+            const eDate = new Date(eEndMs);
+            if (zoomLevel === 'years') {
+                let startY = sDate.getFullYear();
+                let endY = eDate.getFullYear();
+                // safeguard against crazy bounds
+                if (endY - startY > 100) endY = startY + 100;
+                for (let y = startY; y <= endY; y++) {
+                    keysToGenerate.push(`${y}`);
+                }
+            } else if (zoomLevel === 'months') {
+                let currY = sDate.getFullYear();
+                let currM = sDate.getMonth() + 1;
+                const endY = eDate.getFullYear();
+                const endM = eDate.getMonth() + 1;
+                let sanity = 0;
+                while ((currY < endY || (currY === endY && currM <= endM)) && sanity < 1200) {
+                    keysToGenerate.push(`${currY}-${String(currM).padStart(2, '0')}`);
+                    currM++;
+                    if (currM > 12) { currM = 1; currY++; }
+                    sanity++;
+                }
+            } else if (zoomLevel === 'days') {
+                const curr = new Date(sDate.getFullYear(), sDate.getMonth(), sDate.getDate());
+                const end = new Date(eDate.getFullYear(), eDate.getMonth(), eDate.getDate());
+                let sanity = 0;
+                while (curr.getTime() <= end.getTime() && sanity < 36500) {
+                    keysToGenerate.push(`${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}-${String(curr.getDate()).padStart(2, '0')}`);
+                    curr.setDate(curr.getDate() + 1);
+                    sanity++;
+                }
             }
         }
 

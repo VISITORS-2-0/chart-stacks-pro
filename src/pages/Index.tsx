@@ -241,7 +241,7 @@ const Index = () => {
       // 3. Call API based on type
       const parentSection = item.parent as string;
       const isContinuousPattern = item.originalItem?.output_type === "range" && item.originalItem?.duration_type === "interval";
-      let isRawType = parentSection.toLowerCase().includes('raw') || isContinuousPattern;
+      let isRawType = parentSection.toLowerCase() === 'raw-numeric' || isContinuousPattern;
 
       if (resolvedIds.length === 1) {
         if (isRawType) {

@@ -557,25 +557,14 @@ const Index = () => {
     const m = focusDate.getMonth();
 
     if (currentZoom === 'months') {
-      // We are looking at a full year, broken into months
-      // Next -> next year, Prev -> previous year
-      const targetYear = y + (direction === 'next' ? 1 : -1);
+      // TemporalChartCard already adjusted focusDate to the correct target date
+      const targetYear = y;
       startDateStr = `${targetYear}-01-01T00:00:00`;
       endDateStr = `${targetYear}-12-31T23:59:59`;
       fetchInterval = 'ME';
     } else if (currentZoom === 'days') {
-      // We are looking at a full month, broken into days
-      // Next -> next month, Prev -> previous month
-      let targetYear = y;
-      let targetMonth = m + (direction === 'next' ? 1 : -1);
-
-      if (targetMonth > 11) {
-        targetMonth = 0;
-        targetYear++;
-      } else if (targetMonth < 0) {
-        targetMonth = 11;
-        targetYear--;
-      }
+      const targetYear = y;
+      const targetMonth = m; // Already adjusted by TemporalChartCard
 
       // Start is 1st of target month
       // End is last day of target month

@@ -51,58 +51,58 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
 
     // Aggregate Data if it is Raw TemporalRow[]
     const chartData = React.useMemo(() => {
-        if (!data || data.length === 0) return [];
-
         let processedData: any[] = [];
 
-        // Detect if already processed
-        if ('NormalPct' in data[0] || 'month' in data[0]) {
-            processedData = data as PatientStatusProcessedRow[];
-        } else {
-            // Processing Raw Data (TemporalRow[])
-            const rawData = data as TemporalRow[];
-            const buckets = new Map<string, Record<string, number>>();
+        if (data && data.length > 0) {
+            // Detect if already processed
+            if ('NormalPct' in data[0] || 'month' in data[0]) {
+                processedData = data as PatientStatusProcessedRow[];
+            } else {
+                // Processing Raw Data (TemporalRow[])
+                const rawData = data as TemporalRow[];
+                const buckets = new Map<string, Record<string, number>>();
 
-            rawData.forEach(row => {
-                const date = new Date(row.StartTime);
-                if (isNaN(date.getTime())) return;
+                rawData.forEach(row => {
+                    const date = new Date(row.StartTime);
+                    if (isNaN(date.getTime())) return;
 
-                let key;
-                if (zoomLevel === 'years') {
-                    key = `${date.getFullYear()}`;
-                } else if (zoomLevel === 'months') {
-                    key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                } else {
-                    // Days
-                    key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                }
+                    let key;
+                    if (zoomLevel === 'years') {
+                        key = `${date.getFullYear()}`;
+                    } else if (zoomLevel === 'months') {
+                        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                    } else {
+                        // Days
+                        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                    }
 
-                if (!buckets.has(key)) {
-                    buckets.set(key, { total: 0 });
-                    categories.forEach((c: string) => buckets.get(key)![c] = 0);
-                }
+                    if (!buckets.has(key)) {
+                        buckets.set(key, { total: 0 });
+                        categories.forEach((c: string) => buckets.get(key)![c] = 0);
+                    }
 
-                const entry = buckets.get(key)!;
-                const val = String(row.Value); // Ensure string matching
-                if (categories.includes(val)) {
-                    entry[val] = (entry[val] || 0) + 1;
-                    entry.total += 1;
-                }
-            });
-
-            // Convert buckets to rows with Percentages
-            const sortedKeys = Array.from(buckets.keys()).sort();
-            sortedKeys.forEach(key => {
-                const entry = buckets.get(key)!;
-                const row: any = { month: key }; // Using 'month' as XAxis key for compatibility
-
-                categories.forEach((cat: string) => {
-                    row[cat] = entry[cat];
-                    row[`${cat}Pct`] = entry.total > 0 ? (entry[cat] / entry.total) * 100 : 0;
+                    const entry = buckets.get(key)!;
+                    const val = String(row.Value); // Ensure string matching
+                    if (categories.includes(val)) {
+                        entry[val] = (entry[val] || 0) + 1;
+                        entry.total += 1;
+                    }
                 });
-                processedData.push(row);
-            });
-        }
+
+                // Convert buckets to rows with Percentages
+                const sortedKeys = Array.from(buckets.keys()).sort();
+                sortedKeys.forEach(key => {
+                    const entry = buckets.get(key)!;
+                    const row: any = { month: key }; // Using 'month' as XAxis key for compatibility
+
+                    categories.forEach((cat: string) => {
+                        row[cat] = entry[cat];
+                        row[`${cat}Pct`] = entry.total > 0 ? (entry[cat] / entry.total) * 100 : 0;
+                    });
+                    processedData.push(row);
+                });
+            }
+        } // Close the if (data && data.length > 0) block here
 
         // --- PADDING LOGIC ---
         const dataMap = new Map();
@@ -128,7 +128,7 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
             });
         }
 
-        if (focusDate) {
+        if (focusDate && zoomLevel !== 'years') {
             if (zoomLevel === 'months') {
                 const y = focusDate.getFullYear();
                 for (let m = 1; m <= 12; m++) {
@@ -141,8 +141,6 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
                 for (let d = 1; d <= daysInMonth; d++) {
                     keysToGenerate.push(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
                 }
-            } else {
-                keysToGenerate.push(`${focusDate.getFullYear()}`);
             }
         } else {
             const sDate = new Date(eStartMs);

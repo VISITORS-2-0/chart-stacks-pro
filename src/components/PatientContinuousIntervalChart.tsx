@@ -214,7 +214,7 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
 
     }, [focusDate, zoomLevel, chartWidth, globalStart, globalEnd]);
 
-    const { virtualData, virtualTicks } = useMemo(() => {
+    const { virtualData, virtualTicks, virtualContextTicks } = useMemo(() => {
         const windowStart = visibleWindow ? visibleWindow.start : globalStart;
         const windowEnd = visibleWindow ? visibleWindow.end : globalEnd;
 
@@ -237,7 +237,39 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
             else curr.setDate(curr.getDate() + 1);
         }
 
-        return { virtualData: vData, virtualTicks: vTicks };
+        const vContextTicks: number[] = [];
+        const startYear = new Date(Math.max(globalStart, windowStart)).getFullYear();
+        const endYear = new Date(Math.min(globalEnd, windowEnd)).getFullYear();
+
+        if (zoomLevel === 'months') {
+            for (let y = startYear; y <= endYear; y++) {
+                const yearStart = new Date(y, 0, 1).getTime();
+                const yearEnd = new Date(y, 11, 31, 23, 59, 59).getTime();
+                const visibleStart = Math.max(yearStart, windowStart);
+                const visibleEnd = Math.min(yearEnd, windowEnd);
+
+                if (visibleStart <= visibleEnd) {
+                    const tickTime = visibleStart + (visibleEnd - visibleStart) / 2;
+                    vContextTicks.push(tickTime);
+                }
+            }
+        } else if (zoomLevel === 'days') {
+            for (let y = startYear; y <= endYear; y++) {
+                for (let m = 0; m < 12; m++) {
+                    const monthStart = new Date(y, m, 1).getTime();
+                    const monthEnd = new Date(y, m + 1, 0, 23, 59, 59).getTime();
+                    const visibleStart = Math.max(monthStart, windowStart);
+                    const visibleEnd = Math.min(monthEnd, windowEnd);
+
+                    if (visibleStart <= visibleEnd) {
+                        const tickTime = visibleStart + (visibleEnd - visibleStart) / 2;
+                        vContextTicks.push(tickTime);
+                    }
+                }
+            }
+        }
+
+        return { virtualData: vData, virtualTicks: vTicks, virtualContextTicks: vContextTicks };
 
     }, [fullChartData, visibleWindow, zoomLevel, globalStart, globalEnd]);
 
@@ -299,6 +331,24 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
         return d.getDate().toString();
     };
 
+    const contextTickFormatter = (unixTime: number) => {
+        if (isRelative) {
+            if (zoomLevel === 'days') {
+                const gran: 'ME' = 'ME';
+                return formatRelativeTime(unixTime, gran);
+            }
+            return '';
+        }
+        const date = new Date(unixTime);
+        if (zoomLevel === 'years') {
+            return date.getFullYear().toString();
+        } else if (zoomLevel === 'months') {
+            return date.getFullYear().toString();
+        } else {
+            return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+        }
+    };
+
     const interactionLayerData = useMemo(() => {
         return virtualTicks.map(t => {
             const date = new Date(t);
@@ -343,6 +393,7 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
                             <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} strokeOpacity={0.2} />
 
                             <XAxis
+                                xAxisId="detail"
                                 dataKey="time"
                                 type="number"
                                 domain={xDomain as any}
@@ -352,6 +403,27 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
                                 interval={0}
                                 cursor="pointer"
                             />
+
+                            {virtualContextTicks.length > 0 && (
+                                <XAxis
+                                    xAxisId="context"
+                                    dataKey="time"
+                                    type="number"
+                                    domain={xDomain as any}
+                                    ticks={virtualContextTicks}
+                                    tickFormatter={contextTickFormatter}
+                                    scale="time"
+                                    interval={0}
+                                    orientation="bottom"
+                                    dy={15}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    onClick={() => {
+                                        if (onZoomOut) onZoomOut();
+                                    }}
+                                    cursor="pointer"
+                                />
+                            )}
 
                             <YAxis
                                 dataKey="y"
@@ -365,6 +437,7 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
                             />
 
                             <Scatter
+                                xAxisId="detail"
                                 data={interactionLayerData}
                                 dataKey="time"
                                 name="hidden-interaction"
@@ -375,6 +448,7 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
 
                             {hoveredRange && (
                                 <ReferenceArea
+                                    xAxisId="detail"
                                     x1={hoveredRange.start}
                                     x2={hoveredRange.end}
                                     fill="currentColor"
@@ -385,6 +459,7 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
                             )}
 
                             <Scatter
+                                xAxisId="detail"
                                 data={virtualData}
                                 shape={<GanttBar setBarTooltip={setBarTooltip} />}
                                 isAnimationActive={false}

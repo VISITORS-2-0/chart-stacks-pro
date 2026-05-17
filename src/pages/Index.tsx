@@ -674,7 +674,7 @@ const Index = () => {
       <div className="flex min-h-screen w-full bg-background">
         <DashboardSidebar
           onItemClick={handleItemClick}
-          patientIds={patientIds}
+          patientIds={resolvePatientIds(patientIds)}
           onCloseAll={handleCloseAll}
         />
 

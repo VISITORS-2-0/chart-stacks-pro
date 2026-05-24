@@ -22,6 +22,7 @@ interface MappingAbstractionsModalProps {
   className?: string;
   triggerButton?: React.ReactNode;
   conceptType?: string;
+  showLabel?: boolean;
 }
 
 export const MappingAbstractionsModal: React.FC<MappingAbstractionsModalProps> = ({
@@ -30,6 +31,7 @@ export const MappingAbstractionsModal: React.FC<MappingAbstractionsModalProps> =
   className,
   triggerButton,
   conceptType,
+  showLabel = false,
 }) => {
   const [data, setData] = useState<MappingAbstractions | undefined>(preloadedData);
   const [loading, setLoading] = useState<boolean>(!preloadedData);
@@ -70,9 +72,23 @@ export const MappingAbstractionsModal: React.FC<MappingAbstractionsModalProps> =
 
   const triggerElement = triggerButton ? (
     triggerButton
+  ) : showLabel ? (
+    <button
+      disabled={isDisabled}
+      onClick={(e) => e.stopPropagation()}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-semibold text-muted-foreground transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 shadow-sm",
+        isDisabled ? "opacity-50 cursor-not-allowed" : "hover:bg-accent hover:text-accent-foreground",
+        className
+      )}
+    >
+      <GitBranch className="h-3.5 w-3.5 shrink-0 text-primary/70" />
+      <span>Mapping Function</span>
+    </button>
   ) : (
     <button
       disabled={isDisabled}
+      onClick={(e) => e.stopPropagation()}
       className={cn(
         "inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         isDisabled ? "opacity-50 cursor-not-allowed" : "hover:bg-accent hover:text-accent-foreground",

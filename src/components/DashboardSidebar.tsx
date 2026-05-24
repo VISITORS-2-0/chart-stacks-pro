@@ -23,6 +23,8 @@ import { ChevronRight } from "lucide-react";
 import { useTakMenu, TakItem } from "@/services/takApi";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DATA_SERVICE_URL, getApiUrl } from "@/config/api";
+import { GraphContextModal } from "./GraphContextModal";
+import { MappingAbstractionsModal } from "./MappingAbstractionsModal";
 
 export type ChartType = "scatter" | "bar" | "line" | "continuous-interval" | "analytics";
 
@@ -206,7 +208,7 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
 
   if (loading) {
     return (
-      <Sidebar className="w-64 border-r border-primary/20 bg-primary text-primary-foreground">
+      <Sidebar className="w-[--sidebar-width] border-r border-primary/20 bg-primary text-primary-foreground">
         <SidebarContent className="bg-primary flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary-foreground/60" />
         </SidebarContent>
@@ -216,7 +218,7 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
 
   if (error) {
     return (
-      <Sidebar className="w-64 border-r border-primary/20 bg-primary text-primary-foreground">
+      <Sidebar className="w-[--sidebar-width] border-r border-primary/20 bg-primary text-primary-foreground">
         <SidebarContent className="bg-primary">
           <div className="px-4 py-3 border-b border-primary-foreground/10 flex flex-col gap-2">
             <div className="flex justify-between items-center">
@@ -297,7 +299,7 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
           </div>
         </DialogContent>
       </Dialog>
-      <Sidebar className="w-64 border-r border-primary/20 bg-primary text-primary-foreground">
+      <Sidebar className="w-[--sidebar-width] border-r border-primary/20 bg-primary text-primary-foreground">
         <SidebarContent className="bg-primary">
           <SidebarGroup>
             <div className="px-4 py-3 border-b border-primary-foreground/10 flex flex-col gap-2">
@@ -346,16 +348,37 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
                       </CollapsibleTrigger>
                       <CollapsibleContent className="pl-4 max-h-[300px] overflow-y-auto pr-2">
                         <SidebarMenu>
-                          {section.children.map((child, index) => (
-                            <SidebarMenuItem key={`${section.parent}-${child.id}-${index}`}>
-                              <SidebarMenuButton
-                                onClick={() => handleItemSelect(child, section.parent)}
-                                className="text-primary-foreground hover:bg-primary-foreground/10"
-                              >
-                                {child.title}
-                              </SidebarMenuButton>
-                            </SidebarMenuItem>
-                          ))}
+                          {section.children.map((child, index) => {
+                            const hasMapping = child.originalItem?.concept_type?.toLowerCase() === "state";
+                            return (
+                              <SidebarMenuItem key={`${section.parent}-${child.id}-${index}`}>
+                                <div className="flex items-center w-full rounded-md transition-colors hover:bg-primary-foreground/10 group px-2 py-0.5">
+                                  {/* Left Icons Container */}
+                                  <div className="flex items-center gap-1 shrink-0 mr-1.5">
+                                    <GraphContextModal
+                                      conceptName={child.title}
+                                      className="h-6 w-6 text-primary-foreground/50 hover:text-primary-foreground hover:bg-primary-foreground/20 p-0 border-0 bg-transparent shadow-none"
+                                    />
+                                    {hasMapping ? (
+                                      <MappingAbstractionsModal
+                                        conceptName={child.title}
+                                        conceptType={child.originalItem.concept_type}
+                                        className="h-6 w-6 text-primary-foreground/50 hover:text-primary-foreground hover:bg-primary-foreground/20 p-0 border-0 bg-transparent shadow-none"
+                                      />
+                                    ) : (
+                                      <div className="w-6 h-6 shrink-0" />
+                                    )}
+                                  </div>
+                                  <SidebarMenuButton
+                                    onClick={() => handleItemSelect(child, section.parent)}
+                                    className="text-primary-foreground hover:bg-transparent bg-transparent flex-1 truncate py-2 justify-start h-auto pl-0 font-medium"
+                                  >
+                                    {child.title}
+                                  </SidebarMenuButton>
+                                </div>
+                              </SidebarMenuItem>
+                            );
+                          })}
                         </SidebarMenu>
                       </CollapsibleContent>
                     </SidebarMenuItem>

@@ -78,7 +78,11 @@ const Index = () => {
   // Lifted State
   const [patientIds, setPatientIds] = useState<string[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [timeRange, setTimeRange] = useState<TimeRange>({ type: "relative", relative: "5y" });
+  const [timeRange, setTimeRange] = useState<TimeRange>({
+    type: "absolute",
+    startDate: new Date(2015, 0, 1),
+    endDate: new Date(2025, 0, 1)
+  });
   const [patientCount] = useState(10000);
   const { toast } = useToast();
 

@@ -330,10 +330,11 @@ export function TemporalChartCard({
                                 </Tooltip>
                             </TooltipProvider>
                         )}
-                        <GraphContextModal conceptName={title} />
+                        <GraphContextModal conceptName={title} showLabel={true} />
                         <MappingAbstractionsModal
                             conceptName={title}
                             conceptType={conceptData?.concept_type || conceptData?.["@concept-type"]}
+                            showLabel={true}
                         />
                         {isRelative && (
                             <TooltipProvider>

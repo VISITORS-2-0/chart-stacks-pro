@@ -14,6 +14,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import type { Group } from "@/services/groupsApi";
+import { cn } from "@/lib/utils";
 
 interface FilterBarProps {
   patientIds: string[];
@@ -59,10 +60,50 @@ export const FilterBar = ({
   const [localEndDate, setLocalEndDate] = useState<Date | undefined>(timeRange.endDate);
   const [isOpen, setIsOpen] = useState(false);
 
+  const [absMode, setAbsMode] = useState<"calendar" | "startDuration">("startDuration");
+  const [startMonth, setStartMonth] = useState<number>(timeRange.startDate ? timeRange.startDate.getMonth() : 0);
+  const [startYear, setStartYear] = useState<number>(timeRange.startDate ? timeRange.startDate.getFullYear() : 2015);
+  const [sizeAmount, setSizeAmount] = useState<number>(10);
+  const [sizeUnit, setSizeUnit] = useState<"days" | "months" | "years">("years");
+
+  const calculateEndFromStartAndSize = (start: Date, amount: number, unit: "days" | "months" | "years"): Date => {
+    const end = new Date(start);
+    if (unit === "years") {
+      end.setFullYear(start.getFullYear() + amount);
+    } else if (unit === "months") {
+      end.setMonth(start.getMonth() + amount);
+    } else {
+      end.setDate(start.getDate() + amount);
+    }
+    return end;
+  };
+
   useEffect(() => {
     if (isOpen) {
       setLocalStartDate(timeRange.startDate);
       setLocalEndDate(timeRange.endDate);
+
+      if (timeRange.startDate) {
+        setStartMonth(timeRange.startDate.getMonth());
+        setStartYear(timeRange.startDate.getFullYear());
+      }
+
+      if (timeRange.startDate && timeRange.endDate) {
+        const diffYears = timeRange.endDate.getFullYear() - timeRange.startDate.getFullYear();
+        const diffMonths = (timeRange.endDate.getFullYear() - timeRange.startDate.getFullYear()) * 12 + (timeRange.endDate.getMonth() - timeRange.startDate.getMonth());
+        const diffDays = Math.round((timeRange.endDate.getTime() - timeRange.startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (diffYears > 0 && diffMonths % 12 === 0) {
+          setSizeAmount(diffYears);
+          setSizeUnit("years");
+        } else if (diffMonths > 0) {
+          setSizeAmount(diffMonths);
+          setSizeUnit("months");
+        } else {
+          setSizeAmount(diffDays > 0 ? diffDays : 10);
+          setSizeUnit(diffDays > 0 ? "days" : "years");
+        }
+      }
     }
   }, [isOpen, timeRange.startDate, timeRange.endDate]);
 
@@ -83,11 +124,18 @@ export const FilterBar = ({
   };
 
   const handleAbsoluteApply = () => {
-    if (localStartDate && localEndDate) {
-      // Ensure start is before end
-      const start = localStartDate > localEndDate ? localEndDate : localStartDate;
-      const end = localStartDate > localEndDate ? localStartDate : localEndDate;
+    if (absMode === "calendar") {
+      if (localStartDate && localEndDate) {
+        // Ensure start is before end
+        const start = localStartDate > localEndDate ? localEndDate : localStartDate;
+        const end = localStartDate > localEndDate ? localStartDate : localEndDate;
 
+        onTimeRangeChange({ type: "absolute", startDate: start, endDate: end });
+        setIsOpen(false);
+      }
+    } else {
+      const start = new Date(startYear, startMonth, 1);
+      const end = calculateEndFromStartAndSize(start, sizeAmount, sizeUnit);
       onTimeRangeChange({ type: "absolute", startDate: start, endDate: end });
       setIsOpen(false);
     }
@@ -159,37 +207,145 @@ export const FilterBar = ({
               </TabsContent>
 
               <TabsContent value="absolute" className="p-4 space-y-4">
-                <div className="space-y-2">
-                  <Label>Start Date</Label>
-                  <CalendarComponent
-                    mode="single"
-                    selected={localStartDate}
-                    defaultMonth={localStartDate}
-                    onSelect={setLocalStartDate}
-                    className="pointer-events-auto"
-                    captionLayout="dropdown-buttons"
-                    fromYear={1900}
-                    toYear={new Date().getFullYear()}
-                  />
+                {/* Mode Toggle Button */}
+                <div className="flex bg-muted p-1 rounded-md mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setAbsMode("calendar")}
+                    className={cn(
+                      "flex-1 text-center py-1.5 text-xs font-semibold rounded-sm transition-all",
+                      absMode === "calendar"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Calendar Pick
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAbsMode("startDuration")}
+                    className={cn(
+                      "flex-1 text-center py-1.5 text-xs font-semibold rounded-sm transition-all",
+                      absMode === "startDuration"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Start & Duration
+                  </button>
                 </div>
-                <div className="space-y-2">
-                  <Label>End Date</Label>
-                  <CalendarComponent
-                    mode="single"
-                    selected={localEndDate}
-                    defaultMonth={localEndDate || localStartDate}
-                    onSelect={setLocalEndDate}
-                    disabled={(date) => localStartDate ? date < localStartDate : false}
-                    className="pointer-events-auto"
-                    captionLayout="dropdown-buttons"
-                    fromYear={1900}
-                    toYear={new Date().getFullYear()}
-                  />
-                </div>
+
+                {absMode === "calendar" ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Start Date</Label>
+                      <CalendarComponent
+                        mode="single"
+                        selected={localStartDate}
+                        defaultMonth={localStartDate}
+                        onSelect={setLocalStartDate}
+                        className="pointer-events-auto"
+                        captionLayout="dropdown-buttons"
+                        fromYear={1900}
+                        toYear={new Date().getFullYear() + 10}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>End Date</Label>
+                      <CalendarComponent
+                        mode="single"
+                        selected={localEndDate}
+                        defaultMonth={localEndDate || localStartDate}
+                        onSelect={setLocalEndDate}
+                        disabled={(date) => localStartDate ? date < localStartDate : false}
+                        className="pointer-events-auto"
+                        captionLayout="dropdown-buttons"
+                        fromYear={1900}
+                        toYear={new Date().getFullYear() + 10}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Starting Point Group */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Starting Point</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-[11px] text-muted-foreground">Month</Label>
+                          <select
+                            value={startMonth}
+                            onChange={(e) => setStartMonth(parseInt(e.target.value))}
+                            className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                          >
+                            {Array.from({ length: 12 }, (_, i) => {
+                              const d = new Date(2000, i, 1);
+                              return (
+                                <option key={i} value={i}>
+                                  {format(d, "MMMM")}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px] text-muted-foreground">Year</Label>
+                          <select
+                            value={startYear}
+                            onChange={(e) => setStartYear(parseInt(e.target.value))}
+                            className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                          >
+                            {Array.from({ length: 70 }, (_, i) => {
+                              const year = 1970 + i;
+                              return (
+                                <option key={year} value={year}>
+                                  {year}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Time to See Group */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Duration From Start</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-[11px] text-muted-foreground">Amount</Label>
+                          <select
+                            value={sizeAmount}
+                            onChange={(e) => setSizeAmount(parseInt(e.target.value))}
+                            className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                          >
+                            {Array.from({ length: 50 }, (_, i) => i + 1).map((val) => (
+                              <option key={val} value={val}>
+                                {val}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px] text-muted-foreground">Unit</Label>
+                          <select
+                            value={sizeUnit}
+                            onChange={(e) => setSizeUnit(e.target.value as any)}
+                            className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                          >
+                            <option value="days">Days</option>
+                            <option value="months">Months</option>
+                            <option value="years">Years</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <Button
                   onClick={handleAbsoluteApply}
                   className="w-full"
-                  disabled={!localStartDate || !localEndDate}
+                  disabled={absMode === "calendar" && (!localStartDate || !localEndDate)}
                 >
                   Apply
                 </Button>

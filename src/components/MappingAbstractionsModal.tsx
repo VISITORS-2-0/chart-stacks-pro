@@ -77,12 +77,12 @@ export const MappingAbstractionsModal: React.FC<MappingAbstractionsModalProps> =
       disabled={isDisabled}
       onClick={(e) => e.stopPropagation()}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-semibold text-muted-foreground transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 shadow-sm",
+        "group inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-semibold text-muted-foreground transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 shadow-sm",
         isDisabled ? "opacity-50 cursor-not-allowed" : "hover:bg-accent hover:text-accent-foreground",
         className
       )}
     >
-      <GitBranch className="h-3.5 w-3.5 shrink-0 text-primary/70" />
+      <GitBranch className={cn("h-3.5 w-3.5 shrink-0 text-primary/70 transition-colors", !isDisabled && "group-hover:text-white")} />
       <span>Mapping Function</span>
     </button>
   ) : (

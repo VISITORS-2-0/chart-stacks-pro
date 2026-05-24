@@ -27,11 +27,11 @@ export const GraphContextModal: React.FC<GraphContextModalProps> = ({
     <button
       onClick={(e) => e.stopPropagation()}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-semibold text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        "group inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-semibold text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         className
       )}
     >
-      <CircleHelp className="h-3.5 w-3.5 shrink-0 text-primary/70" />
+      <CircleHelp className="h-3.5 w-3.5 shrink-0 text-primary/70 group-hover:text-white transition-colors" />
       <span>Knowledge Explorer</span>
     </button>
   ) : (

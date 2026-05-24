@@ -19,6 +19,8 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
     const scrollRef = useRef<HTMLDivElement>(null);
     // Shared X-Axis logic: Use numeric timestamps to allow precise plotting
     const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
+    const [showMinMax, setShowMinMax] = useState(false);
+    const [showAverage, setShowAverage] = useState(false);
 
     // 1. Prepare Scatter Data (All Points)
     const scatterData = useMemo(() => {
@@ -35,8 +37,8 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
         }).filter(Boolean) as any[];
     }, [data]);
 
-    // 2. Prepare Monthly Max/Min Data
-    const { maxLineData, minLineData } = useMemo(() => {
+    // 2. Prepare Monthly Max/Min/Average Data
+    const { maxLineData, minLineData, averageLineData } = useMemo(() => {
         // Reset flags for the current zoom calculation so old zoom bucket flags don't persist
         scatterData.forEach(pt => {
             if (pt) {
@@ -48,6 +50,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
         const buckets = new Map<string, {
             maxPoint: { x: number, y: number, date: Date } | null;
             minPoint: { x: number, y: number, date: Date } | null;
+            points: { x: number, y: number, date: Date }[];
         }>();
 
         scatterData.forEach(point => {
@@ -64,9 +67,10 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
             }
 
             if (!buckets.has(key)) {
-                buckets.set(key, { maxPoint: point, minPoint: point });
+                buckets.set(key, { maxPoint: point, minPoint: point, points: [point] });
             } else {
                 const entry = buckets.get(key)!;
+                entry.points.push(point);
                 if (point.y > entry.maxPoint!.y) {
                     entry.maxPoint = point;
                 }
@@ -89,7 +93,22 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
             return pt;
         }).filter(Boolean);
 
-        return { maxLineData: maxData, minLineData: minData };
+        const avgData = sortedKeys.map(k => {
+            const entry = buckets.get(k)!;
+            if (entry.points.length === 0) return null;
+            const sumY = entry.points.reduce((sum, p) => sum + p.y, 0);
+            const avgY = sumY / entry.points.length;
+            const sumX = entry.points.reduce((sum, p) => sum + p.x, 0);
+            const avgX = sumX / entry.points.length;
+            return {
+                x: avgX,
+                y: avgY,
+                date: new Date(avgX),
+                isAverageBucket: true
+            };
+        }).filter(Boolean);
+
+        return { maxLineData: maxData, minLineData: minData, averageLineData: avgData };
     }, [scatterData, zoomLevel]);
 
     const handlePointClick = (data: any) => {
@@ -157,8 +176,8 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                 const visibleEnd = Math.min(yearEnd, domainEnd);
 
                 if (visibleStart <= visibleEnd) {
-                    const tickTime = visibleStart + (visibleEnd - visibleStart) / 2;
-                    contextTicks.push(tickTime);
+                    // Stick to the left side of the bucket
+                    contextTicks.push(visibleStart);
                 }
 
                 // Detail: Months
@@ -180,8 +199,8 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                     const visibleEnd = Math.min(monthEnd, domainEnd);
 
                     if (visibleStart <= visibleEnd) {
-                        const tickTime = visibleStart + (visibleEnd - visibleStart) / 2;
-                        contextTicks.push(tickTime);
+                        // Stick to the left side of the bucket
+                        contextTicks.push(visibleStart);
                     }
 
                     const lastDay = new Date(y, m + 1, 0).getDate();
@@ -304,6 +323,12 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                 );
             }
 
+            // Calculate bucket stats
+            const yValues = pointsInBucket.map(pt => pt.y);
+            const bucketMax = Math.max(...yValues);
+            const bucketMin = Math.min(...yValues);
+            const bucketAvg = yValues.reduce((a, b) => a + b, 0) / yValues.length;
+
             let displayPoint = pointsInBucket[0];
             if (payload && payload.length) {
                 const nearestPoint = payload[0].payload;
@@ -318,14 +343,18 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
 
             return (
                 <div className="bg-popover border border-border text-popover-foreground rounded-md shadow-md p-3 text-sm">
-                    <div className="font-semibold mb-1">
+                    <div className="font-semibold mb-1 border-b pb-1">
                         {timeLabel}
                     </div>
-                    <div className="grid gap-1 mt-1">
+                    <div className="grid gap-1 mt-1.5">
                         <div className="text-muted-foreground">Value: <span className="font-medium text-foreground">{displayPoint.y}</span></div>
                         {displayPoint.patientId && <div className="text-muted-foreground">Patient: <span className="font-medium text-foreground">{displayPoint.patientId}</span></div>}
-                        {displayPoint.isMaxBucket && <div className="text-red-500 font-medium text-xs">Bucket Max Value</div>}
-                        {displayPoint.isMinBucket && <div className="text-blue-500 font-medium text-xs">Bucket Min Value</div>}
+                        
+                        <div className="border-t pt-1.5 mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                            <div className="text-muted-foreground">Bucket Max: <span className="font-medium text-red-500">{bucketMax.toFixed(2)}</span></div>
+                            <div className="text-muted-foreground">Bucket Min: <span className="font-medium text-blue-500">{bucketMin.toFixed(2)}</span></div>
+                            <div className="text-muted-foreground col-span-2">Bucket Avg: <span className="font-medium text-emerald-500">{bucketAvg.toFixed(2)}</span></div>
+                        </div>
                     </div>
                 </div>
             );
@@ -384,152 +413,231 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
 
     return (
         <div className="w-full h-full p-4 overflow-hidden flex flex-col">
-            {/* Fixed Legend outside of scrolling area */}
-            <div className="flex justify-center gap-6 mb-2 text-sm">
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-[#ff0000]"></div>
-                    <span className="text-foreground">Max</span>
+            {/* Legend & Toggle Controls */}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-3 pb-2 border-b text-sm">
+                {/* Legend */}
+                <div className="flex flex-wrap items-center gap-6">
+                    {showMinMax && (
+                        <>
+                            <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full bg-[#ff0000]"></div>
+                                <span className="text-foreground text-xs font-semibold">Max</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full bg-[#0000ff]"></div>
+                                <span className="text-foreground text-xs font-semibold">Min</span>
+                            </div>
+                        </>
+                    )}
+                    {showAverage && (
+                        <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-[#10b981]"></div>
+                            <span className="text-foreground text-xs font-semibold">Average</span>
+                        </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-[#888888]"></div>
+                        <span className="text-foreground text-xs font-semibold">Patient Values</span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-[#0000ff]"></div>
-                    <span className="text-foreground">Min</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-[#888888]"></div>
-                    <span className="text-foreground">Patient Values</span>
+
+                {/* Checkbox Toggles */}
+                <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors">
+                        <input
+                            type="checkbox"
+                            checked={showMinMax}
+                            onChange={(e) => setShowMinMax(e.target.checked)}
+                            className="rounded border-input text-primary focus:ring-ring h-3.5 w-3.5"
+                        />
+                        <span>Show Min/Max Lines</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors">
+                        <input
+                            type="checkbox"
+                            checked={showAverage}
+                            onChange={(e) => setShowAverage(e.target.checked)}
+                            className="rounded border-input text-primary focus:ring-ring h-3.5 w-3.5"
+                        />
+                        <span>Show Average Line</span>
+                    </label>
                 </div>
             </div>
 
-            <div ref={scrollRef} className="flex-1 w-full overflow-x-auto overflow-y-hidden custom-scrollbar">
-                <div style={{ minWidth: `${chartWidth}px`, height: '100%' }}>
+            <div className="flex-1 w-full flex flex-row min-h-0">
+                {/* Sticky Y-Axis */}
+                <div className="w-[90px] h-full shrink-0 border-r bg-background/95 backdrop-blur-sm z-10 select-none pb-2">
                     <ResponsiveContainer width="100%" height="100%">
                         <ScatterChart
                             data={scatterData}
-                            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                            onMouseMove={handleMouseMove}
-                            onMouseLeave={() => setHoveredRange(null)}
-                            onClick={(e: any) => {
-                                // Capture clicks on the chart area for zooming
-                                if (onDrillDown && hoveredRange) {
-                                    onDrillDown(new Date(hoveredRange.start).toISOString());
-                                }
-                            }}
+                            margin={{ top: 5, right: 0, left: 10, bottom: 5 }}
                         >
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis
-                                xAxisId="detail"
-                                dataKey="x"
-                                type="number"
-                                domain={xDomain as any}
-                                allowDataOverflow={true}
-                                ticks={detailAxisTicks}
-                                tickFormatter={detailTickFormatter}
-                                scale="time"
-                                allowDuplicatedCategory={false}
-                                interval={0}
-                                orientation="bottom"
-                                height={30}
-                                onClick={(e) => {
-                                    if (onDrillDown && e && e.value) {
-                                        const date = new Date(e.value);
-                                        onDrillDown(date.toISOString());
+                            <XAxis xAxisId="detail" tick={false} tickLine={false} axisLine={false} height={30} />
+                            {contextAxisTicks.length > 0 && (
+                                <XAxis xAxisId="context" tick={false} tickLine={false} axisLine={false} height={30} />
+                            )}
+                            <YAxis
+                                dataKey="y"
+                                width={80}
+                                tick={{ fontSize: 13, fontWeight: 500 }}
+                            />
+                        </ScatterChart>
+                    </ResponsiveContainer>
+                </div>
+
+                {/* Scrollable Chart */}
+                <div ref={scrollRef} className="flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar">
+                    <div style={{ minWidth: `${chartWidth}px`, height: '100%' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <ScatterChart
+                                data={scatterData}
+                                margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                                onMouseMove={handleMouseMove}
+                                onMouseLeave={() => setHoveredRange(null)}
+                                onClick={(e: any) => {
+                                    // Capture clicks on the chart area for zooming
+                                    if (onDrillDown && hoveredRange) {
+                                        onDrillDown(new Date(hoveredRange.start).toISOString());
                                     }
                                 }}
-                                cursor="pointer"
-                            />
-
-                            {/* Hover Highlight */}
-                            {hoveredRange && (
-                                <ReferenceArea
-                                    xAxisId="detail"
-                                    x1={hoveredRange.start}
-                                    x2={hoveredRange.end}
-                                    fill="#9ca3af" // tailwind gray-400
-                                    fillOpacity={0.3}
-                                    ifOverflow="extendDomain"
-                                />
-                            )}
-
-                            {contextAxisTicks.length > 0 && (
+                            >
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                 <XAxis
-                                    xAxisId="context"
+                                    xAxisId="detail"
                                     dataKey="x"
                                     type="number"
                                     domain={xDomain as any}
                                     allowDataOverflow={true}
-                                    ticks={contextAxisTicks}
-                                    tickFormatter={contextTickFormatter}
+                                    ticks={detailAxisTicks}
+                                    tickFormatter={detailTickFormatter}
                                     scale="time"
                                     allowDuplicatedCategory={false}
                                     interval={0}
                                     orientation="bottom"
-                                    dy={15}
-                                    tickLine={false}
-                                    axisLine={false}
-                                    onClick={() => {
-                                        if (onZoomOut) onZoomOut();
+                                    height={30}
+                                    onClick={(e) => {
+                                        if (onDrillDown && e && e.value) {
+                                            const date = new Date(e.value);
+                                            onDrillDown(date.toISOString());
+                                        }
                                     }}
                                     cursor="pointer"
                                 />
-                            )}
-                            <YAxis dataKey="y" />
-                            <Tooltip
-                                content={<CustomTooltip />}
-                                cursor={false} // Disable default cursor line since we use ReferenceArea
-                            />
 
-                            {/* Max Line - Red */}
-                            <Scatter
-                                xAxisId="detail"
-                                data={maxLineData}
-                                dataKey="y"
-                                line={{ stroke: '#ff0000', strokeWidth: 2 }}
-                                fill="#ff0000"
-                                shape="circle"
-                                name="Max"
-                                isAnimationActive={false}
-                                activeShape={false}
-                            />
+                                {/* Hover Highlight */}
+                                {hoveredRange && (
+                                    <ReferenceArea
+                                        xAxisId="detail"
+                                        x1={hoveredRange.start}
+                                        x2={hoveredRange.end}
+                                        fill="#9ca3af" // tailwind gray-400
+                                        fillOpacity={0.3}
+                                        ifOverflow="extendDomain"
+                                    />
+                                )}
 
-                            {/* Min Line - Blue */}
-                            <Scatter
-                                xAxisId="detail"
-                                data={minLineData}
-                                dataKey="y"
-                                line={{ stroke: '#0000ff', strokeWidth: 2 }}
-                                fill="#0000ff"
-                                shape="circle"
-                                name="Min"
-                                isAnimationActive={false}
-                                activeShape={false}
-                            />
+                                {contextAxisTicks.length > 0 && (
+                                    <XAxis
+                                        xAxisId="context"
+                                        dataKey="x"
+                                        type="number"
+                                        domain={xDomain as any}
+                                        allowDataOverflow={true}
+                                        ticks={contextAxisTicks}
+                                        tickFormatter={contextTickFormatter}
+                                        scale="time"
+                                        allowDuplicatedCategory={false}
+                                        interval={0}
+                                        orientation="bottom"
+                                        dy={15}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        tick={{ textAnchor: 'start' }}
+                                        onClick={() => {
+                                            if (onZoomOut) onZoomOut();
+                                        }}
+                                        cursor="pointer"
+                                        height={30}
+                                    />
+                                )}
+                                <YAxis hide={true} dataKey="y" width={80} />
+                                <Tooltip
+                                    content={<CustomTooltip />}
+                                    cursor={false} // Disable default cursor line since we use ReferenceArea
+                                />
 
-                            <Scatter
-                                xAxisId="detail"
-                                data={scatterData}
-                                dataKey="y"
-                                name="Patient Values"
-                                fill="#888888"
-                                shape="circle"
-                                line={false}
-                                onClick={handlePointClick}
-                                cursor="pointer"
-                                isAnimationActive={false}
-                                activeShape={false}
-                            />
+                                {/* Max Line - Red */}
+                                {showMinMax && (
+                                    <Scatter
+                                        xAxisId="detail"
+                                        data={maxLineData}
+                                        dataKey="y"
+                                        line={{ stroke: '#ff0000', strokeWidth: 2 }}
+                                        fill="#ff0000"
+                                        shape="circle"
+                                        name="Max"
+                                        isAnimationActive={false}
+                                        activeShape={false}
+                                    />
+                                )}
 
-                            {/* Dummy Data for Hovering Empty Buckets */}
-                            <Scatter
-                                xAxisId="detail"
-                                data={dummyData}
-                                dataKey="y"
-                                name="Empty"
-                                opacity={0}
-                                isAnimationActive={false}
-                                activeShape={false}
-                            />
-                        </ScatterChart>
-                    </ResponsiveContainer>
+                                {/* Min Line - Blue */}
+                                {showMinMax && (
+                                    <Scatter
+                                        xAxisId="detail"
+                                        data={minLineData}
+                                        dataKey="y"
+                                        line={{ stroke: '#0000ff', strokeWidth: 2 }}
+                                        fill="#0000ff"
+                                        shape="circle"
+                                        name="Min"
+                                        isAnimationActive={false}
+                                        activeShape={false}
+                                    />
+                                )}
+
+                                {/* Average Line - Emerald Green Dashed */}
+                                {showAverage && (
+                                    <Scatter
+                                        xAxisId="detail"
+                                        data={averageLineData}
+                                        dataKey="y"
+                                        line={{ stroke: '#10b981', strokeWidth: 2, strokeDasharray: '4 4' }}
+                                        fill="#10b981"
+                                        shape="circle"
+                                        name="Average"
+                                        isAnimationActive={false}
+                                        activeShape={false}
+                                    />
+                                )}
+
+                                <Scatter
+                                    xAxisId="detail"
+                                    data={scatterData}
+                                    dataKey="y"
+                                    name="Patient Values"
+                                    fill="#888888"
+                                    shape="circle"
+                                    line={false}
+                                    onClick={handlePointClick}
+                                    cursor="pointer"
+                                    isAnimationActive={false}
+                                    activeShape={false}
+                                />
+
+                                {/* Dummy Data for Hovering Empty Buckets */}
+                                <Scatter
+                                    xAxisId="detail"
+                                    data={dummyData}
+                                    dataKey="y"
+                                    name="Empty"
+                                    opacity={0}
+                                    isAnimationActive={false}
+                                    activeShape={false}
+                                />
+                            </ScatterChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
             </div>
         </div>

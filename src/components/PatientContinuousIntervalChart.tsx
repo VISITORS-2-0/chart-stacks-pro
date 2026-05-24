@@ -249,8 +249,8 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
                 const visibleEnd = Math.min(yearEnd, windowEnd);
 
                 if (visibleStart <= visibleEnd) {
-                    const tickTime = visibleStart + (visibleEnd - visibleStart) / 2;
-                    vContextTicks.push(tickTime);
+                    // Stick to the left side of the bucket
+                    vContextTicks.push(visibleStart);
                 }
             }
         } else if (zoomLevel === 'days') {
@@ -262,8 +262,8 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
                     const visibleEnd = Math.min(monthEnd, windowEnd);
 
                     if (visibleStart <= visibleEnd) {
-                        const tickTime = visibleStart + (visibleEnd - visibleStart) / 2;
-                        vContextTicks.push(tickTime);
+                        // Stick to the left side of the bucket
+                        vContextTicks.push(visibleStart);
                     }
                 }
             }
@@ -375,7 +375,32 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
     }, [virtualTicks, zoomLevel, minVal]);
 
     return (
-        <div className="w-full h-full p-4 relative select-none flex flex-col">
+        <div className="w-full h-full p-4 relative select-none flex flex-row">
+            {/* Sticky Y-Axis */}
+            <div className="w-[90px] h-full shrink-0 border-r bg-background/95 backdrop-blur-sm z-10 select-none pb-2">
+                <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart
+                        margin={{ top: 20, right: 0, left: 10, bottom: 20 }}
+                    >
+                        <XAxis xAxisId="detail" tick={false} tickLine={false} axisLine={false} height={30} />
+                        {virtualContextTicks.length > 0 && (
+                            <XAxis xAxisId="context" tick={false} tickLine={false} axisLine={false} height={30} />
+                        )}
+                        <YAxis
+                            dataKey="y"
+                            type="number"
+                            domain={[minVal, maxVal]}
+                            ticks={yTicks}
+                            interval={0}
+                            tickFormatter={(val) => parseFloat(Number(val).toFixed(2)).toString()}
+                            width={80}
+                            tick={{ fontSize: 13, fontWeight: 500 }}
+                        />
+                    </ComposedChart>
+                </ResponsiveContainer>
+            </div>
+
+            {/* Scrollable Chart */}
             <div
                 ref={containerRef}
                 className="flex-1 w-full overflow-x-auto overflow-y-hidden"
@@ -385,7 +410,7 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
                 <div style={{ height: '100%', width: chartWidth, minWidth: '100%' }}>
                     <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart
-                            margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                            margin={{ top: 20, right: 30, left: 10, bottom: 20 }}
                             onMouseMove={handleMouseMove}
                             onMouseLeave={() => setHoveredRange(null)}
                             onClick={handleClick}
@@ -402,6 +427,7 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
                                 scale="time"
                                 interval={0}
                                 cursor="pointer"
+                                height={30}
                             />
 
                             {virtualContextTicks.length > 0 && (
@@ -418,22 +444,23 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
                                     dy={15}
                                     tickLine={false}
                                     axisLine={false}
+                                    tick={{ textAnchor: 'start' }}
                                     onClick={() => {
                                         if (onZoomOut) onZoomOut();
                                     }}
                                     cursor="pointer"
+                                    height={30}
                                 />
                             )}
 
                             <YAxis
+                                hide={true}
                                 dataKey="y"
                                 type="number"
                                 domain={[minVal, maxVal]}
                                 ticks={yTicks}
                                 interval={0}
-                                tickFormatter={(val) => parseFloat(Number(val).toFixed(2)).toString()}
-                                width={90}
-                                tick={{ fontSize: 13, fontWeight: 500 }}
+                                width={80}
                             />
 
                             <Scatter

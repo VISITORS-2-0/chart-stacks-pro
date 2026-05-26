@@ -284,6 +284,15 @@ const Index = () => {
         }
       }
 
+      if (!resultData || resultData.length === 0) {
+        toast({
+          title: "No Data Available",
+          description: `There is no data for concept "${item.title}" for the selected patient(s).`,
+          variant: "destructive"
+        });
+        return { success: false, errorMessage: "No data available" };
+      }
+
       const newChart: ActiveChart = {
         ...item,
         id: `${item.id}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,

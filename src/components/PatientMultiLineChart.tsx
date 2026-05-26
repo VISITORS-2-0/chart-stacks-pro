@@ -509,7 +509,22 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                                     domain={xDomain as any}
                                     allowDataOverflow={true}
                                     ticks={detailAxisTicks}
-                                    tickFormatter={detailTickFormatter}
+                                    tick={(props) => {
+                                        const { x, y, payload, index } = props;
+                                        return (
+                                            <text
+                                                x={x}
+                                                y={y}
+                                                dy={16}
+                                                textAnchor={index === 0 ? "start" : "middle"}
+                                                fill="#6b7280"
+                                                fontSize={12}
+                                                fontWeight={500}
+                                            >
+                                                {detailTickFormatter(payload.value)}
+                                            </text>
+                                        );
+                                    }}
                                     scale="time"
                                     allowDuplicatedCategory={false}
                                     interval={0}

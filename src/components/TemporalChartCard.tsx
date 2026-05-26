@@ -234,21 +234,29 @@ export function TemporalChartCard({
     const handleNavigateWrapper = (dir: 'next' | 'prev') => {
         let currentFocus = focusDate;
         if (!currentFocus) {
-            if (!filteredData || filteredData.length === 0) return;
-            const firstRow = filteredData[0];
-            let dateVal: Date | null = null;
-            if (firstRow.StartTime) {
-                dateVal = new Date(firstRow.StartTime);
-            } else if (firstRow.month) {
-                const parts = firstRow.month.split('-');
-                if (parts.length >= 2) {
-                    dateVal = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
+            if (!filteredData || filteredData.length === 0) {
+                const fallbackDate = globalStart ? new Date(globalStart) : new Date();
+                currentFocus = !isNaN(fallbackDate.getTime()) ? fallbackDate : new Date();
+            } else {
+                const firstRow = filteredData[0];
+                let dateVal: Date | null = null;
+                if (firstRow.StartTime) {
+                    dateVal = new Date(firstRow.StartTime);
+                } else if (firstRow.month) {
+                    const parts = firstRow.month.split('-');
+                    if (parts.length >= 2) {
+                        dateVal = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
+                    } else {
+                        dateVal = new Date(parseInt(parts[0], 10), 0, 1);
+                    }
+                }
+                if (!dateVal || isNaN(dateVal.getTime())) {
+                    const fallbackDate = globalStart ? new Date(globalStart) : new Date();
+                    currentFocus = !isNaN(fallbackDate.getTime()) ? fallbackDate : new Date();
                 } else {
-                    dateVal = new Date(parseInt(parts[0], 10), 0, 1);
+                    currentFocus = dateVal;
                 }
             }
-            if (!dateVal || isNaN(dateVal.getTime())) return;
-            currentFocus = dateVal;
         }
 
         const y = currentFocus.getFullYear();

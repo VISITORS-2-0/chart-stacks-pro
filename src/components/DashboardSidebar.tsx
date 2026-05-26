@@ -357,13 +357,13 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
                                   <div className="flex items-center gap-1 shrink-0 mr-1.5">
                                     <GraphContextModal
                                       conceptName={child.title}
-                                      className="h-6 w-6 text-primary-foreground/50 hover:text-primary-foreground hover:bg-primary-foreground/20 p-0 border-0 bg-transparent shadow-none"
+                                      className="h-6 w-6 text-primary-foreground/50 hover:text-primary-foreground p-0 border-0 bg-transparent shadow-none"
                                     />
                                     {hasMapping ? (
                                       <MappingAbstractionsModal
                                         conceptName={child.title}
                                         conceptType={child.originalItem.concept_type}
-                                        className="h-6 w-6 text-primary-foreground/50 hover:text-primary-foreground hover:bg-primary-foreground/20 p-0 border-0 bg-transparent shadow-none"
+                                        className="h-6 w-6 text-primary-foreground/50 hover:text-primary-foreground p-0 border-0 bg-transparent shadow-none"
                                       />
                                     ) : (
                                       <div className="w-6 h-6 shrink-0" />

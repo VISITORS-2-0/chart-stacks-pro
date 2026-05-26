@@ -380,6 +380,7 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
             <div className="w-[90px] h-full shrink-0 border-r bg-background/95 backdrop-blur-sm z-10 select-none pb-2">
                 <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart
+                        data={virtualData}
                         margin={{ top: 20, right: 0, left: 10, bottom: 20 }}
                     >
                         <XAxis xAxisId="detail" tick={false} tickLine={false} axisLine={false} height={30} />
@@ -403,7 +404,7 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
             {/* Scrollable Chart */}
             <div
                 ref={containerRef}
-                className="flex-1 w-full overflow-x-auto overflow-y-hidden"
+                className="flex-1 w-full overflow-x-auto overflow-y-hidden custom-scrollbar"
                 style={{ scrollBehavior: 'auto' }}
                 onScroll={onContainerScroll}
             >
@@ -423,11 +424,26 @@ export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDr
                                 type="number"
                                 domain={xDomain as any}
                                 ticks={virtualTicks}
-                                tickFormatter={tickFormatter}
                                 scale="time"
                                 interval={0}
                                 cursor="pointer"
                                 height={30}
+                                tick={(props) => {
+                                    const { x, y, payload, index } = props;
+                                    return (
+                                        <text
+                                            x={x}
+                                            y={y}
+                                            dy={16}
+                                            textAnchor={index === 0 ? "start" : "middle"}
+                                            fill="#6b7280"
+                                            fontSize={12}
+                                            fontWeight={500}
+                                        >
+                                            {tickFormatter(payload.value)}
+                                        </text>
+                                    );
+                                }}
                             />
 
                             {virtualContextTicks.length > 0 && (

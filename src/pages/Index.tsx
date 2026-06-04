@@ -29,6 +29,7 @@ interface ActiveChart extends MenuItem {
   patientIds?: string[];
   isRelative?: boolean; // Whether this chart was fetched in relative-time mode
   relativeEventName?: string; // The reference event name for display in the chart header
+  viewType?: 'summary' | 'pure';
 }
 
 type TabValue = "exploration" | "manage-groups" | string;
@@ -88,6 +89,7 @@ const Index = () => {
 
   // Relative Time global state
   const [isRelativeMode, setIsRelativeMode] = useState(false);
+  const [isPureIntervalsMode, setIsPureIntervalsMode] = useState(false);
   const [relativeConfig, setRelativeConfig] = useState<RelativeTimeConfig>({
     reference_concept: "",
     reference_value: null,
@@ -189,6 +191,8 @@ const Index = () => {
     }
   };
 
+
+
   const handleItemClick = async (item: MenuItem, overridePatientIds?: string[]): Promise<{ success: boolean, errorMessage?: string }> => {
     // 1. Validation
     const currentPatientIds = overridePatientIds || patientIds;
@@ -273,14 +277,20 @@ const Index = () => {
           resultData = response.result;
           conceptData = response.concept_data;
         } else {
-          const patternParams: PatternQueryParams = {
-            ...params,
-            interval_str: defaultInterval,
-            method: 'most_time_spent'
-          };
-          const response = await fetchMultiplePatientsAbstraction(patternParams);
-          conceptData = response.concept_data;
-          resultData = processPatternResult(response.result, defaultInterval, resolvedIds.length);
+          if (isPureIntervalsMode) {
+            const response = await fetchAbstractionData(params);
+            conceptData = response.concept_data;
+            resultData = response.result;
+          } else {
+            const patternParams: PatternQueryParams = {
+              ...params,
+              interval_str: defaultInterval,
+              method: 'most_time_spent'
+            };
+            const response = await fetchMultiplePatientsAbstraction(patternParams);
+            conceptData = response.concept_data;
+            resultData = processPatternResult(response.result, defaultInterval, resolvedIds.length);
+          }
         }
       }
 
@@ -312,6 +322,7 @@ const Index = () => {
         patientIds: resolvedIds,
         isRelative: useRelative,
         relativeEventName: useRelative ? relativeConfig.reference_concept : undefined,
+        viewType: (!isRawType && resolvedIds.length > 1) ? (isPureIntervalsMode ? 'pure' : 'summary') : undefined,
       };
 
       setActiveCharts((prev) => [...prev, newChart]);
@@ -369,7 +380,7 @@ const Index = () => {
     // Server-side drill-down only applies to multi-patient pattern charts.
     // Single-patient and raw charts zoom client-side via TemporalChartCard's local zoomLevel.
     const resolvedIds = resolvePatientIds(currentChartPatientIds);
-    if (resolvedIds.length <= 1 || chart.isRaw) return;
+    if (resolvedIds.length <= 1 || chart.isRaw || chart.viewType === 'pure') return;
 
     const currentInterval = chart.currentInterval || 'YE';
     let nextInterval = 'YE';
@@ -464,10 +475,8 @@ const Index = () => {
     const currentChartPatientIds = chart.patientIds || patientIds;
     const chartIsRelative = chart.isRelative ?? false;
 
-    // Server-side zoom-out only applies to multi-patient pattern charts.
-    // Single-patient and raw charts zoom client-side via TemporalChartCard's local zoomLevel.
     const resolvedIds = resolvePatientIds(currentChartPatientIds);
-    if (resolvedIds.length <= 1 || chart.isRaw || !chart.currentInterval) return;
+    if (resolvedIds.length <= 1 || chart.isRaw || !chart.currentInterval || chart.viewType === 'pure') return;
 
     const currentInterval = chart.currentInterval || 'YE';
     let prevInterval = '';
@@ -559,8 +568,8 @@ const Index = () => {
     const chart = activeCharts[chartIndex];
     const currentChartPatientIds = chart.patientIds || patientIds;
     const resolvedIds = resolvePatientIds(currentChartPatientIds);
-    // Navigation is not meaningful in relative mode
-    if (resolvedIds.length <= 1 || chart.isRaw || chart.isRelative) return;
+    // Navigation is not meaningful in relative mode or pure intervals mode
+    if (resolvedIds.length <= 1 || chart.isRaw || chart.isRelative || chart.viewType === 'pure') return;
 
     let startDateStr = '';
     let endDateStr = '';
@@ -671,6 +680,8 @@ const Index = () => {
           relativeConfig={relativeConfig}
           setRelativeConfig={setRelativeConfig}
           groups={groups}
+          isPureIntervalsMode={isPureIntervalsMode}
+          onPureIntervalsModeChange={setIsPureIntervalsMode}
         />
       );
     }

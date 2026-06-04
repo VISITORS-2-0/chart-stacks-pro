@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useOnePatientRaw, useMultiPatientAbstract, useMultiPatientRaw } from "../hooks/useTemporalData";
 import { PatientStatusAnalytics } from "./PatientStatusAnalytics";
 import { PatientStateGantt } from "./PatientStateGantt";
+import { PatientMultiStateGantt } from "./PatientMultiStateGantt";
 import { PatientContinuousIntervalChart } from "./PatientContinuousIntervalChart";
 import { PatientMultiLineChart } from "./PatientMultiLineChart";
 import { SinglePatientAbstractionPanel, AbstractionInterval, ValueLevel } from "./SinglePatientAbstractionPanel";
@@ -12,6 +13,8 @@ import { RangeCutoffConfig } from "./RangeCutoffConfig";
 import { useState, useMemo, useCallback, useRef } from "react";
 import { GraphContextModal } from "./GraphContextModal";
 import { MappingAbstractionsModal } from "./MappingAbstractionsModal";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 export type ZoomLevel = 'years' | 'months' | 'days';
 
@@ -35,6 +38,7 @@ interface TemporalChartCardProps {
     relativeEventName?: string;
     globalStart?: string | number;
     globalEnd?: string | number;
+    viewType?: 'summary' | 'pure';
 }
 
 export function TemporalChartCard({
@@ -57,6 +61,7 @@ export function TemporalChartCard({
     relativeEventName,
     globalStart,
     globalEnd,
+    viewType,
 }: TemporalChartCardProps) {
     const isMultiPatient = patientIds ? patientIds.length > 1 : false;
 
@@ -537,6 +542,7 @@ export function TemporalChartCard({
                             )}
                         </div>
                     )}
+
                     {onApplyCutoffs && isMultiPatient && conceptData !== undefined && chartType === 'analytics' && (conceptData.min !== undefined || conceptData['min-value'] !== undefined) && (
                         <RangeCutoffConfig
                             minValue={conceptData.min ?? conceptData['min-value'] ?? 0}
@@ -593,6 +599,19 @@ export function TemporalChartCard({
                             focusDate={focusDate}
                             onDrillDown={handleDrillDown}
                             onZoomOut={handleZoomOut}
+                            isRelative={isRelative}
+                            relativeGranularity={relativeGranularity}
+                            globalStart={globalStart}
+                            globalEnd={globalEnd}
+                            onVisibleRangeChange={handleVisibleRangeChange}
+                        />
+                    ) : viewType === 'pure' ? (
+                        <PatientMultiStateGantt
+                            data={data as any || []}
+                            zoomLevel={zoomLevel}
+                            onDrillDown={handleDrillDown}
+                            conceptData={conceptData}
+                            focusDate={focusDate}
                             isRelative={isRelative}
                             relativeGranularity={relativeGranularity}
                             globalStart={globalStart}

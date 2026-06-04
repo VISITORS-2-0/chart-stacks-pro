@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Search, Calendar, Users, XCircle } from "lucide-react";
+import { Search, Calendar, Users, XCircle, Layers } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { PatientMultiSelect } from "@/components/PatientMultiSelect";
 import { GroupMultiSelect } from "@/components/GroupMultiSelect";
@@ -25,6 +26,8 @@ interface FilterBarProps {
   onCloseAll: () => void;
   hasCharts: boolean;
   groups?: Group[];
+  isPureIntervalsMode: boolean;
+  onPureIntervalsModeChange: (val: boolean) => void;
 }
 
 export interface TimeRange {
@@ -55,6 +58,8 @@ export const FilterBar = ({
   onCloseAll,
   hasCharts,
   groups,
+  isPureIntervalsMode,
+  onPureIntervalsModeChange,
 }: FilterBarProps) => {
   const [localStartDate, setLocalStartDate] = useState<Date | undefined>(timeRange.startDate);
   const [localEndDate, setLocalEndDate] = useState<Date | undefined>(timeRange.endDate);
@@ -353,6 +358,28 @@ export const FilterBar = ({
             </Tabs>
           </PopoverContent>
         </Popover>
+
+        {/* Separator */}
+        <div className="h-5 w-px bg-border shrink-0" />
+
+        {/* Pure Intervals Global Toggle */}
+        <div className="flex items-center gap-2 shrink-0">
+          <Switch
+            id="pure-intervals-toggle"
+            checked={isPureIntervalsMode}
+            onCheckedChange={onPureIntervalsModeChange}
+            className="data-[state=checked]:bg-primary"
+          />
+          <Label
+            htmlFor="pure-intervals-toggle"
+            className={`text-sm font-semibold cursor-pointer flex items-center gap-1.5 transition-colors ${
+              isPureIntervalsMode ? "text-foreground font-bold" : "text-muted-foreground"
+            }`}
+          >
+            <Layers className="h-3.5 w-3.5" />
+            Pure Intervals Mode
+          </Label>
+        </div>
 
         {/* Close All Button */}
         {hasCharts && (

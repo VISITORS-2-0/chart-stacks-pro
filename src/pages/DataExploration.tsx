@@ -35,6 +35,8 @@ interface DataExplorationProps {
   onChartZoomOut?: (chartId: string) => void;
   onChartNavigate?: (chartId: string, direction: 'next' | 'prev', currentZoom: ZoomLevel, focusDate: Date | null) => void;
   onApplyCutoffs?: (chartId: string, cutoffs: number[], isBalanced: boolean) => void;
+  isPureIntervalsMode: boolean;
+  onPureIntervalsModeChange: (val: boolean) => void;
   // Relative time props
   isRelativeMode: boolean;
   setIsRelativeMode: (enabled: boolean) => void;
@@ -57,6 +59,8 @@ export function DataExploration({
   onChartZoomOut,
   onChartNavigate,
   onApplyCutoffs,
+  isPureIntervalsMode,
+  onPureIntervalsModeChange,
   isRelativeMode,
   setIsRelativeMode,
   relativeConfig,
@@ -104,6 +108,8 @@ export function DataExploration({
         onCloseAll={onCloseAll}
         hasCharts={activeCharts.length > 0}
         groups={groups}
+        isPureIntervalsMode={isPureIntervalsMode}
+        onPureIntervalsModeChange={onPureIntervalsModeChange}
       />
       <RelativeTimeBar
         isEnabled={isRelativeMode}
@@ -175,6 +181,7 @@ export function DataExploration({
                     cutoffs={chart.cutoffs}
                     isCutoffsBalanced={chart.isBalanced}
                     onApplyCutoffs={(cutoffs, isBalanced) => onApplyCutoffs && onApplyCutoffs(chart.id, cutoffs, isBalanced)}
+                    viewType={chart.viewType}
                   />
                 );
               })}

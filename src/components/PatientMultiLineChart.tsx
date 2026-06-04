@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceArea } from 'recharts';
 import { TemporalRow } from '../types/temporal';
 import { formatRelativeTime, formatRelativeTooltipTime } from '@/utils/dateUtils';
@@ -13,9 +13,10 @@ interface PatientMultiLineChartProps {
     relativeGranularity?: 'D' | 'ME' | 'YE';
     globalStart?: string | number;
     globalEnd?: string | number;
+    onVisibleRangeChange?: (date: Date) => void;
 }
 
-export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, onDrillDown, onZoomOut, isRelative = false, relativeGranularity = 'YE', globalStart, globalEnd }: PatientMultiLineChartProps) {
+export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, onDrillDown, onZoomOut, isRelative = false, relativeGranularity = 'YE', globalStart, globalEnd, onVisibleRangeChange }: PatientMultiLineChartProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     // Shared X-Axis logic: Use numeric timestamps to allow precise plotting
     const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
@@ -386,6 +387,45 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
         return minWidth;
     }, [xDomain, zoomLevel]);
 
+    const pixelsPerMs = useMemo(() => {
+        if (!xDomain || xDomain[0] === 'dataMin') return 1;
+        const [start, end] = xDomain as [number, number];
+        const duration = end - start;
+        return duration > 0 ? chartWidth / duration : 1;
+    }, [xDomain, chartWidth]);
+
+    const handleScroll = () => {
+        if (!scrollRef.current || !xDomain || xDomain[0] === 'dataMin') return;
+
+        const scrollLeft = scrollRef.current.scrollLeft;
+        const containerWidth = scrollRef.current.clientWidth;
+        const [domainStart] = xDomain as [number, number];
+
+        if (onVisibleRangeChange) {
+            const visibleStart = domainStart + (scrollLeft / pixelsPerMs);
+            const centerTime = visibleStart + (containerWidth / 2) / pixelsPerMs;
+            if (!isNaN(centerTime)) {
+                onVisibleRangeChange(new Date(centerTime));
+            }
+        }
+    };
+
+    const isScrolling = useRef(false);
+    const onContainerScroll = () => {
+        if (isScrolling.current) return;
+        isScrolling.current = true;
+        requestAnimationFrame(() => {
+            handleScroll();
+            isScrolling.current = false;
+        });
+    };
+
+    useLayoutEffect(() => {
+        if (chartWidth) {
+            handleScroll();
+        }
+    }, [chartWidth, pixelsPerMs]);
+
     const scrollTimeoutRef = useRef<any>(null);
 
     // 5. Scroll to focusDate when zoom changes
@@ -506,7 +546,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                 </div>
 
                 {/* Scrollable Chart */}
-                <div ref={scrollRef} className="flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar">
+                <div ref={scrollRef} className="flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar" onScroll={onContainerScroll}>
                     <div style={{ width: `${chartWidth}px`, minWidth: `${chartWidth}px`, height: '100%' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <ScatterChart

@@ -15,6 +15,7 @@ interface PatientStateGanttProps {
     relativeGranularity?: 'D' | 'ME' | 'YE';
     globalStart?: string | number;
     globalEnd?: string | number;
+    onVisibleRangeChange?: (date: Date) => void;
 }
 
 // Custom Shape to render the "Gantt" bars using Scatter points
@@ -64,7 +65,7 @@ const GanttBar = (props: any) => {
     );
 };
 
-export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, isRelative = false, relativeGranularity = 'YE', globalStart: globalStartProp, globalEnd: globalEndProp }: PatientStateGanttProps) {
+export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, isRelative = false, relativeGranularity = 'YE', globalStart: globalStartProp, globalEnd: globalEndProp, onVisibleRangeChange }: PatientStateGanttProps) {
     const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [visibleWindow, setVisibleWindow] = useState<{ start: number, end: number } | null>(null);
@@ -193,6 +194,13 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
         const visibleStart = globalStart + (scrollLeft / pixelsPerMs);
         const visibleEnd = visibleStart + (containerWidth / pixelsPerMs);
 
+        if (onVisibleRangeChange) {
+            const centerTime = visibleStart + (containerWidth / 2) / pixelsPerMs;
+            if (!isNaN(centerTime)) {
+                onVisibleRangeChange(new Date(centerTime));
+            }
+        }
+
         // Define Buffer (2 "buckets" worth approx)
         // Years: Buffer 5 years. Months: 1 year. Days: 2 months.
         let bufferMs = 0;
@@ -207,9 +215,9 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
         });
     };
 
-    // Initialize Window on first data load
+    // Initialize/Recalculate Window when chart scale/width changes
     useLayoutEffect(() => {
-        if (!visibleWindow && chartWidth) {
+        if (chartWidth) {
             handleScroll();
         }
     }, [chartWidth, pixelsPerMs]);

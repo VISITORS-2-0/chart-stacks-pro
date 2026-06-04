@@ -9,7 +9,7 @@ import { PatientContinuousIntervalChart } from "./PatientContinuousIntervalChart
 import { PatientMultiLineChart } from "./PatientMultiLineChart";
 import { SinglePatientAbstractionPanel, AbstractionInterval, ValueLevel } from "./SinglePatientAbstractionPanel";
 import { RangeCutoffConfig } from "./RangeCutoffConfig";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { GraphContextModal } from "./GraphContextModal";
 import { MappingAbstractionsModal } from "./MappingAbstractionsModal";
 
@@ -76,6 +76,11 @@ export function TemporalChartCard({
                 'years'
     );
     const [focusDate, setFocusDate] = useState<Date | null>(null);
+    const [scrolledFocusDate, setScrolledFocusDate] = useState<Date | null>(null);
+
+    const handleVisibleRangeChange = useCallback((date: Date) => {
+        setScrolledFocusDate(date);
+    }, []);
 
     // Determine which data hook to use (only if no externalData)
     let dataHook;
@@ -96,6 +101,48 @@ export function TemporalChartCard({
     const data = externalData || hookData;
     const loading = externalData ? false : hookLoading;
     const error = externalData ? null : hookError;
+
+    const globalBounds = useMemo(() => {
+        if (!data || data.length === 0) return { min: null, max: null };
+        let minTime = Infinity, maxTime = -Infinity;
+        data.forEach((row: any) => {
+            let t1 = NaN, t2 = NaN;
+            if (row.StartTime) t1 = new Date(row.StartTime).getTime();
+            if (row.EndTime) t2 = new Date(row.EndTime).getTime();
+            else if (row.month) {
+                const parts = row.month.split('-');
+                if (parts.length === 3) t1 = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                else if (parts.length === 2) t1 = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1).getTime();
+                else t1 = new Date(parseInt(parts[0]), 0, 1).getTime();
+            }
+            if (!isNaN(t1)) {
+                if (t1 < minTime) minTime = t1;
+                if (t1 > maxTime) maxTime = t1;
+            }
+            if (!isNaN(t2)) {
+                if (t2 < minTime) minTime = t2;
+                if (t2 > maxTime) maxTime = t2;
+            }
+        });
+        if (minTime === Infinity) return { min: null, max: null };
+        return { min: new Date(minTime), max: new Date(maxTime) };
+    }, [data]);
+
+    const navMinDate = useMemo(() => {
+        if (globalStart !== undefined && globalStart !== null && globalStart !== '') {
+            const d = new Date(globalStart);
+            if (!isNaN(d.getTime())) return d;
+        }
+        return globalBounds.min;
+    }, [globalStart, globalBounds.min]);
+
+    const navMaxDate = useMemo(() => {
+        if (globalEnd !== undefined && globalEnd !== null && globalEnd !== '') {
+            const d = new Date(globalEnd);
+            if (!isNaN(d.getTime())) return d;
+        }
+        return globalBounds.max;
+    }, [globalEnd, globalBounds.max]);
 
     // Filter Data based on Zoom Level
     const filteredData = useMemo(() => {
@@ -208,11 +255,15 @@ export function TemporalChartCard({
 
         // Set local focus reference
         let targetDate = clickedDate;
-        if (zoomLevel === 'months') {
+        if (zoomLevel === 'years') {
+            // We are drilling down to 'months', so force focusDate to Jan 1st of that year
+            targetDate = new Date(clickedDate.getFullYear(), 0, 1);
+        } else if (zoomLevel === 'months') {
             // We are drilling down to 'days', so force focusDate to the 1st of that month
             targetDate = new Date(clickedDate.getFullYear(), clickedDate.getMonth(), 1);
         }
         setFocusDate(targetDate);
+        setScrolledFocusDate(null);
 
         // Update local zoom level for UI state
         if (zoomLevel === 'years') {
@@ -249,66 +300,98 @@ export function TemporalChartCard({
         }
     };
 
-    const handleNavigateWrapper = (dir: 'next' | 'prev', type: 'month' | 'year' = 'month') => {
-        let currentFocus = focusDate;
-        if (!currentFocus) {
-            if (!filteredData || filteredData.length === 0) {
-                const fallbackDate = globalStart ? new Date(globalStart) : new Date();
-                currentFocus = !isNaN(fallbackDate.getTime()) ? fallbackDate : new Date();
+    const getCurrentFocus = useCallback(() => {
+        if (scrolledFocusDate) return scrolledFocusDate;
+        if (focusDate) return focusDate;
+        if (!filteredData || filteredData.length === 0) {
+            const fallbackDate = globalStart ? new Date(globalStart as string | number) : new Date();
+            return !isNaN(fallbackDate.getTime()) ? fallbackDate : new Date();
+        }
+        const firstRow = filteredData[0];
+        let dateVal: Date | null = null;
+        if (firstRow.StartTime) {
+            dateVal = new Date(firstRow.StartTime);
+        } else if (firstRow.month) {
+            const parts = firstRow.month.split('-');
+            if (parts.length >= 2) {
+                dateVal = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
             } else {
-                const firstRow = filteredData[0];
-                let dateVal: Date | null = null;
-                if (firstRow.StartTime) {
-                    dateVal = new Date(firstRow.StartTime);
-                } else if (firstRow.month) {
-                    const parts = firstRow.month.split('-');
-                    if (parts.length >= 2) {
-                        dateVal = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
-                    } else {
-                        dateVal = new Date(parseInt(parts[0], 10), 0, 1);
-                    }
-                }
-                if (!dateVal || isNaN(dateVal.getTime())) {
-                    const fallbackDate = globalStart ? new Date(globalStart) : new Date();
-                    currentFocus = !isNaN(fallbackDate.getTime()) ? fallbackDate : new Date();
-                } else {
-                    currentFocus = dateVal;
-                }
+                dateVal = new Date(parseInt(parts[0], 10), 0, 1);
             }
         }
-
-        if (zoomLevel === 'days' && currentFocus) {
-            currentFocus = new Date(currentFocus.getFullYear(), currentFocus.getMonth(), 1);
+        if (!dateVal || isNaN(dateVal.getTime())) {
+            const fallbackDate = globalStart ? new Date(globalStart as string | number) : new Date();
+            return !isNaN(fallbackDate.getTime()) ? fallbackDate : new Date();
         }
+        return dateVal;
+    }, [scrolledFocusDate, focusDate, filteredData, globalStart]);
+
+    const handleNavigateWrapper = (dir: 'next' | 'prev', type: 'month' | 'year' = 'month') => {
+        let currentFocus = getCurrentFocus();
 
         const y = currentFocus.getFullYear();
         const m = currentFocus.getMonth();
-        let newFocus = new Date(currentFocus);
+        let newFocus: Date;
         
-        if (type === 'year') {
-            newFocus.setFullYear(y + (dir === 'next' ? 1 : -1));
-            if (zoomLevel === 'days') {
-                newFocus.setDate(1);
+        if (zoomLevel === 'months') {
+            // In months zoom, arrows navigate by year. Align directly to Jan 1st of target year.
+            newFocus = new Date(y + (dir === 'next' ? 1 : -1), 0, 1);
+        } else if (zoomLevel === 'days') {
+            // In days zoom, align to 1st of target month/year.
+            if (type === 'year') {
+                newFocus = new Date(y + (dir === 'next' ? 1 : -1), m, 1);
+            } else {
+                newFocus = new Date(y, m + (dir === 'next' ? 1 : -1), 1);
             }
         } else {
-            if (zoomLevel === 'months') {
+            newFocus = new Date(currentFocus);
+            if (type === 'year') {
                 newFocus.setFullYear(y + (dir === 'next' ? 1 : -1));
-            } else if (zoomLevel === 'days') {
+            } else {
                 newFocus.setMonth(m + (dir === 'next' ? 1 : -1));
-                newFocus.setDate(1);
             }
         }
         setFocusDate(newFocus);
+        setScrolledFocusDate(null);
         if (onNavigate) {
             onNavigate(dir, zoomLevel, newFocus);
         }
     };
 
+    const isNavDisabled = (dir: 'next' | 'prev', type: 'month' | 'year' = 'month') => {
+        if (!navMinDate || !navMaxDate) return false;
+        const currentFocus = getCurrentFocus();
+        let y = currentFocus.getFullYear();
+        let m = currentFocus.getMonth();
+
+        if (type === 'year') {
+            y += (dir === 'next' ? 1 : -1);
+        } else {
+            if (zoomLevel === 'months') {
+                y += (dir === 'next' ? 1 : -1);
+            } else if (zoomLevel === 'days') {
+                m += (dir === 'next' ? 1 : -1);
+                if (m > 11) { m = 0; y += 1; }
+                if (m < 0) { m = 11; y -= 1; }
+            }
+        }
+
+        if (dir === 'next') {
+            if (y > navMaxDate.getFullYear()) return true;
+            if (y === navMaxDate.getFullYear() && zoomLevel === 'days' && m > navMaxDate.getMonth()) return true;
+        } else {
+            if (y < navMinDate.getFullYear()) return true;
+            if (y === navMinDate.getFullYear() && zoomLevel === 'days' && m < navMinDate.getMonth()) return true;
+        }
+        return false;
+    };
+
     const getNavigationLabel = () => {
-        if (focusDate) {
+        const d = scrolledFocusDate || focusDate;
+        if (d) {
             return zoomLevel === 'months'
-                ? focusDate.getFullYear().toString()
-                : focusDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+                ? d.getFullYear().toString()
+                : d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
         }
         if (!filteredData || filteredData.length === 0) return '';
 
@@ -409,8 +492,9 @@ export function TemporalChartCard({
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-6 w-6"
+                                    className="h-6 w-6 disabled:opacity-50"
                                     onClick={() => handleNavigateWrapper('prev', 'year')}
+                                    disabled={isNavDisabled('prev', 'year')}
                                     title="Previous Year"
                                 >
                                     <ChevronsLeft className="h-4 w-4" />
@@ -419,8 +503,9 @@ export function TemporalChartCard({
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6"
+                                className="h-6 w-6 disabled:opacity-50"
                                 onClick={() => handleNavigateWrapper('prev', 'month')}
+                                disabled={isNavDisabled('prev', 'month')}
                                 title={zoomLevel === 'days' ? "Previous Month" : "Previous Year"}
                             >
                                 <ChevronLeft className="h-4 w-4" />
@@ -431,8 +516,9 @@ export function TemporalChartCard({
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6"
+                                className="h-6 w-6 disabled:opacity-50"
                                 onClick={() => handleNavigateWrapper('next', 'month')}
+                                disabled={isNavDisabled('next', 'month')}
                                 title={zoomLevel === 'days' ? "Next Month" : "Next Year"}
                             >
                                 <ChevronRight className="h-4 w-4" />
@@ -441,8 +527,9 @@ export function TemporalChartCard({
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-6 w-6"
+                                    className="h-6 w-6 disabled:opacity-50"
                                     onClick={() => handleNavigateWrapper('next', 'year')}
+                                    disabled={isNavDisabled('next', 'year')}
                                     title="Next Year"
                                 >
                                     <ChevronsRight className="h-4 w-4" />
@@ -497,6 +584,7 @@ export function TemporalChartCard({
                             relativeGranularity={relativeGranularity}
                             globalStart={globalStart}
                             globalEnd={globalEnd}
+                            onVisibleRangeChange={handleVisibleRangeChange}
                         />
                     ) : isRaw ? (
                         <PatientMultiLineChart
@@ -509,6 +597,7 @@ export function TemporalChartCard({
                             relativeGranularity={relativeGranularity}
                             globalStart={globalStart}
                             globalEnd={globalEnd}
+                            onVisibleRangeChange={handleVisibleRangeChange}
                         />
                     ) : chartType === 'bar' ? (
                         <PatientStateGantt
@@ -521,6 +610,7 @@ export function TemporalChartCard({
                             relativeGranularity={relativeGranularity}
                             globalStart={globalStart}
                             globalEnd={globalEnd}
+                            onVisibleRangeChange={handleVisibleRangeChange}
                         />
                     ) : (
                         <PatientStatusAnalytics

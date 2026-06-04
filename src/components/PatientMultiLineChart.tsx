@@ -122,7 +122,10 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
         let minTime = 0;
         let maxTime = 100;
 
-        if (globalStart !== undefined && globalEnd !== undefined) {
+        if (zoomLevel === 'days' && focusDate) {
+            minTime = new Date(focusDate.getFullYear(), 0, 1).getTime();
+            maxTime = new Date(focusDate.getFullYear(), 11, 31, 23, 59, 59).getTime();
+        } else if (globalStart !== undefined && globalEnd !== undefined) {
             minTime = new Date(globalStart).getTime();
             maxTime = new Date(globalEnd).getTime();
         } else if (scatterData.length > 0) {
@@ -383,6 +386,8 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
         return minWidth;
     }, [xDomain, zoomLevel]);
 
+    const scrollTimeoutRef = useRef<any>(null);
+
     // 5. Scroll to focusDate when zoom changes
     useEffect(() => {
         if (!scrollRef.current || !focusDate || !scatterData.length) return;
@@ -400,15 +405,30 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
         const scrollWidth = scrollRef.current.scrollWidth;
         const clientWidth = scrollRef.current.clientWidth;
 
-        // Scroll so the focusDate is roughly centered
-        const targetScrollLeft = (scrollWidth * focusPercentage) - (clientWidth / 2);
+        // Scroll so the focusDate aligns to the left of the visible area
+        // Left margin is 10, right margin is 30 in ScatterChart. We offset targetScrollLeft to account for these margins.
+        // We subtract 20px so that the viewport starts a little before the 1st of the month, making the tick label fully visible.
+        const leftMargin = 10;
+        const rightMargin = 30;
+        const targetScrollLeft = leftMargin + focusPercentage * (scrollWidth - leftMargin - rightMargin) - 10;
+
+        // Cancel any pending scroll timeouts
+        if (scrollTimeoutRef.current) {
+            clearTimeout(scrollTimeoutRef.current);
+        }
 
         // Use timeout to ensure it runs after render/layout if width changed
-        setTimeout(() => {
+        scrollTimeoutRef.current = setTimeout(() => {
             if (scrollRef.current) {
-                scrollRef.current.scrollTo({ left: Math.max(0, targetScrollLeft), behavior: 'smooth' });
+                scrollRef.current.scrollTo({ left: Math.max(0, targetScrollLeft), behavior: 'auto' });
             }
-        }, 100);
+        }, 50);
+
+        return () => {
+            if (scrollTimeoutRef.current) {
+                clearTimeout(scrollTimeoutRef.current);
+            }
+        };
     }, [focusDate, zoomLevel, xDomain, scatterData.length, chartWidth]);
 
     return (
@@ -487,7 +507,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
 
                 {/* Scrollable Chart */}
                 <div ref={scrollRef} className="flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar">
-                    <div style={{ minWidth: `${chartWidth}px`, height: '100%' }}>
+                    <div style={{ width: `${chartWidth}px`, minWidth: `${chartWidth}px`, height: '100%' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <ScatterChart
                                 data={scatterData}

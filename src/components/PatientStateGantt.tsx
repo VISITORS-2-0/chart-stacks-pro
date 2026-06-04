@@ -227,9 +227,11 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
         const contentWidth = Number(chartWidth);
         if (isNaN(contentWidth)) return;
 
-        const targetX = contentWidth * ratio;
-        const containerWidth = containerRef.current.clientWidth;
-        const scrollLeft = targetX - (containerWidth / 2);
+        // Left margin is 10, right margin is 30 in ComposedChart. We offset scrollLeft to account for these margins.
+        // We subtract 20px so that the viewport starts a little before the 1st of the month, making the tick label fully visible.
+        const leftMargin = 10;
+        const rightMargin = 30;
+        const scrollLeft = leftMargin + ratio * (contentWidth - leftMargin - rightMargin) - 20;
 
         containerRef.current.scrollTo({ left: scrollLeft, behavior: 'instant' }); // Instant to avoid painting wrong window during scroll
 

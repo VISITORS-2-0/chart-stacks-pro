@@ -243,7 +243,7 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
     const isZoomedIn = zoomLevel === 'months' || zoomLevel === 'days';
 
     return (
-        <div className="w-full h-full overflow-y-auto p-4 relative flex flex-col">
+        <div className="w-full h-full overflow-y-visible p-4 relative flex flex-col">
             <div
                 className="w-full flex-1 flex flex-col space-y-4 min-h-0"
                 style={{ minHeight: `${(categories.length * 125) + 30}px` }}

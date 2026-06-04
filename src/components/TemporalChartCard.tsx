@@ -1,4 +1,4 @@
-import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -109,9 +109,22 @@ export function TemporalChartCard({
         // If 'months', filter by focusDate year
         // If 'days', filter by focusDate month
 
-        // For raw data, we never filter the dataset anymore because PatientMultiLineChart
-        // now supports horizontal scrolling, so we want all data available.
-        if (isRaw) return data;
+        // For raw data, filter the dataset to only load the zoomed year when in days view
+        // to avoid loading too many data points and causing lag.
+        if (isRaw) {
+            if (zoomLevel === 'days' && focusDate) {
+                const targetYear = focusDate.getFullYear();
+                return data.filter((row: any) => {
+                    if (row.StartTime) {
+                        const rowStart = new Date(row.StartTime);
+                        if (isNaN(rowStart.getTime())) return false;
+                        return rowStart.getFullYear() === targetYear;
+                    }
+                    return false;
+                });
+            }
+            return data;
+        }
 
         if (zoomLevel === 'years') return data;
         if (!focusDate) return data;
@@ -194,7 +207,12 @@ export function TemporalChartCard({
         if (isNaN(clickedDate.getTime())) return;
 
         // Set local focus reference
-        setFocusDate(clickedDate);
+        let targetDate = clickedDate;
+        if (zoomLevel === 'months') {
+            // We are drilling down to 'days', so force focusDate to the 1st of that month
+            targetDate = new Date(clickedDate.getFullYear(), clickedDate.getMonth(), 1);
+        }
+        setFocusDate(targetDate);
 
         // Update local zoom level for UI state
         if (zoomLevel === 'years') {
@@ -231,7 +249,7 @@ export function TemporalChartCard({
         }
     };
 
-    const handleNavigateWrapper = (dir: 'next' | 'prev') => {
+    const handleNavigateWrapper = (dir: 'next' | 'prev', type: 'month' | 'year' = 'month') => {
         let currentFocus = focusDate;
         if (!currentFocus) {
             if (!filteredData || filteredData.length === 0) {
@@ -259,13 +277,26 @@ export function TemporalChartCard({
             }
         }
 
+        if (zoomLevel === 'days' && currentFocus) {
+            currentFocus = new Date(currentFocus.getFullYear(), currentFocus.getMonth(), 1);
+        }
+
         const y = currentFocus.getFullYear();
         const m = currentFocus.getMonth();
         let newFocus = new Date(currentFocus);
-        if (zoomLevel === 'months') {
+        
+        if (type === 'year') {
             newFocus.setFullYear(y + (dir === 'next' ? 1 : -1));
-        } else if (zoomLevel === 'days') {
-            newFocus.setMonth(m + (dir === 'next' ? 1 : -1));
+            if (zoomLevel === 'days') {
+                newFocus.setDate(1);
+            }
+        } else {
+            if (zoomLevel === 'months') {
+                newFocus.setFullYear(y + (dir === 'next' ? 1 : -1));
+            } else if (zoomLevel === 'days') {
+                newFocus.setMonth(m + (dir === 'next' ? 1 : -1));
+                newFocus.setDate(1);
+            }
         }
         setFocusDate(newFocus);
         if (onNavigate) {
@@ -316,7 +347,11 @@ export function TemporalChartCard({
     };
 
     return (
-        <Card className="border border-border shadow-sm animate-in fade-in-50 duration-300 w-full h-[500px] flex flex-col">
+        <Card className={`border border-border shadow-sm animate-in fade-in-50 duration-300 w-full flex flex-col ${
+            (chartType !== 'continuous-interval' && !isRaw && chartType !== 'bar')
+                ? 'h-auto min-h-[500px]'
+                : 'h-[500px]'
+        }`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
@@ -370,11 +405,23 @@ export function TemporalChartCard({
                 <div className="flex items-center gap-2">
                     {(zoomLevel === 'months' || zoomLevel === 'days') && !!onNavigate && !isRelative && (
                         <div className="flex justify-center items-center gap-1 shrink-0 bg-muted/50 rounded-md p-1 border">
+                            {zoomLevel === 'days' && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={() => handleNavigateWrapper('prev', 'year')}
+                                    title="Previous Year"
+                                >
+                                    <ChevronsLeft className="h-4 w-4" />
+                                </Button>
+                            )}
                             <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-6 w-6"
-                                onClick={() => handleNavigateWrapper('prev')}
+                                onClick={() => handleNavigateWrapper('prev', 'month')}
+                                title={zoomLevel === 'days' ? "Previous Month" : "Previous Year"}
                             >
                                 <ChevronLeft className="h-4 w-4" />
                             </Button>
@@ -385,10 +432,22 @@ export function TemporalChartCard({
                                 variant="ghost"
                                 size="icon"
                                 className="h-6 w-6"
-                                onClick={() => handleNavigateWrapper('next')}
+                                onClick={() => handleNavigateWrapper('next', 'month')}
+                                title={zoomLevel === 'days' ? "Next Month" : "Next Year"}
                             >
                                 <ChevronRight className="h-4 w-4" />
                             </Button>
+                            {zoomLevel === 'days' && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={() => handleNavigateWrapper('next', 'year')}
+                                    title="Next Year"
+                                >
+                                    <ChevronsRight className="h-4 w-4" />
+                                </Button>
+                            )}
                         </div>
                     )}
                     {onApplyCutoffs && isMultiPatient && conceptData !== undefined && chartType === 'analytics' && (conceptData.min !== undefined || conceptData['min-value'] !== undefined) && (

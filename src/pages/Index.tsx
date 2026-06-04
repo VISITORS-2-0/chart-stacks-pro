@@ -4,6 +4,7 @@ import { DashboardSidebar, MenuItem } from "@/components/DashboardSidebar";
 import { generateMockData } from "@/utils/chartData";
 import { DataExploration } from "./DataExploration";
 import { ManageGroups } from "./ManageGroups";
+import { ManageConceptGroups } from "./ManageConceptGroups";
 
 import { TimeRange } from "@/components/FilterBar";
 import type { RelativeTimeConfig } from "@/components/RelativeTimeBar";
@@ -32,7 +33,7 @@ interface ActiveChart extends MenuItem {
   viewType?: 'summary' | 'pure';
 }
 
-type TabValue = "exploration" | "manage-groups" | string;
+type TabValue = "exploration" | "manage-groups" | "manage-concept-groups" | string;
 
 const calculateDefaultGranularity = (startDateStr: string, endDateStr: string): 'YE' | 'ME' | 'D' => {
   const start = new Date(startDateStr);
@@ -690,6 +691,10 @@ const Index = () => {
       return <ManageGroups onGroupsChange={loadGroupsFromApi} />;
     }
 
+    if (activeTab === "manage-concept-groups") {
+      return <ManageConceptGroups />;
+    }
+
     return null;
   };
 
@@ -724,8 +729,20 @@ const Index = () => {
                 : "text-muted-foreground hover:text-foreground"
                 }`}
             >
-              Manage Groups
+              Manage User Groups
               {activeTab === "manage-groups" && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab("manage-concept-groups")}
+              className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === "manage-concept-groups"
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+                }`}
+            >
+              Manage Concept Values Groups
+              {activeTab === "manage-concept-groups" && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
               )}
             </button>

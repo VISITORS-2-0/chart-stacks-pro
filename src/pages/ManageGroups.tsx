@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { fetchGroups, createGroup, updateGroup, deleteGroup, Group } from "@/services/groupsApi";
+import { fetchConceptGroups, ConceptGroup } from "@/services/conceptGroupsApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,6 +16,7 @@ interface ManageGroupsProps {
 
 export function ManageGroups({ onGroupsChange }: ManageGroupsProps = {}) {
   const [groups, setGroups] = useState<Group[]>([]);
+  const [conceptGroups, setConceptGroups] = useState<ConceptGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -37,11 +39,23 @@ export function ManageGroups({ onGroupsChange }: ManageGroupsProps = {}) {
     }
   };
 
+  const loadConceptGroups = async () => {
+    try {
+      const data = await fetchConceptGroups();
+      setConceptGroups(data);
+    } catch (error) {
+      console.error("Failed to load concept groups:", error);
+    }
+  };
+
   useEffect(() => {
     loadGroups();
+    loadConceptGroups();
   }, []);
 
   const handleOpenCreateDialog = () => {
+    loadGroups();
+    loadConceptGroups();
     setCurrentGroup(null);
     setEditName("");
     setEditPatientIds([]);
@@ -49,6 +63,8 @@ export function ManageGroups({ onGroupsChange }: ManageGroupsProps = {}) {
   };
 
   const handleOpenEditDialog = (group: Group) => {
+    loadGroups();
+    loadConceptGroups();
     setCurrentGroup(group);
     setEditName(group.name);
     setEditPatientIds(group.patientIds);
@@ -63,6 +79,30 @@ export function ManageGroups({ onGroupsChange }: ManageGroupsProps = {}) {
   const handleSaveGroup = async () => {
     if (!editName.trim()) {
       toast({ title: "Validation Error", description: "Group name is required.", variant: "destructive" });
+      return;
+    }
+
+    const lowerName = editName.trim().toLowerCase();
+
+    // Check duplicate in user groups
+    const duplicateUserGroup = groups.find(
+      (g) => g.name.trim().toLowerCase() === lowerName && g._id !== currentGroup?._id
+    );
+    if (duplicateUserGroup) {
+      toast({ title: "Validation Error", description: `A user group named "${editName}" already exists.`, variant: "destructive" });
+      return;
+    }
+
+    // Check duplicate in concept groups
+    const duplicateConceptGroup = conceptGroups.find(
+      (g) => g.name.trim().toLowerCase() === lowerName
+    );
+    if (duplicateConceptGroup) {
+      toast({
+        title: "Validation Error",
+        description: `A concept group named "${editName}" already exists. Group names must be unique across both user groups and concept groups.`,
+        variant: "destructive",
+      });
       return;
     }
     
@@ -105,7 +145,7 @@ export function ManageGroups({ onGroupsChange }: ManageGroupsProps = {}) {
       <div className="container max-w-7xl mx-auto space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Manage Groups</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Manage User Groups</h1>
             <p className="text-muted-foreground mt-1">Create and manage patient groups for exploration.</p>
           </div>
           <Button onClick={handleOpenCreateDialog}>

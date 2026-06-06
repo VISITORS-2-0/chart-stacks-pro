@@ -513,7 +513,7 @@ export function ManageConceptGroups() {
               <div className="flex justify-between items-center">
                 <Label className="text-sm font-semibold">Concept Values Setup</Label>
                 <Button type="button" variant="outline" size="sm" onClick={handleAddConceptRow} className="text-xs h-8">
-                  <Plus className="mr-1 h-3 w-3" /> Add Value Row
+                  <Plus className="mr-1 h-3 w-3" /> Add Concept
                 </Button>
               </div>
 

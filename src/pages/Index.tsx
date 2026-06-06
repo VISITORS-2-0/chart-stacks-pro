@@ -92,8 +92,7 @@ const Index = () => {
   const [isRelativeMode, setIsRelativeMode] = useState(false);
   const [isPureIntervalsMode, setIsPureIntervalsMode] = useState(false);
   const [relativeConfig, setRelativeConfig] = useState<RelativeTimeConfig>({
-    reference_concept: "",
-    reference_value: null,
+    reference_concepts: [],
     occurrence_index: -1,
     start_delta: { value: 0, unit: "d" },
     end_delta: { value: 35, unit: "d" },
@@ -149,7 +148,8 @@ const Index = () => {
       let reqStart: string | null;
       let reqEnd: string | null;
 
-      if (chartIsRelative && relativeConfig.reference_concept) {
+      const hasRelativeConcepts = chartIsRelative && relativeConfig.reference_concepts?.length > 0;
+      if (hasRelativeConcepts) {
         fetchInterval = chart.currentInterval || granularityFromRelativeConfig(relativeConfig);
         reqStart = null;
         reqEnd = null;
@@ -172,7 +172,14 @@ const Index = () => {
         method: 'most_time_spent',
         ranges: buildRanges(cutoffs, chart.conceptData),
         use_generated_data: useGeneratedData,
-        ...(chartIsRelative && relativeConfig.reference_concept ? { relative_time: relativeConfig } : {}),
+        ...(hasRelativeConcepts ? {
+          relative_time: {
+            reference_concepts: relativeConfig.reference_concepts,
+            occurrence_index: relativeConfig.occurrence_index,
+            start_delta: relativeConfig.start_delta,
+            end_delta: relativeConfig.end_delta
+          }
+        } : {}),
       };
 
       const response = await fetchMultiplePatientsNumericAbstraction(patternParams);
@@ -209,11 +216,14 @@ const Index = () => {
     }
 
     // 2. Prepare Params — switch between absolute and relative modes
-    const useRelative = isRelativeMode && relativeConfig.reference_concept.trim() !== '';
+    const useRelative = isRelativeMode && relativeConfig.reference_concepts && relativeConfig.reference_concepts.length > 0;
 
     // For duplicate-chart check, use a stable key that incorporates mode
     const { start_date: absStart, end_date: absEnd } = calculateDateRange(timeRange);
-    const dedupStart = useRelative ? `rel:${relativeConfig.reference_concept}:${relativeConfig.occurrence_index}:${relativeConfig.start_delta.value}${relativeConfig.start_delta.unit}` : absStart;
+    const conceptsStr = useRelative
+      ? relativeConfig.reference_concepts.map(rc => `${rc.concept_name}${rc.concept_value ? '=' + rc.concept_value : ''}`).join(',')
+      : '';
+    const dedupStart = useRelative ? `rel:${conceptsStr}:${relativeConfig.occurrence_index}:${relativeConfig.start_delta.value}${relativeConfig.start_delta.unit}` : absStart;
     const dedupEnd = useRelative ? `${relativeConfig.end_delta.value}${relativeConfig.end_delta.unit}` : absEnd;
 
     const exists = activeCharts.some((chart) => {
@@ -235,7 +245,14 @@ const Index = () => {
       start_date: useRelative ? null : absStart,
       end_date: useRelative ? null : absEnd,
       use_generated_data: useGeneratedData,
-      ...(useRelative ? { relative_time: relativeConfig } : {}),
+      ...(useRelative ? {
+        relative_time: {
+          reference_concepts: relativeConfig.reference_concepts,
+          occurrence_index: relativeConfig.occurrence_index,
+          start_delta: relativeConfig.start_delta,
+          end_delta: relativeConfig.end_delta
+        }
+      } : {}),
     };
 
     // Default interval
@@ -322,7 +339,11 @@ const Index = () => {
         originalEnd: useRelative ? undefined : absEnd,
         patientIds: resolvedIds,
         isRelative: useRelative,
-        relativeEventName: useRelative ? relativeConfig.reference_concept : undefined,
+        relativeEventName: useRelative
+          ? (relativeConfig.selected_group_name
+              ? `Group: ${relativeConfig.selected_group_name}`
+              : relativeConfig.reference_concepts.map(rc => `${rc.concept_name}${rc.concept_value ? ` (${rc.concept_value})` : ''}`).join(', '))
+          : undefined,
         viewType: (!isRawType && resolvedIds.length > 1) ? (isPureIntervalsMode ? 'pure' : 'summary') : undefined,
       };
 
@@ -433,7 +454,14 @@ const Index = () => {
           method: 'most_time_spent',
           ranges: buildRanges(chart.cutoffs, chart.conceptData),
           use_generated_data: useGeneratedData,
-          ...(chartIsRelative && relativeConfig.reference_concept ? { relative_time: relativeConfig } : {}),
+          ...(chartIsRelative && relativeConfig.reference_concepts?.length ? {
+            relative_time: {
+              reference_concepts: relativeConfig.reference_concepts,
+              occurrence_index: relativeConfig.occurrence_index,
+              start_delta: relativeConfig.start_delta,
+              end_delta: relativeConfig.end_delta
+            }
+          } : {}),
         };
         response = await fetchMultiplePatientsNumericAbstraction(params);
       } else {
@@ -445,7 +473,14 @@ const Index = () => {
           interval_str: nextInterval,
           method: 'most_time_spent',
           use_generated_data: useGeneratedData,
-          ...(chartIsRelative && relativeConfig.reference_concept ? { relative_time: relativeConfig } : {}),
+          ...(chartIsRelative && relativeConfig.reference_concepts?.length ? {
+            relative_time: {
+              reference_concepts: relativeConfig.reference_concepts,
+              occurrence_index: relativeConfig.occurrence_index,
+              start_delta: relativeConfig.start_delta,
+              end_delta: relativeConfig.end_delta
+            }
+          } : {}),
         };
         response = await fetchMultiplePatientsAbstraction(params);
       }
@@ -528,7 +563,14 @@ const Index = () => {
           method: 'most_time_spent',
           ranges: buildRanges(chart.cutoffs, chart.conceptData),
           use_generated_data: useGeneratedData,
-          ...(chartIsRelative && relativeConfig.reference_concept ? { relative_time: relativeConfig } : {}),
+          ...(chartIsRelative && relativeConfig.reference_concepts?.length ? {
+            relative_time: {
+              reference_concepts: relativeConfig.reference_concepts,
+              occurrence_index: relativeConfig.occurrence_index,
+              start_delta: relativeConfig.start_delta,
+              end_delta: relativeConfig.end_delta
+            }
+          } : {}),
         };
         response = await fetchMultiplePatientsNumericAbstraction(params);
       } else {
@@ -540,7 +582,14 @@ const Index = () => {
           interval_str: prevInterval,
           method: 'most_time_spent',
           use_generated_data: useGeneratedData,
-          ...(chartIsRelative && relativeConfig.reference_concept ? { relative_time: relativeConfig } : {}),
+          ...(chartIsRelative && relativeConfig.reference_concepts?.length ? {
+            relative_time: {
+              reference_concepts: relativeConfig.reference_concepts,
+              occurrence_index: relativeConfig.occurrence_index,
+              start_delta: relativeConfig.start_delta,
+              end_delta: relativeConfig.end_delta
+            }
+          } : {}),
         };
         response = await fetchMultiplePatientsAbstraction(params);
       }

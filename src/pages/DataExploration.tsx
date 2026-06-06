@@ -137,7 +137,7 @@ export function DataExploration({
                 let globalStart: string | number | undefined = undefined;
                 let globalEnd: string | number | undefined = undefined;
 
-                if (isRelativeMode && relativeConfig.reference_concept) {
+                if (isRelativeMode && relativeConfig.reference_concepts?.length) {
                   // Compute relative boundaries based on deltas
                   const getMs = (delta: { value: number; unit: string }) => {
                     const DAY = 1000 * 60 * 60 * 24;
@@ -147,11 +147,9 @@ export function DataExploration({
                     if (delta.unit === 'h') return delta.value * 1000 * 60 * 60;
                     return delta.value * DAY; // 'd'
                   };
-                  // Negative for start_delta since it's "before event" if we assume start_delta means "time before event".
-                  // Wait, relativeConfig has start_delta = { value: 0, unit: 'd' } and end_delta = { value: 35, unit: 'd' }.
-                  // We should check how backend interprets it. Actually, start_delta is subtracted if it's before?
-                  // Usually start_delta is subtracted from 0, but let's assume it's just from -getMs(start_delta) to +getMs(end_delta).
-                  globalStart = ANCHOR_MS - getMs(relativeConfig.start_delta);
+                  // Under the updated schema, start_delta is a signed delta value indicating offset from anchor.
+                  // E.g. start_delta = -24h means 24 hours before the anchor event.
+                  globalStart = ANCHOR_MS + getMs(relativeConfig.start_delta);
                   globalEnd = ANCHOR_MS + getMs(relativeConfig.end_delta);
                 } else {
                   const { start_date, end_date } = calculateDateRange(timeRange);

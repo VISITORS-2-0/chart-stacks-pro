@@ -67,13 +67,18 @@ export interface RelativeTimeDelta {
     unit: 'h' | 'd' | 'w' | 'm' | 'y';
 }
 
-// TODO: Add reference_value support for non-event concept-value pairs (e.g. Hgb-State = Moderate)
+export interface ReferenceConcept {
+    concept_name: string;
+    concept_value?: string;
+}
+
 export interface RelativeTimeConfig {
-    reference_concept: string;
-    reference_value: string | null;
+    reference_concepts: ReferenceConcept[];
     occurrence_index: number; // 0=first, 1=second, -1=last
     start_delta: RelativeTimeDelta;
     end_delta: RelativeTimeDelta;
+    selected_group_id?: string;
+    selected_group_name?: string;
 }
 
 export interface QueryParams {

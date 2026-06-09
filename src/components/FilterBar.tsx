@@ -49,22 +49,6 @@ export const FilterBar = ({
 
   return (
     <div className="bg-card border-b border-border px-6 py-4 flex flex-col gap-4">
-      {/* Top Row for Clear All Button (if needed) */}
-      {hasCharts && (
-        <div className="flex justify-end w-full">
-          {/* Close All Button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onCloseAll}
-            className="flex items-center gap-2 h-8 px-3 text-red-500 border-red-200 bg-transparent hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 transition-colors shrink-0"
-          >
-            <XCircle className="h-3.5 w-3.5" />
-            Clear All
-          </Button>
-        </div>
-      )}
-
       {/* Patient & Group Selection Row */}
       <div className="flex flex-wrap items-start gap-8 w-full">
         {/* Patient Selection */}

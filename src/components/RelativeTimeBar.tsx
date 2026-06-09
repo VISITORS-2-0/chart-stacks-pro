@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Check,
   ChevronsUpDown,
+  XCircle,
 } from "lucide-react";
 import { Toggle } from "@/components/ui/toggle";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -67,6 +67,8 @@ interface RelativeTimeBarProps {
   onPureIntervalsModeChange: (val: boolean) => void;
   timeRange: TimeRange;
   onTimeRangeChange: (range: TimeRange) => void;
+  hasCharts?: boolean;
+  onCloseAll?: () => void;
 }
 
 const TIME_UNITS: { value: RelativeTimeDelta["unit"]; label: string; short: string }[] = [
@@ -231,6 +233,8 @@ export function RelativeTimeBar({
   onPureIntervalsModeChange,
   timeRange,
   onTimeRangeChange,
+  hasCharts,
+  onCloseAll,
 }: RelativeTimeBarProps) {
   const { data: takData } = useTakMenu();
   const [isOpen, setIsOpen] = useState(false);
@@ -814,7 +818,7 @@ export function RelativeTimeBar({
                   </div>
 
                   {/* Dialog Footer */}
-                  <DialogFooter className="pt-4 border-t gap-2 sm:gap-0">
+                  <div className="flex justify-end pt-4 border-t gap-2 sm:gap-2">
                     <Button
                       variant="outline"
                       className="border-muted-foreground/30 h-8 text-xs"
@@ -829,12 +833,11 @@ export function RelativeTimeBar({
                     >
                       Apply Configuration
                     </Button>
-                  </DialogFooter>
+                  </div>
                 </DialogContent>
               </Dialog>
             </div>
           </>
-        )}
       </div>
     </div>
   );

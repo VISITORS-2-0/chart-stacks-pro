@@ -120,6 +120,8 @@ export function DataExploration({
         onPureIntervalsModeChange={onPureIntervalsModeChange}
         timeRange={timeRange}
         onTimeRangeChange={setTimeRange}
+        hasCharts={activeCharts.length > 0}
+        onCloseAll={onCloseAll}
       />
 
       <div className="flex-1 overflow-auto">

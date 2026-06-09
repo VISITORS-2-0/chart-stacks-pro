@@ -487,7 +487,7 @@ export function TemporalChartCard({
                         )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                        {loading ? "Loading..." : `${filteredData.length} data points`} ({isRelative ? relativeGranularity === 'D' ? 'daily' : relativeGranularity === 'ME' ? 'monthly' : 'yearly' : zoomLevel})
+                        {loading ? "Loading..." : `${filteredData.length} data points`}
                     </p>
                 </div>
                 <div className="flex items-center gap-2">

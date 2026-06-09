@@ -159,18 +159,19 @@ export const FilterBar = ({
   };
 
   return (
-    <div className="bg-card border-b border-border px-6 py-4 space-y-4">
-
-      {/* Row 1: Patient & Group Selection */}
-      <div className="w-full flex gap-4 flex-col sm:flex-row">
-        <div className="flex-1">
+    <div className="bg-card border-b border-border px-6 py-4">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto_auto_auto] items-end gap-4 w-full">
+        {/* Patient Selection */}
+        <div className="w-full">
           <Label className="mb-1.5 block text-xs text-muted-foreground">Select Patients</Label>
           <PatientMultiSelect
             selectedIds={selectedPatients}
             onChange={handlePatientsChange}
           />
         </div>
-        <div className="flex-1">
+
+        {/* Group Selection */}
+        <div className="w-full">
           <Label className="mb-1.5 block text-xs text-muted-foreground">Select Groups</Label>
           <GroupMultiSelect
             selectedIds={selectedGroups}
@@ -178,192 +179,188 @@ export const FilterBar = ({
             groups={groups}
           />
         </div>
-      </div>
-
-      {/* Row 2: Controls */}
-      <div className="flex items-center gap-4 flex-wrap">
 
         {/* Time Picker */}
-        <Popover open={isOpen} onOpenChange={setIsOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="h-9 gap-2 min-w-[200px]">
-              <Calendar className="h-4 w-4" />
-              <span className="text-sm">{getTimeRangeLabel()}</span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[400px] p-0 max-h-[80vh] overflow-y-auto" align="start">
-            <Tabs defaultValue={timeRange.type} className="w-full">
-              <TabsList className="w-full grid grid-cols-2">
-                <TabsTrigger value="relative">Relative</TabsTrigger>
-                <TabsTrigger value="absolute">Absolute</TabsTrigger>
-              </TabsList>
+        <div className="w-full">
+          <Label className="mb-1.5 block text-xs text-muted-foreground">Time Range</Label>
+          <Popover open={isOpen} onOpenChange={setIsOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="h-10 gap-2 min-w-[200px] w-full justify-start font-normal">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">{getTimeRangeLabel()}</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[400px] p-0 max-h-[80vh] overflow-y-auto" align="start">
+              <Tabs defaultValue={timeRange.type} className="w-full">
+                <TabsList className="w-full grid grid-cols-2">
+                  <TabsTrigger value="relative">Relative</TabsTrigger>
+                  <TabsTrigger value="absolute">Absolute</TabsTrigger>
+                </TabsList>
 
-              <TabsContent value="relative" className="p-4 space-y-2">
-                {relativeOptions.map((option) => (
-                  <Button
-                    key={option.value}
-                    variant={timeRange.relative === option.value ? "default" : "ghost"}
-                    className="w-full justify-start"
-                    onClick={() => handleRelativeSelect(option.value)}
-                  >
-                    {option.label}
-                  </Button>
-                ))}
-              </TabsContent>
+                <TabsContent value="relative" className="p-4 space-y-2">
+                  {relativeOptions.map((option) => (
+                    <Button
+                      key={option.value}
+                      variant={timeRange.relative === option.value ? "default" : "ghost"}
+                      className="w-full justify-start"
+                      onClick={() => handleRelativeSelect(option.value)}
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
+                </TabsContent>
 
-              <TabsContent value="absolute" className="p-4 space-y-4">
-                {/* Mode Toggle Button */}
-                <div className="flex bg-muted p-1 rounded-md mb-2">
-                  <button
-                    type="button"
-                    onClick={() => setAbsMode("calendar")}
-                    className={cn(
-                      "flex-1 text-center py-1.5 text-xs font-semibold rounded-sm transition-all",
-                      absMode === "calendar"
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    Calendar Pick
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAbsMode("startDuration")}
-                    className={cn(
-                      "flex-1 text-center py-1.5 text-xs font-semibold rounded-sm transition-all",
-                      absMode === "startDuration"
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    Start & Duration
-                  </button>
-                </div>
-
-                {absMode === "calendar" ? (
-                  <>
-                    <div className="space-y-2">
-                      <Label>Start Date</Label>
-                      <CalendarComponent
-                        mode="single"
-                        selected={localStartDate}
-                        defaultMonth={localStartDate}
-                        onSelect={setLocalStartDate}
-                        className="pointer-events-auto"
-                        captionLayout="dropdown-buttons"
-                        fromYear={1900}
-                        toYear={new Date().getFullYear() + 10}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>End Date</Label>
-                      <CalendarComponent
-                        mode="single"
-                        selected={localEndDate}
-                        defaultMonth={localEndDate || localStartDate}
-                        onSelect={setLocalEndDate}
-                        disabled={(date) => localStartDate ? date < localStartDate : false}
-                        className="pointer-events-auto"
-                        captionLayout="dropdown-buttons"
-                        fromYear={1900}
-                        toYear={new Date().getFullYear() + 10}
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <div className="space-y-4">
-                    {/* Starting Point Group */}
-                    <div className="space-y-2">
-                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Starting Point</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1">
-                          <Label className="text-[11px] text-muted-foreground">Month</Label>
-                          <select
-                            value={startMonth}
-                            onChange={(e) => setStartMonth(parseInt(e.target.value))}
-                            className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
-                          >
-                            {Array.from({ length: 12 }, (_, i) => {
-                              const d = new Date(2000, i, 1);
-                              return (
-                                <option key={i} value={i}>
-                                  {format(d, "MMMM")}
-                                </option>
-                              );
-                            })}
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px] text-muted-foreground">Year</Label>
-                          <select
-                            value={startYear}
-                            onChange={(e) => setStartYear(parseInt(e.target.value))}
-                            className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
-                          >
-                            {Array.from({ length: 70 }, (_, i) => {
-                              const year = 1970 + i;
-                              return (
-                                <option key={year} value={year}>
-                                  {year}
-                                </option>
-                              );
-                            })}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Time to See Group */}
-                    <div className="space-y-2">
-                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Duration From Start</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1">
-                          <Label className="text-[11px] text-muted-foreground">Amount</Label>
-                          <select
-                            value={sizeAmount}
-                            onChange={(e) => setSizeAmount(parseInt(e.target.value))}
-                            className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
-                          >
-                            {Array.from({ length: 50 }, (_, i) => i + 1).map((val) => (
-                              <option key={val} value={val}>
-                                {val}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px] text-muted-foreground">Unit</Label>
-                          <select
-                            value={sizeUnit}
-                            onChange={(e) => setSizeUnit(e.target.value as any)}
-                            className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
-                          >
-                            <option value="days">Days</option>
-                            <option value="months">Months</option>
-                            <option value="years">Years</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
+                <TabsContent value="absolute" className="p-4 space-y-4">
+                  {/* Mode Toggle Button */}
+                  <div className="flex bg-muted p-1 rounded-md mb-2">
+                    <button
+                      type="button"
+                      onClick={() => setAbsMode("calendar")}
+                      className={cn(
+                        "flex-1 text-center py-1.5 text-xs font-semibold rounded-sm transition-all",
+                        absMode === "calendar"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Calendar Pick
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAbsMode("startDuration")}
+                      className={cn(
+                        "flex-1 text-center py-1.5 text-xs font-semibold rounded-sm transition-all",
+                        absMode === "startDuration"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Start & Duration
+                    </button>
                   </div>
-                )}
-                <Button
-                  onClick={handleAbsoluteApply}
-                  className="w-full"
-                  disabled={absMode === "calendar" && (!localStartDate || !localEndDate)}
-                >
-                  Apply
-                </Button>
-              </TabsContent>
-            </Tabs>
-          </PopoverContent>
-        </Popover>
 
-        {/* Separator */}
-        <div className="h-5 w-px bg-border shrink-0" />
+                  {absMode === "calendar" ? (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Start Date</Label>
+                        <CalendarComponent
+                          mode="single"
+                          selected={localStartDate}
+                          defaultMonth={localStartDate}
+                          onSelect={setLocalStartDate}
+                          className="pointer-events-auto"
+                          captionLayout="dropdown-buttons"
+                          fromYear={1900}
+                          toYear={new Date().getFullYear() + 10}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>End Date</Label>
+                        <CalendarComponent
+                          mode="single"
+                          selected={localEndDate}
+                          defaultMonth={localEndDate || localStartDate}
+                          onSelect={setLocalEndDate}
+                          disabled={(date) => localStartDate ? date < localStartDate : false}
+                          className="pointer-events-auto"
+                          captionLayout="dropdown-buttons"
+                          fromYear={1900}
+                          toYear={new Date().getFullYear() + 10}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Starting Point Group */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Starting Point</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-[11px] text-muted-foreground">Month</Label>
+                            <select
+                              value={startMonth}
+                              onChange={(e) => setStartMonth(parseInt(e.target.value))}
+                              className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                            >
+                              {Array.from({ length: 12 }, (_, i) => {
+                                const d = new Date(2000, i, 1);
+                                return (
+                                  <option key={i} value={i}>
+                                    {format(d, "MMMM")}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px] text-muted-foreground">Year</Label>
+                            <select
+                              value={startYear}
+                              onChange={(e) => setStartYear(parseInt(e.target.value))}
+                              className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                            >
+                              {Array.from({ length: 70 }, (_, i) => {
+                                const year = 1970 + i;
+                                return (
+                                  <option key={year} value={year}>
+                                    {year}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Time to See Group */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Duration From Start</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-[11px] text-muted-foreground">Amount</Label>
+                            <select
+                              value={sizeAmount}
+                              onChange={(e) => setSizeAmount(parseInt(e.target.value))}
+                              className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                            >
+                              {Array.from({ length: 50 }, (_, i) => i + 1).map((val) => (
+                                <option key={val} value={val}>
+                                  {val}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px] text-muted-foreground">Unit</Label>
+                            <select
+                              value={sizeUnit}
+                              onChange={(e) => setSizeUnit(e.target.value as any)}
+                              className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                            >
+                              <option value="days">Days</option>
+                              <option value="months">Months</option>
+                              <option value="years">Years</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <Button
+                    onClick={handleAbsoluteApply}
+                    className="w-full"
+                    disabled={absMode === "calendar" && (!localStartDate || !localEndDate)}
+                  >
+                    Apply
+                  </Button>
+                </TabsContent>
+              </Tabs>
+            </PopoverContent>
+          </Popover>
+        </div>
 
         {/* Pure Intervals Global Toggle */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 h-10 px-2 shrink-0">
           <Switch
             id="pure-intervals-toggle"
             checked={isPureIntervalsMode}
@@ -383,15 +380,17 @@ export const FilterBar = ({
 
         {/* Close All Button */}
         {hasCharts && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onCloseAll}
-            className="flex items-center gap-2 h-9 ml-auto"
-          >
-            <XCircle className="h-4 w-4" />
-            Close All Charts
-          </Button>
+          <div className="h-10 flex items-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onCloseAll}
+              className="flex items-center gap-2 h-10 px-4 text-red-500 border-red-200 bg-transparent hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 transition-colors"
+            >
+              <XCircle className="h-4 w-4" />
+              Clear All
+            </Button>
+          </div>
         )}
       </div>
     </div>

@@ -52,6 +52,7 @@ import type { RelativeTimeConfig, RelativeTimeDelta, ReferenceConcept } from "@/
 import { fetchConceptGroups, ConceptGroup } from "@/services/conceptGroupsApi";
 import { cn } from "@/lib/utils";
 import { getApiUrl } from "@/config/api";
+import { GlobalToggle } from "@/components/GlobalToggle";
 
 export type { RelativeTimeConfig };
 
@@ -60,6 +61,8 @@ interface RelativeTimeBarProps {
   onToggle: (enabled: boolean) => void;
   config: RelativeTimeConfig;
   onConfigChange: (config: RelativeTimeConfig) => void;
+  isPureIntervalsMode: boolean;
+  onPureIntervalsModeChange: (val: boolean) => void;
 }
 
 const TIME_UNITS: { value: RelativeTimeDelta["unit"]; label: string; short: string }[] = [
@@ -220,6 +223,8 @@ export function RelativeTimeBar({
   onToggle,
   config,
   onConfigChange,
+  isPureIntervalsMode,
+  onPureIntervalsModeChange,
 }: RelativeTimeBarProps) {
   const { data: takData } = useTakMenu();
   const [isOpen, setIsOpen] = useState(false);
@@ -433,14 +438,14 @@ export function RelativeTimeBar({
         : "bg-card border-border"
         }`}
     >
-      <div className="px-6 py-2.5 flex items-center gap-4">
+      <div className="px-6 py-2.5 flex flex-wrap items-center gap-4">
         {/* Toggle */}
         <div className="flex items-center gap-2 shrink-0">
           <Switch
             id="relative-time-toggle"
             checked={isEnabled}
             onCheckedChange={onToggle}
-            className="data-[state=checked]:bg-emerald-500"
+            className="data-[state=checked]:bg-emerald-500 h-4 w-8"
           />
           <Label
             htmlFor="relative-time-toggle"
@@ -453,10 +458,38 @@ export function RelativeTimeBar({
         </div>
 
         {/* Separator */}
-        <div className={`h-5 w-px ${isEnabled ? "bg-emerald-400/50" : "bg-border"}`} />
+        <div className={`h-4 w-px ${isEnabled ? "bg-emerald-400/50" : "bg-border"} shrink-0 hidden sm:block`} />
+
+        {/* Pure Intervals Global Toggle */}
+        <div className="flex items-center gap-2 shrink-0">
+          <Switch
+            id="pure-intervals-toggle"
+            checked={isPureIntervalsMode}
+            onCheckedChange={onPureIntervalsModeChange}
+            className="data-[state=checked]:bg-primary h-4 w-8"
+          />
+          <Label
+            htmlFor="pure-intervals-toggle"
+            className={`text-sm font-semibold cursor-pointer flex items-center gap-1.5 transition-colors ${
+              isPureIntervalsMode ? (isEnabled ? "text-emerald-100" : "text-foreground font-bold") : (isEnabled ? "text-emerald-100/70" : "text-muted-foreground")
+            }`}
+          >
+            <Layers className="h-3.5 w-3.5" />
+            Pure Intervals Mode
+          </Label>
+        </div>
+
+        {/* Separator */}
+        <div className={`h-4 w-px ${isEnabled ? "bg-emerald-400/50" : "bg-border"} shrink-0 hidden sm:block`} />
+
+        {/* Use Generated Data Global Toggle */}
+        <GlobalToggle labelClassName={isEnabled ? "text-emerald-100 font-semibold" : undefined} />
+
+        {/* Separator */}
+        <div className={`h-5 w-px ${isEnabled ? "bg-emerald-400/50" : "bg-border"} shrink-0`} />
 
         {/* Summary badges / configure button — only when enabled */}
-        {isEnabled ? (
+        {isEnabled && (
           <>
             {hasValidConfig ? (
               <div className="flex items-center gap-2 flex-wrap">
@@ -789,10 +822,6 @@ export function RelativeTimeBar({
               </Dialog>
             </div>
           </>
-        ) : (
-          <span className="text-xs text-muted-foreground">
-            Enable to view data relative to a reference event
-          </span>
         )}
       </div>
     </div>

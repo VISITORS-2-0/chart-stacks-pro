@@ -116,6 +116,8 @@ export function DataExploration({
         onToggle={setIsRelativeMode}
         config={relativeConfig}
         onConfigChange={setRelativeConfig}
+        isPureIntervalsMode={isPureIntervalsMode}
+        onPureIntervalsModeChange={onPureIntervalsModeChange}
       />
 
       <div className="flex-1 overflow-auto">

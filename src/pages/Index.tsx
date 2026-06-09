@@ -796,7 +796,6 @@ const Index = () => {
               )}
             </button>
             <div className="flex-1" />
-            <GlobalToggle />
           </div>
 
           {/* Active Screen */}

@@ -59,7 +59,7 @@ export function GroupMultiSelect({ selectedIds, onChange, groups }: GroupMultiSe
     };
 
     return (
-        <div className="flex flex-col gap-2 w-full">
+        <div className="flex flex-col gap-2 max-w-[400px]">
             <div className="flex items-center gap-2 w-full">
                 <Popover open={open} onOpenChange={setOpen} modal={true}>
                     <PopoverTrigger asChild>
@@ -67,7 +67,7 @@ export function GroupMultiSelect({ selectedIds, onChange, groups }: GroupMultiSe
                             variant="outline"
                             role="combobox"
                             aria-expanded={open}
-                            className="flex-1 justify-between h-auto min-h-[2.5rem]"
+                            className="w-[300px] justify-between h-auto min-h-[2.5rem]"
                             disabled={!groups || groups.length === 0}
                         >
                             {getDisplaySummary()}

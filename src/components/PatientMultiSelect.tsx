@@ -64,7 +64,7 @@ export function PatientMultiSelect({ selectedIds, onChange }: PatientMultiSelect
     };
 
     return (
-        <div className="flex flex-col gap-2 w-full">
+        <div className="flex flex-col gap-2 max-w-[400px]">
             <div className="flex items-center gap-2 w-full">
                 <Popover open={open} onOpenChange={setOpen} modal={true}>
                     <PopoverTrigger asChild>
@@ -72,7 +72,7 @@ export function PatientMultiSelect({ selectedIds, onChange }: PatientMultiSelect
                             variant="outline"
                             role="combobox"
                             aria-expanded={open}
-                            className="flex-1 justify-between h-auto min-h-[2.5rem]"
+                            className="w-[300px] justify-between h-auto min-h-[2.5rem]"
                         >
                             {getDisplaySummary()}
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />

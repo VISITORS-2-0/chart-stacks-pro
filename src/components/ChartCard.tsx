@@ -83,7 +83,7 @@ export function ChartCard({
         return (
           <div className={showBrush ? "overflow-x-auto" : ""} id={scrollContainerId}>
             <ResponsiveContainer width={chartWidth} height={300}>
-              <ScatterChart>
+              <ScatterChart margin={{ top: 20, right: 30, left: 20, bottom: showBrush ? 120 : 80 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis
                   dataKey="date"
@@ -129,7 +129,7 @@ export function ChartCard({
         return (
           <div className={showBrush ? "overflow-x-auto" : ""} id={scrollContainerId}>
             <ResponsiveContainer width={chartWidth} height={300}>
-              <BarChart data={dataToRender}>
+              <BarChart data={dataToRender} margin={{ top: 20, right: 30, left: 20, bottom: showBrush ? 120 : 80 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis
                   dataKey="date"
@@ -171,7 +171,7 @@ export function ChartCard({
         return (
           <div className={showBrush ? "overflow-x-auto" : ""} id={scrollContainerId}>
             <ResponsiveContainer width={chartWidth} height={300}>
-              <LineChart data={dataToRender}>
+              <LineChart data={dataToRender} margin={{ top: 20, right: 30, left: 20, bottom: showBrush ? 120 : 80 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis
                   dataKey="date"

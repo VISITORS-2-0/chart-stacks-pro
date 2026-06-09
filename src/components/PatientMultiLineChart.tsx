@@ -23,6 +23,19 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
     const [showMinMax, setShowMinMax] = useState(false);
     const [showAverage, setShowAverage] = useState(false);
 
+    const PATIENT_COLORS = [
+        '#3b82f6', // blue
+        '#8b5cf6', // violet
+        '#f59e0b', // amber
+        '#ec4899', // pink
+        '#06b6d4', // cyan
+        '#f97316', // orange
+        '#14b8a6', // teal
+        '#ef4444', // red
+        '#6366f1', // indigo
+        '#a855f7', // purple
+    ];
+
     // 1. Prepare Scatter Data (All Points)
     const scatterData = useMemo(() => {
         return data.map(row => {
@@ -33,10 +46,39 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                 x: date.getTime(),
                 y: val,
                 date: date,
-                patientId: row.PatientID
+                patientId: row.PatientID ? String(row.PatientID) : undefined
             };
         }).filter(Boolean) as any[];
     }, [data]);
+
+    const patientsList = useMemo(() => {
+        const set = new Set<string>();
+        scatterData.forEach(pt => {
+            if (pt.patientId) set.add(pt.patientId);
+        });
+        return Array.from(set).sort();
+    }, [scatterData]);
+
+    const patientColorMap = useMemo(() => {
+        const map = new Map<string, string>();
+        patientsList.forEach((pid, index) => {
+            map.set(pid, PATIENT_COLORS[index % PATIENT_COLORS.length]);
+        });
+        return map;
+    }, [patientsList]);
+
+    const scatterDataByPatient = useMemo(() => {
+        const groups: Record<string, any[]> = {};
+        patientsList.forEach(pid => {
+            groups[pid] = [];
+        });
+        scatterData.forEach(pt => {
+            if (pt.patientId) {
+                groups[pt.patientId].push(pt);
+            }
+        });
+        return groups;
+    }, [patientsList, scatterData]);
 
     // 2. Prepare Monthly Max/Min/Average Data
     const { maxLineData, minLineData, averageLineData } = useMemo(() => {
@@ -221,6 +263,8 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
         return { detailAxisTicks: detailTicks, contextAxisTicks: contextTicks, xDomain: [domainStart, domainEnd] };
     }, [scatterData, zoomLevel]);
 
+    const bottomMargin = useMemo(() => (contextAxisTicks.length > 0 ? 40 : 22), [contextAxisTicks]);
+
     const detailTickFormatter = (unixTime: number) => {
         if (isRelative) {
             // Use zoomLevel (local state, updates on every zoom) rather than
@@ -352,7 +396,11 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                     </div>
                     <div className="grid gap-1 mt-1.5">
                         <div className="text-muted-foreground">Value: <span className="font-medium text-foreground">{displayPoint.y}</span></div>
-                        {displayPoint.patientId && <div className="text-muted-foreground">Patient: <span className="font-medium text-foreground">{displayPoint.patientId}</span></div>}
+                        {displayPoint.patientId && (
+                            <div className="text-muted-foreground">
+                                Patient: <span className="font-semibold" style={{ color: patientColorMap.get(String(displayPoint.patientId)) }}>{displayPoint.patientId}</span>
+                            </div>
+                        )}
                         
                         <div className="border-t pt-1.5 mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                             <div className="text-muted-foreground">Bucket Max: <span className="font-medium text-red-500">{bucketMax.toFixed(2)}</span></div>
@@ -472,11 +520,11 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
     }, [focusDate, zoomLevel, xDomain, scatterData.length, chartWidth]);
 
     return (
-        <div className="w-full h-full p-4 overflow-hidden flex flex-col">
+        <div className="w-full h-auto px-4 pb-1 pt-4 overflow-hidden flex flex-col">
             {/* Legend & Toggle Controls */}
             <div className="flex flex-wrap items-center justify-between gap-4 mb-3 pb-2 border-b text-sm">
                 {/* Legend */}
-                <div className="flex flex-wrap items-center gap-6">
+                <div className="flex flex-wrap items-center gap-2">
                     {showMinMax && (
                         <>
                             <div className="flex items-center gap-2">
@@ -495,10 +543,19 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                             <span className="text-foreground text-xs font-semibold">Average</span>
                         </div>
                     )}
-                    <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-[#888888]"></div>
-                        <span className="text-foreground text-xs font-semibold">Patient Values</span>
-                    </div>
+                    {patientsList.length > 1 ? (
+                        patientsList.map(pid => (
+                            <div key={pid} className="flex items-center gap-1.5 bg-muted/50 px-2 py-0.5 rounded border border-border/80">
+                                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: patientColorMap.get(pid) }}></div>
+                                <span className="text-foreground text-[11px] font-semibold">{pid}</span>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-[#888888]"></div>
+                            <span className="text-foreground text-xs font-semibold">Patient Values</span>
+                        </div>
+                    )}
                 </div>
 
                 {/* Checkbox Toggles */}
@@ -524,17 +581,17 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                 </div>
             </div>
 
-            <div className="flex-1 w-full flex flex-row min-h-0">
+            <div className="w-full flex flex-row h-[380px]">
                 {/* Sticky Y-Axis */}
-                <div className="w-[90px] h-full shrink-0 border-r bg-background/95 backdrop-blur-sm z-10 select-none pb-2">
+                <div className="w-[90px] h-[380px] shrink-0 border-r bg-background/95 backdrop-blur-sm z-10 select-none pb-2">
                     <ResponsiveContainer width="100%" height="100%">
                         <ScatterChart
                             data={scatterData}
-                            margin={{ top: 5, right: 0, left: 10, bottom: 5 }}
+                            margin={{ top: 5, right: 0, left: 10, bottom: bottomMargin }}
                         >
-                            <XAxis xAxisId="detail" tick={false} tickLine={false} axisLine={false} height={30} />
+                            <XAxis xAxisId="detail" tick={false} tickLine={false} axisLine={false} height={20} />
                             {contextAxisTicks.length > 0 && (
-                                <XAxis xAxisId="context" tick={false} tickLine={false} axisLine={false} height={30} />
+                                <XAxis xAxisId="context" tick={false} tickLine={false} axisLine={false} height={15} />
                             )}
                             <YAxis
                                 dataKey="y"
@@ -546,12 +603,12 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                 </div>
 
                 {/* Scrollable Chart */}
-                <div ref={scrollRef} className="flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar" onScroll={onContainerScroll}>
-                    <div style={{ width: `${chartWidth}px`, minWidth: `${chartWidth}px`, height: '100%' }}>
+                <div ref={scrollRef} className="flex-1 h-[380px] overflow-x-auto overflow-y-hidden custom-scrollbar" onScroll={onContainerScroll}>
+                    <div style={{ width: `${chartWidth}px`, minWidth: `${chartWidth}px`, height: '380px' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <ScatterChart
                                 data={scatterData}
-                                margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                                margin={{ top: 5, right: 30, left: 10, bottom: bottomMargin }}
                                 onMouseMove={handleMouseMove}
                                 onMouseLeave={() => setHoveredRange(null)}
                                 onClick={(e: any) => {
@@ -575,7 +632,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                                             <text
                                                 x={x}
                                                 y={y}
-                                                dy={16}
+                                                dy={8}
                                                 textAnchor={index === 0 ? "start" : "middle"}
                                                 fill="#6b7280"
                                                 fontSize={12}
@@ -589,7 +646,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                                     allowDuplicatedCategory={false}
                                     interval={0}
                                     orientation="bottom"
-                                    height={30}
+                                    height={20}
                                     onClick={(e) => {
                                         if (onDrillDown && e && e.value) {
                                             const date = new Date(e.value);
@@ -624,7 +681,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                                         allowDuplicatedCategory={false}
                                         interval={0}
                                         orientation="bottom"
-                                        dy={15}
+                                        dy={5}
                                         tickLine={false}
                                         axisLine={false}
                                         tick={{ textAnchor: 'start' }}
@@ -632,7 +689,7 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                                             if (onZoomOut) onZoomOut();
                                         }}
                                         cursor="pointer"
-                                        height={30}
+                                        height={15}
                                     />
                                 )}
                                 <YAxis hide={true} dataKey="y" width={80} />
@@ -686,19 +743,38 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                                     />
                                 )}
 
-                                <Scatter
-                                    xAxisId="detail"
-                                    data={scatterData}
-                                    dataKey="y"
-                                    name="Patient Values"
-                                    fill="#888888"
-                                    shape="circle"
-                                    line={false}
-                                    onClick={handlePointClick}
-                                    cursor="pointer"
-                                    isAnimationActive={false}
-                                    activeShape={false}
-                                />
+                                {patientsList.length > 0 ? (
+                                    patientsList.map((pid) => (
+                                        <Scatter
+                                            key={pid}
+                                            xAxisId="detail"
+                                            data={scatterDataByPatient[pid] || []}
+                                            dataKey="y"
+                                            name={`Patient ${pid}`}
+                                            fill={patientColorMap.get(pid)}
+                                            shape="circle"
+                                            line={false}
+                                            onClick={handlePointClick}
+                                            cursor="pointer"
+                                            isAnimationActive={false}
+                                            activeShape={false}
+                                        />
+                                    ))
+                                ) : (
+                                    <Scatter
+                                        xAxisId="detail"
+                                        data={scatterData}
+                                        dataKey="y"
+                                        name="Patient Values"
+                                        fill="#888888"
+                                        shape="circle"
+                                        line={false}
+                                        onClick={handlePointClick}
+                                        cursor="pointer"
+                                        isAnimationActive={false}
+                                        activeShape={false}
+                                    />
+                                )}
 
                                 {/* Dummy Data for Hovering Empty Buckets */}
                                 <Scatter

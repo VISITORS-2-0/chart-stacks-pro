@@ -351,6 +351,8 @@ export function PatientMultiStateGantt({
         return { virtualTicks: vTicks, virtualContextTicks: vContextTicks };
     }, [visibleWindow, zoomLevel, globalStart, globalEnd]);
 
+    const bottomMargin = useMemo(() => (virtualContextTicks.length > 0 ? 40 : 22), [virtualContextTicks]);
+
     const handleMouseMove = (e: any) => {
         if (e && e.activeLabel) {
             const time = Number(e.activeLabel);
@@ -465,7 +467,7 @@ export function PatientMultiStateGantt({
     }, [categories, multiplier]);
 
     return (
-        <div className="w-full p-4 flex flex-col">
+        <div className="w-full px-4 pb-1 pt-4 flex flex-col">
             {/* Beautiful Patient Legend */}
             <div className="flex flex-wrap items-center gap-4 mb-3 pb-2 border-b text-sm">
                 <div className="flex flex-wrap items-center gap-6">
@@ -483,11 +485,11 @@ export function PatientMultiStateGantt({
                 <div className="w-[90px] h-full shrink-0 border-r bg-background/95 backdrop-blur-sm z-10 select-none pb-2">
                     <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart
-                            margin={{ top: 20, right: 0, left: 10, bottom: 20 }}
+                            margin={{ top: 20, right: 0, left: 10, bottom: bottomMargin }}
                         >
-                            <XAxis xAxisId="detail" tick={false} tickLine={false} axisLine={false} height={30} />
+                            <XAxis xAxisId="detail" tick={false} tickLine={false} axisLine={false} height={20} />
                             {virtualContextTicks.length > 0 && (
-                                <XAxis xAxisId="context" tick={false} tickLine={false} axisLine={false} height={30} />
+                                <XAxis xAxisId="context" tick={false} tickLine={false} axisLine={false} height={15} />
                             )}
                             <YAxis
                                 dataKey="y"
@@ -523,7 +525,7 @@ export function PatientMultiStateGantt({
                     <div style={{ height: '100%', width: chartWidth, minWidth: '100%' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <ComposedChart
-                                margin={{ top: 20, right: 30, left: 10, bottom: 20 }}
+                                margin={{ top: 20, right: 30, left: 10, bottom: bottomMargin }}
                                 onMouseMove={handleMouseMove}
                                 onMouseLeave={() => setHoveredRange(null)}
                                 onClick={handleClick}
@@ -549,14 +551,14 @@ export function PatientMultiStateGantt({
                                     scale="time"
                                     interval={0}
                                     cursor="pointer"
-                                    height={30}
+                                    height={20}
                                     tick={(props) => {
                                         const { x, y, payload, index } = props;
                                         return (
                                             <text
                                                 x={x}
                                                 y={y}
-                                                dy={16}
+                                                dy={8}
                                                 textAnchor={index === 0 ? "start" : "middle"}
                                                 fill="#6b7280"
                                                 fontSize={12}
@@ -579,7 +581,7 @@ export function PatientMultiStateGantt({
                                         scale="time"
                                         interval={0}
                                         orientation="bottom"
-                                        dy={15}
+                                        dy={5}
                                         tickLine={false}
                                         axisLine={false}
                                         tick={{ textAnchor: 'start' }}
@@ -587,7 +589,7 @@ export function PatientMultiStateGantt({
                                             if (onZoomOut) onZoomOut();
                                         }}
                                         cursor="pointer"
-                                        height={30}
+                                        height={15}
                                     />
                                 )}
 

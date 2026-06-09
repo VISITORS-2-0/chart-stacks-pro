@@ -320,6 +320,8 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
 
     }, [fullChartData, visibleWindow, zoomLevel, globalStart, globalEnd]);
 
+    const bottomMargin = useMemo(() => (virtualContextTicks.length > 0 ? 40 : 22), [virtualContextTicks]);
+
 
     // Handlers
     const handleMouseMove = (e: any) => {
@@ -430,17 +432,17 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
     }, [virtualTicks, zoomLevel]);
 
     return (
-        <div className="w-full h-full p-4 relative select-none flex flex-row">
+        <div className="w-full h-full px-4 pb-1 pt-4 relative select-none flex flex-row">
             {/* Sticky Y-Axis */}
             <div className="w-[90px] h-full shrink-0 border-r bg-background/95 backdrop-blur-sm z-10 select-none pb-2">
                 <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart
                         data={virtualData}
-                        margin={{ top: 20, right: 0, left: 10, bottom: 20 }}
+                        margin={{ top: 20, right: 0, left: 10, bottom: bottomMargin }}
                     >
-                        <XAxis xAxisId="detail" tick={false} tickLine={false} axisLine={false} height={30} />
+                        <XAxis xAxisId="detail" tick={false} tickLine={false} axisLine={false} height={20} />
                         {virtualContextTicks.length > 0 && (
-                            <XAxis xAxisId="context" tick={false} tickLine={false} axisLine={false} height={30} />
+                            <XAxis xAxisId="context" tick={false} tickLine={false} axisLine={false} height={15} />
                         )}
                         <YAxis
                             dataKey="y"
@@ -468,14 +470,14 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
                 <div style={{ height: '100%', width: chartWidth, minWidth: '100%' }}>
                     <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart
-                            margin={{ top: 20, right: 30, left: 10, bottom: 20 }}
+                            margin={{ top: 20, right: 30, left: 10, bottom: bottomMargin }}
                             onMouseMove={handleMouseMove}
                             onMouseLeave={() => setHoveredRange(null)}
                             onClick={handleClick}
                         >
                             <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} strokeOpacity={0.2} />
 
-                            <XAxis
+                              <XAxis
                                 xAxisId="detail"
                                 dataKey="time"
                                 type="number"
@@ -484,14 +486,14 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
                                 scale="time"
                                 interval={0}
                                 cursor="pointer"
-                                height={30}
+                                height={20}
                                 tick={(props) => {
                                     const { x, y, payload, index } = props;
                                     return (
                                         <text
                                             x={x}
                                             y={y}
-                                            dy={16}
+                                            dy={8}
                                             textAnchor={index === 0 ? "start" : "middle"}
                                             fill="#6b7280"
                                             fontSize={12}
@@ -503,7 +505,7 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
                                 }}
                             />
 
-                            {virtualContextTicks.length > 0 && (
+                              {virtualContextTicks.length > 0 && (
                                 <XAxis
                                     xAxisId="context"
                                     dataKey="time"
@@ -514,7 +516,7 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
                                     scale="time"
                                     interval={0}
                                     orientation="bottom"
-                                    dy={15}
+                                    dy={5}
                                     tickLine={false}
                                     axisLine={false}
                                     tick={{ textAnchor: 'start' }}
@@ -522,7 +524,7 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
                                         if (onZoomOut) onZoomOut();
                                     }}
                                     cursor="pointer"
-                                    height={30}
+                                    height={15}
                                 />
                             )}
 

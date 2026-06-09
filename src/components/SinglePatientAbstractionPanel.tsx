@@ -472,7 +472,7 @@ export function SinglePatientAbstractionPanel({
                         <ComposedChart
                             data={chartData}
                             layout="vertical"
-                            margin={{ top: 20, right: 30, left: 40, bottom: 20 }}
+                            margin={{ top: 20, right: 30, left: 40, bottom: 65 }}
                             onMouseMove={(e: any) => {
                                 // Mimic PatientMultiLineChart highlight logic
                                 if (onDrillDown && e && e.activeLabel) {

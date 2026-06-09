@@ -436,7 +436,7 @@ export function TemporalChartCard({
 
     return (
         <Card className={`border border-border shadow-sm animate-in fade-in-50 duration-300 w-full flex flex-col ${
-            (chartType !== 'continuous-interval' && !isRaw && chartType !== 'bar')
+            (chartType !== 'continuous-interval' && chartType !== 'bar')
                 ? 'h-auto min-h-[500px]'
                 : 'h-[500px]'
         }`}>
@@ -574,7 +574,7 @@ export function TemporalChartCard({
                     </Button>
                 </div>
             </CardHeader>
-            <CardContent className="flex-1 min-h-0">
+            <CardContent className="flex-1 min-h-0 px-2 pb-0 pt-0">
                 {loading && <div className="h-full flex items-center justify-center text-blue-600">Loading temporal data...</div>}
                 {error && <div className="h-full flex items-center justify-center text-red-600">Error: {error.message}</div>}
 

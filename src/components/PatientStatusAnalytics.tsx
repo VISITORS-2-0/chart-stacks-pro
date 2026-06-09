@@ -265,7 +265,7 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
                                     <BarChart
                                         data={chartData}
                                         syncId={syncId}
-                                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                                        margin={{ top: 5, right: 30, left: 20, bottom: isLast ? 35 : 5 }}
                                         onClick={(e: any) => {
                                             if (e && e.activePayload && e.activePayload[0]) {
                                                 handleBarClick(e.activePayload[0].payload);

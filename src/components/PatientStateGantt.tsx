@@ -16,6 +16,7 @@ interface PatientStateGanttProps {
     globalStart?: string | number;
     globalEnd?: string | number;
     onVisibleRangeChange?: (date: Date) => void;
+    isMultiPatient?: boolean;
 }
 
 // Custom Shape to render the "Gantt" bars using Scatter points
@@ -65,7 +66,8 @@ const GanttBar = (props: any) => {
     );
 };
 
-export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, isRelative = false, relativeGranularity = 'YE', globalStart: globalStartProp, globalEnd: globalEndProp, onVisibleRangeChange }: PatientStateGanttProps) {
+export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, isRelative = false, relativeGranularity = 'YE', globalStart: globalStartProp, globalEnd: globalEndProp, onVisibleRangeChange, isMultiPatient = false }: PatientStateGanttProps) {
+    const isScrollEnabled = isRelative ? (!isMultiPatient && !!focusDate) : true;
     const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [visibleWindow, setVisibleWindow] = useState<{ start: number, end: number } | null>(null);
@@ -135,30 +137,29 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
             minTime = Math.min(...allPoints);
             maxTime = Math.max(...allPoints);
         } else {
-            return { xDomain: [0, 100], pixelsPerMs: 1, globalStart: 0, globalEnd: 100, chartWidth: '100%' };
+            return { xDomain: [0, 100], pixelsPerMs: 1, globalStart: 0, globalEnd: 100, chartWidth: 800 };
         }
 
-        const minDate = new Date(minTime);
-        const maxDate = new Date(maxTime);
-        // Clean Boundaries
-
-
         let gStart, gEnd;
-        if (zoomLevel === 'days') {
-            // For monthly view (days zoom), respect the month boundaries of the data
-            gStart = new Date(minDate.getFullYear(), minDate.getMonth(), 1).getTime();
-            gEnd = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 0, 23, 59, 59).getTime(); // Last day of month
+        if (isRelative) {
+            gStart = new Date(globalStartProp!).getTime();
+            gEnd = new Date(globalEndProp!).getTime();
         } else {
-            // Default to full year for other views
-            gStart = new Date(minDate.getFullYear(), 0, 1).getTime();
-            gEnd = new Date(maxDate.getFullYear(), 11, 31, 23, 59, 59).getTime();
+            const minDate = new Date(minTime);
+            const maxDate = new Date(maxTime);
+            if (zoomLevel === 'days') {
+                gStart = new Date(minDate.getFullYear(), minDate.getMonth(), 1).getTime();
+                gEnd = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 0, 23, 59, 59).getTime(); // Last day of month
+            } else {
+                gStart = new Date(minDate.getFullYear(), 0, 1).getTime();
+                gEnd = new Date(maxDate.getFullYear(), 11, 31, 23, 59, 59).getTime();
+            }
         }
 
         const totalDuration = gEnd - gStart;
         const DAYS = 1000 * 60 * 60 * 24;
         const totalDays = totalDuration / DAYS;
 
-        // Pixels Per Day
         let ppd = 0.5;
         if (zoomLevel === 'years') {
             ppd = totalDays > 3650 ? 0.2 : (1000 / totalDays);
@@ -181,7 +182,7 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
             globalEnd: gEnd,
             chartWidth: width
         };
-    }, [fullChartData, zoomLevel]);
+    }, [fullChartData, zoomLevel, globalStartProp, globalEndProp, isRelative]);
 
     // 5. Scroll Handling & Window calculation
     const handleScroll = () => {
@@ -253,64 +254,86 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
 
     // 6. Virtualized Data Filtering
     const { virtualData, virtualTicks, virtualContextTicks } = useMemo(() => {
-        // If no window yet, show nothing or everything? Show everything if small, nothing if huge?
-        // Let's safe-guard: if no window, show everything (initial render might be glitchy but ok)
-        // Actually, if we wait for first scroll event, chart might be empty.
-        // Better: Default window = full range if not set.
-
         const windowStart = visibleWindow ? visibleWindow.start : globalStart;
         const windowEnd = visibleWindow ? visibleWindow.end : globalEnd;
 
         // Filter Data
         const vData = fullChartData.filter(d => d.end >= windowStart && d.start <= windowEnd);
 
-        // Generate Ticks (Only for window)
-        // We still need to follow the Zoom Level cadence
         const vTicks = [];
-        let curr = new Date(Math.max(globalStart, windowStart));
-        // Align 'curr' to nice boundary?
-        if (zoomLevel === 'years') curr = new Date(curr.getFullYear(), 0, 1);
-        else if (zoomLevel === 'months') curr = new Date(curr.getFullYear(), curr.getMonth(), 1);
-        else curr = new Date(curr.getFullYear(), curr.getMonth(), curr.getDate());
-
+        const vContextTicks: number[] = [];
         const endTs = Math.min(globalEnd, windowEnd);
 
-        while (curr.getTime() <= endTs) {
-            const t = curr.getTime();
-            if (t >= windowStart) vTicks.push(t);
+        if (isRelative) {
+            const dayStep = 24 * 60 * 60 * 1000;
+            const monthStep = 30.4375 * dayStep;
+            const yearStep = 365.25 * dayStep;
 
-            if (zoomLevel === 'years') curr.setFullYear(curr.getFullYear() + 1);
-            else if (zoomLevel === 'months') curr.setMonth(curr.getMonth() + 1);
-            else curr.setDate(curr.getDate() + 1);
-        }
+            let step = dayStep;
+            if (zoomLevel === 'years') step = yearStep;
+            else if (zoomLevel === 'months') step = monthStep;
 
-        const vContextTicks: number[] = [];
-        const startYear = new Date(Math.max(globalStart, windowStart)).getFullYear();
-        const endYear = new Date(Math.min(globalEnd, windowEnd)).getFullYear();
+            const startLimit = Math.max(globalStart, windowStart);
+            let firstTick = Math.ceil(startLimit / step) * step;
 
-        if (zoomLevel === 'months') {
-            for (let y = startYear; y <= endYear; y++) {
-                const yearStart = new Date(y, 0, 1).getTime();
-                const yearEnd = new Date(y, 11, 31, 23, 59, 59).getTime();
-                const visibleStart = Math.max(yearStart, windowStart);
-                const visibleEnd = Math.min(yearEnd, windowEnd);
+            if (firstTick - step >= startLimit) {
+                firstTick -= step;
+            }
 
-                if (visibleStart <= visibleEnd) {
-                    // Stick to the left side of the bucket
-                    vContextTicks.push(visibleStart);
+            for (let t = firstTick; t <= endTs; t += step) {
+                if (t >= windowStart && t >= globalStart && t <= globalEnd) {
+                    vTicks.push(t);
                 }
             }
-        } else if (zoomLevel === 'days') {
-            for (let y = startYear; y <= endYear; y++) {
-                for (let m = 0; m < 12; m++) {
-                    const monthStart = new Date(y, m, 1).getTime();
-                    const monthEnd = new Date(y, m + 1, 0, 23, 59, 59).getTime();
-                    const visibleStart = Math.max(monthStart, windowStart);
-                    const visibleEnd = Math.min(monthEnd, windowEnd);
+
+            if (zoomLevel === 'days') {
+                const firstContextTick = Math.ceil(startLimit / monthStep) * monthStep;
+                for (let t = firstContextTick; t <= endTs; t += monthStep) {
+                    if (t >= windowStart && t >= globalStart && t <= globalEnd) {
+                        vContextTicks.push(t);
+                    }
+                }
+            }
+        } else {
+            let curr = new Date(Math.max(globalStart, windowStart));
+            if (zoomLevel === 'years') curr = new Date(curr.getFullYear(), 0, 1);
+            else if (zoomLevel === 'months') curr = new Date(curr.getFullYear(), curr.getMonth(), 1);
+            else curr = new Date(curr.getFullYear(), curr.getMonth(), curr.getDate());
+
+            while (curr.getTime() <= endTs) {
+                const t = curr.getTime();
+                if (t >= windowStart) vTicks.push(t);
+
+                if (zoomLevel === 'years') curr.setFullYear(curr.getFullYear() + 1);
+                else if (zoomLevel === 'months') curr.setMonth(curr.getMonth() + 1);
+                else curr.setDate(curr.getDate() + 1);
+            }
+
+            const startYear = new Date(Math.max(globalStart, windowStart)).getFullYear();
+            const endYear = new Date(Math.min(globalEnd, windowEnd)).getFullYear();
+
+            if (zoomLevel === 'months') {
+                for (let y = startYear; y <= endYear; y++) {
+                    const yearStart = new Date(y, 0, 1).getTime();
+                    const yearEnd = new Date(y, 11, 31, 23, 59, 59).getTime();
+                    const visibleStart = Math.max(yearStart, windowStart);
+                    const visibleEnd = Math.min(yearEnd, windowEnd);
 
                     if (visibleStart <= visibleEnd) {
-                        // Stick to the left side of the bucket
                         vContextTicks.push(visibleStart);
+                    }
+                }
+            } else if (zoomLevel === 'days') {
+                for (let y = startYear; y <= endYear; y++) {
+                    for (let m = 0; m < 12; m++) {
+                        const monthStart = new Date(y, m, 1).getTime();
+                        const monthEnd = new Date(y, m + 1, 0, 23, 59, 59).getTime();
+                        const visibleStart = Math.max(monthStart, windowStart);
+                        const visibleEnd = Math.min(monthEnd, windowEnd);
+
+                        if (visibleStart <= visibleEnd) {
+                            vContextTicks.push(visibleStart);
+                        }
                     }
                 }
             }
@@ -318,7 +341,7 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
 
         return { virtualData: vData, virtualTicks: vTicks, virtualContextTicks: vContextTicks };
 
-    }, [fullChartData, visibleWindow, zoomLevel, globalStart, globalEnd]);
+    }, [fullChartData, visibleWindow, zoomLevel, globalStart, globalEnd, isRelative]);
 
     const bottomMargin = useMemo(() => (virtualContextTicks.length > 0 ? 40 : 22), [virtualContextTicks]);
 
@@ -462,12 +485,12 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
             {/* Scrollable Chart */}
             <div
                 ref={containerRef}
-                className="flex-1 w-full overflow-x-auto overflow-y-hidden custom-scrollbar"
+                className={`flex-1 w-full ${isScrollEnabled ? 'overflow-x-auto' : 'overflow-x-hidden'} overflow-y-hidden custom-scrollbar`}
                 style={{ scrollBehavior: 'auto' }} // Set to auto to prevent smooth scroll fighting with drag
                 onScroll={onContainerScroll}
             >
                 {/* Dynamically Sized Container */}
-                <div style={{ height: '100%', width: chartWidth, minWidth: '100%' }}>
+                <div style={{ height: '100%', width: isScrollEnabled ? `${chartWidth}px` : '100%', minWidth: '100%' }}>
                     <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart
                             margin={{ top: 20, right: 30, left: 10, bottom: bottomMargin }}

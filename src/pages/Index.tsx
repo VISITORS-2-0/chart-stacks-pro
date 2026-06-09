@@ -31,6 +31,8 @@ interface ActiveChart extends MenuItem {
   isRelative?: boolean; // Whether this chart was fetched in relative-time mode
   relativeEventName?: string; // The reference event name for display in the chart header
   viewType?: 'summary' | 'pure';
+  relativeConfig?: RelativeTimeConfig;
+  relativeConfigHistory?: RelativeTimeConfig[];
 }
 
 type TabValue = "exploration" | "manage-groups" | "manage-concept-groups" | string;
@@ -47,19 +49,17 @@ const calculateDefaultGranularity = (startDateStr: string, endDateStr: string): 
 };
 
 /**
- * Derive a sensible default interval string from a relative-time config.
- * Uses the END delta's unit as the primary signal:
- *   h -> D (hourly data displayed by day)
- *   d -> D
- *   w -> ME (weekly ranges displayed by month)
- *   m -> ME
- *   y -> YE
+ * Map relative time unit to the exact interval string expected by the backend validation schema.
+ * Accepted values are 'D', 'ME', 'YE'.
  */
-const granularityFromRelativeConfig = (cfg: { end_delta: { value: number; unit: string } }): 'YE' | 'ME' | 'D' => {
-  const { unit, value } = cfg.end_delta;
-  if (unit === 'y') return 'YE';
-  if (unit === 'm' || unit === 'w') return value > 1 ? 'ME' : 'D';
-  return 'D'; // hours or days
+export const mapUnitToIntervalStr = (unit: 'd' | 'w' | 'm' | 'y'): 'D' | 'ME' | 'YE' => {
+  switch (unit) {
+    case 'y': return 'YE';
+    case 'm': return 'ME';
+    case 'w':
+    case 'd':
+    default: return 'D';
+  }
 };
 
 const clampDateStr = (dateStr: string, minDateStr?: string, maxDateStr?: string) => {
@@ -94,8 +94,9 @@ const Index = () => {
   const [relativeConfig, setRelativeConfig] = useState<RelativeTimeConfig>({
     reference_concepts: [],
     occurrence_index: -1,
-    start_delta: { value: 0, unit: "d" },
-    end_delta: { value: 35, unit: "d" },
+    start_delta: 0,
+    end_delta: 35,
+    unit: "d",
   });
 
   const loadGroupsFromApi = () => {
@@ -142,15 +143,16 @@ const Index = () => {
     if (!chart.originalItem) return;
 
     const chartIsRelative = chart.isRelative ?? false;
+    const chartRelativeConfig = chart.relativeConfig;
 
     try {
       let fetchInterval: string;
       let reqStart: string | null;
       let reqEnd: string | null;
 
-      const hasRelativeConcepts = chartIsRelative && relativeConfig.reference_concepts?.length > 0;
+      const hasRelativeConcepts = chartIsRelative && chartRelativeConfig && chartRelativeConfig.reference_concepts?.length > 0;
       if (hasRelativeConcepts) {
-        fetchInterval = chart.currentInterval || granularityFromRelativeConfig(relativeConfig);
+        fetchInterval = chart.currentInterval || mapUnitToIntervalStr(chartRelativeConfig.unit);
         reqStart = null;
         reqEnd = null;
       } else {
@@ -172,13 +174,14 @@ const Index = () => {
         method: 'most_time_spent',
         ranges: buildRanges(cutoffs, chart.conceptData),
         use_generated_data: useGeneratedData,
-        ...(hasRelativeConcepts ? {
+        ...(hasRelativeConcepts && chartRelativeConfig ? {
           relative_time: {
-            reference_concepts: relativeConfig.reference_concepts,
-            occurrence_index: relativeConfig.occurrence_index,
-            start_delta: relativeConfig.start_delta,
-            end_delta: relativeConfig.end_delta
-          }
+            reference_concepts: chartRelativeConfig.reference_concepts,
+            occurrence_index: chartRelativeConfig.occurrence_index,
+            start_delta: chartRelativeConfig.start_delta,
+            end_delta: chartRelativeConfig.end_delta
+          },
+          interval_str: mapUnitToIntervalStr(chartRelativeConfig.unit)
         } : {}),
       };
 
@@ -223,8 +226,8 @@ const Index = () => {
     const conceptsStr = useRelative
       ? relativeConfig.reference_concepts.map(rc => `${rc.concept_name}${rc.concept_value ? '=' + rc.concept_value : ''}`).join(',')
       : '';
-    const dedupStart = useRelative ? `rel:${conceptsStr}:${relativeConfig.occurrence_index}:${relativeConfig.start_delta.value}${relativeConfig.start_delta.unit}` : absStart;
-    const dedupEnd = useRelative ? `${relativeConfig.end_delta.value}${relativeConfig.end_delta.unit}` : absEnd;
+    const dedupStart = useRelative ? `rel:${conceptsStr}:${relativeConfig.occurrence_index}:${relativeConfig.start_delta}${relativeConfig.unit}` : absStart;
+    const dedupEnd = useRelative ? `${relativeConfig.end_delta}${relativeConfig.unit}` : absEnd;
 
     const exists = activeCharts.some((chart) => {
       const sameConcept = (chart.originalItem?.id !== undefined && chart.originalItem?.id === item.originalItem?.id) || chart.title === item.title;
@@ -251,13 +254,14 @@ const Index = () => {
           occurrence_index: relativeConfig.occurrence_index,
           start_delta: relativeConfig.start_delta,
           end_delta: relativeConfig.end_delta
-        }
+        },
+        interval_str: mapUnitToIntervalStr(relativeConfig.unit)
       } : {}),
     };
 
     // Default interval
     const defaultInterval = useRelative
-      ? granularityFromRelativeConfig(relativeConfig)
+      ? mapUnitToIntervalStr(relativeConfig.unit)
       : calculateDefaultGranularity(absStart, absEnd);
 
     try {
@@ -339,6 +343,7 @@ const Index = () => {
         originalEnd: useRelative ? undefined : absEnd,
         patientIds: resolvedIds,
         isRelative: useRelative,
+        relativeConfig: useRelative ? { ...relativeConfig } : undefined,
         relativeEventName: useRelative
           ? (relativeConfig.selected_group_name
               ? `Group: ${relativeConfig.selected_group_name}`
@@ -398,14 +403,15 @@ const Index = () => {
     const chart = activeCharts[chartIndex];
     const currentChartPatientIds = chart.patientIds || patientIds;
     const chartIsRelative = chart.isRelative ?? false;
+    const chartRelativeConfig = chart.relativeConfig;
 
     // Server-side drill-down only applies to multi-patient pattern charts.
     // Single-patient and raw charts zoom client-side via TemporalChartCard's local zoomLevel.
     const resolvedIds = resolvePatientIds(currentChartPatientIds);
     if (resolvedIds.length <= 1 || chart.isRaw || chart.viewType === 'pure') return;
 
-    const currentInterval = chart.currentInterval || 'YE';
-    let nextInterval = 'YE';
+    const currentInterval = chart.currentInterval || (chartIsRelative && chartRelativeConfig ? mapUnitToIntervalStr(chartRelativeConfig.unit) : 'YE');
+    let nextInterval = '';
 
     if (currentInterval === 'YE') {
       nextInterval = 'ME';
@@ -416,14 +422,48 @@ const Index = () => {
       return;
     }
 
-    // In relative mode: re-fetch with finer interval, keeping relative_time config
+    // In relative mode: compute new start_delta, end_delta and unit in updatedRelativeConfig
     // In absolute mode: compute date range from the clicked date
     let startDateStr: string | null = '';
     let endDateStr: string | null = '';
+    let updatedRelativeConfig = chartRelativeConfig;
+    let nextHistory = chart.relativeConfigHistory ? [...chart.relativeConfigHistory] : [];
 
     if (chartIsRelative) {
       startDateStr = null;
       endDateStr = null;
+      if (chartRelativeConfig) {
+        nextHistory.push(chartRelativeConfig);
+
+        let nextStartDelta = chartRelativeConfig.start_delta;
+        let nextEndDelta = chartRelativeConfig.end_delta;
+        let nextUnit: 'd' | 'm' | 'y' = chartRelativeConfig.unit;
+
+        if (currentInterval === 'YE') {
+          const clickedYear = date.getFullYear();
+          const yOffset = clickedYear - 1970;
+          nextStartDelta = yOffset * 12;
+          nextEndDelta = (yOffset + 1) * 12;
+          nextUnit = 'm';
+        } else if (currentInterval === 'ME') {
+          const year = date.getFullYear();
+          const month = date.getMonth();
+          const anchor = new Date(Date.UTC(1970, 0, 1));
+          const startOfMonth = new Date(Date.UTC(year, month, 1));
+          const startOfNextMonth = new Date(Date.UTC(year, month + 1, 1));
+          
+          nextStartDelta = Math.round((startOfMonth.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24));
+          nextEndDelta = Math.round((startOfNextMonth.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24));
+          nextUnit = 'd';
+        }
+
+        updatedRelativeConfig = {
+          ...chartRelativeConfig,
+          start_delta: nextStartDelta,
+          end_delta: nextEndDelta,
+          unit: nextUnit,
+        };
+      }
     } else {
       if (currentInterval === 'YE') {
         const y = date.getFullYear();
@@ -454,12 +494,12 @@ const Index = () => {
           method: 'most_time_spent',
           ranges: buildRanges(chart.cutoffs, chart.conceptData),
           use_generated_data: useGeneratedData,
-          ...(chartIsRelative && relativeConfig.reference_concepts?.length ? {
+          ...(chartIsRelative && updatedRelativeConfig && updatedRelativeConfig.reference_concepts?.length ? {
             relative_time: {
-              reference_concepts: relativeConfig.reference_concepts,
-              occurrence_index: relativeConfig.occurrence_index,
-              start_delta: relativeConfig.start_delta,
-              end_delta: relativeConfig.end_delta
+              reference_concepts: updatedRelativeConfig.reference_concepts,
+              occurrence_index: updatedRelativeConfig.occurrence_index,
+              start_delta: updatedRelativeConfig.start_delta,
+              end_delta: updatedRelativeConfig.end_delta
             }
           } : {}),
         };
@@ -473,12 +513,12 @@ const Index = () => {
           interval_str: nextInterval,
           method: 'most_time_spent',
           use_generated_data: useGeneratedData,
-          ...(chartIsRelative && relativeConfig.reference_concepts?.length ? {
+          ...(chartIsRelative && updatedRelativeConfig && updatedRelativeConfig.reference_concepts?.length ? {
             relative_time: {
-              reference_concepts: relativeConfig.reference_concepts,
-              occurrence_index: relativeConfig.occurrence_index,
-              start_delta: relativeConfig.start_delta,
-              end_delta: relativeConfig.end_delta
+              reference_concepts: updatedRelativeConfig.reference_concepts,
+              occurrence_index: updatedRelativeConfig.occurrence_index,
+              start_delta: updatedRelativeConfig.start_delta,
+              end_delta: updatedRelativeConfig.end_delta
             }
           } : {}),
         };
@@ -490,7 +530,7 @@ const Index = () => {
         ...chart,
         externalData: processPatternResult(response.result, nextInterval, resolvedIds.length),
         currentInterval: nextInterval,
-        ...(chartIsRelative ? {} : { currentStart: startDateStr!, currentEnd: endDateStr! }),
+        ...(chartIsRelative ? { relativeConfig: updatedRelativeConfig, relativeConfigHistory: nextHistory } : { currentStart: startDateStr!, currentEnd: endDateStr! }),
         conceptData: response.concept_data,
       };
       setActiveCharts(updatedCharts);
@@ -510,14 +550,17 @@ const Index = () => {
     const chart = activeCharts[chartIndex];
     const currentChartPatientIds = chart.patientIds || patientIds;
     const chartIsRelative = chart.isRelative ?? false;
+    const chartRelativeConfig = chart.relativeConfig;
 
     const resolvedIds = resolvePatientIds(currentChartPatientIds);
     if (resolvedIds.length <= 1 || chart.isRaw || !chart.currentInterval || chart.viewType === 'pure') return;
 
-    const currentInterval = chart.currentInterval || 'YE';
+    const currentInterval = chart.currentInterval || (chartIsRelative && chartRelativeConfig ? mapUnitToIntervalStr(chartRelativeConfig.unit) : 'YE');
     let prevInterval = '';
     let startDateStr: string | null = '';
     let endDateStr: string | null = '';
+    let updatedRelativeConfig = chartRelativeConfig;
+    let nextHistory = chart.relativeConfigHistory ? [...chart.relativeConfigHistory] : [];
 
     if (currentInterval === 'D') {
       prevInterval = 'ME';
@@ -531,6 +574,34 @@ const Index = () => {
     if (chartIsRelative) {
       startDateStr = null;
       endDateStr = null;
+      if (nextHistory.length > 0) {
+        updatedRelativeConfig = nextHistory.pop()!;
+      } else if (chartRelativeConfig) {
+        let prevStartDelta = chartRelativeConfig.start_delta;
+        let prevEndDelta = chartRelativeConfig.end_delta;
+        let prevUnit: 'd' | 'm' | 'y' = chartRelativeConfig.unit;
+
+        if (currentInterval === 'D') {
+          const anchor = new Date(Date.UTC(1970, 0, 1));
+          const startDate = new Date(anchor.getTime() + chartRelativeConfig.start_delta * 24 * 60 * 60 * 1000);
+          const endDate = new Date(anchor.getTime() + (chartRelativeConfig.end_delta - 0.1) * 24 * 60 * 60 * 1000);
+
+          prevStartDelta = (startDate.getUTCFullYear() - 1970) * 12 + startDate.getUTCMonth();
+          prevEndDelta = (endDate.getUTCFullYear() - 1970) * 12 + endDate.getUTCMonth() + 1;
+          prevUnit = 'm';
+        } else if (currentInterval === 'ME') {
+          prevStartDelta = Math.floor(chartRelativeConfig.start_delta / 12);
+          prevEndDelta = Math.ceil(chartRelativeConfig.end_delta / 12);
+          prevUnit = 'y';
+        }
+
+        updatedRelativeConfig = {
+          ...chartRelativeConfig,
+          start_delta: prevStartDelta,
+          end_delta: prevEndDelta,
+          unit: prevUnit,
+        };
+      }
     } else {
       if (currentInterval === 'D') {
         if (chart.currentStart) {
@@ -563,12 +634,12 @@ const Index = () => {
           method: 'most_time_spent',
           ranges: buildRanges(chart.cutoffs, chart.conceptData),
           use_generated_data: useGeneratedData,
-          ...(chartIsRelative && relativeConfig.reference_concepts?.length ? {
+          ...(chartIsRelative && updatedRelativeConfig && updatedRelativeConfig.reference_concepts?.length ? {
             relative_time: {
-              reference_concepts: relativeConfig.reference_concepts,
-              occurrence_index: relativeConfig.occurrence_index,
-              start_delta: relativeConfig.start_delta,
-              end_delta: relativeConfig.end_delta
+              reference_concepts: updatedRelativeConfig.reference_concepts,
+              occurrence_index: updatedRelativeConfig.occurrence_index,
+              start_delta: updatedRelativeConfig.start_delta,
+              end_delta: updatedRelativeConfig.end_delta
             }
           } : {}),
         };
@@ -582,12 +653,12 @@ const Index = () => {
           interval_str: prevInterval,
           method: 'most_time_spent',
           use_generated_data: useGeneratedData,
-          ...(chartIsRelative && relativeConfig.reference_concepts?.length ? {
+          ...(chartIsRelative && updatedRelativeConfig && updatedRelativeConfig.reference_concepts?.length ? {
             relative_time: {
-              reference_concepts: relativeConfig.reference_concepts,
-              occurrence_index: relativeConfig.occurrence_index,
-              start_delta: relativeConfig.start_delta,
-              end_delta: relativeConfig.end_delta
+              reference_concepts: updatedRelativeConfig.reference_concepts,
+              occurrence_index: updatedRelativeConfig.occurrence_index,
+              start_delta: updatedRelativeConfig.start_delta,
+              end_delta: updatedRelativeConfig.end_delta
             }
           } : {}),
         };
@@ -599,7 +670,7 @@ const Index = () => {
         ...chart,
         externalData: processPatternResult(response.result, prevInterval, resolvedIds.length),
         currentInterval: prevInterval,
-        ...(chartIsRelative ? {} : { currentStart: startDateStr!, currentEnd: endDateStr! }),
+        ...(chartIsRelative ? { relativeConfig: updatedRelativeConfig, relativeConfigHistory: nextHistory } : { currentStart: startDateStr!, currentEnd: endDateStr! }),
         conceptData: response.concept_data,
       };
       setActiveCharts(updatedCharts);

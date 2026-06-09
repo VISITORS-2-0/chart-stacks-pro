@@ -8,7 +8,7 @@ export interface TemporalRow {
 
 export type TemporalMode = 'absolute' | 'relative';
 
-export type ZoomLevel = 'years' | 'months' | 'days' | 'hours';
+export type ZoomLevel = 'years' | 'months' | 'days';
 
 export interface PatientStatusProcessedRow {
     month: string;

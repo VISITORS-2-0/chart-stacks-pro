@@ -16,9 +16,10 @@ interface PatientStatusAnalyticsProps {
     relativeGranularity?: 'D' | 'ME' | 'YE';
     globalStart?: string | number;
     globalEnd?: string | number;
+    isMultiPatient?: boolean;
 }
 
-export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, onNavigate, isRelative = false, relativeGranularity = 'YE', globalStart, globalEnd }: PatientStatusAnalyticsProps) {
+export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, onNavigate, isRelative = false, relativeGranularity = 'YE', globalStart, globalEnd, isMultiPatient = false }: PatientStatusAnalyticsProps) {
     const componentId = React.useId();
     const syncId = `patientStatus-${componentId}`;
 

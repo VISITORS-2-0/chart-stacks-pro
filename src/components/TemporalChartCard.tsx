@@ -591,6 +591,7 @@ export function TemporalChartCard({
                             globalStart={globalStart}
                             globalEnd={globalEnd}
                             onVisibleRangeChange={handleVisibleRangeChange}
+                            isMultiPatient={isMultiPatient}
                         />
                     ) : isRaw ? (
                         <PatientMultiLineChart
@@ -604,6 +605,7 @@ export function TemporalChartCard({
                             globalStart={globalStart}
                             globalEnd={globalEnd}
                             onVisibleRangeChange={handleVisibleRangeChange}
+                            isMultiPatient={isMultiPatient}
                         />
                     ) : viewType === 'pure' ? (
                         <PatientMultiStateGantt
@@ -617,6 +619,7 @@ export function TemporalChartCard({
                             globalStart={globalStart}
                             globalEnd={globalEnd}
                             onVisibleRangeChange={handleVisibleRangeChange}
+                            isMultiPatient={isMultiPatient}
                         />
                     ) : chartType === 'bar' ? (
                         <PatientStateGantt
@@ -630,6 +633,7 @@ export function TemporalChartCard({
                             globalStart={globalStart}
                             globalEnd={globalEnd}
                             onVisibleRangeChange={handleVisibleRangeChange}
+                            isMultiPatient={isMultiPatient}
                         />
                     ) : (
                         <PatientStatusAnalytics
@@ -643,6 +647,7 @@ export function TemporalChartCard({
                             relativeGranularity={relativeGranularity}
                             globalStart={globalStart}
                             globalEnd={globalEnd}
+                            isMultiPatient={isMultiPatient}
                         />
                     )
                 )}

@@ -221,10 +221,9 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
       <Sidebar className="w-[--sidebar-width] border-r border-border bg-[#F8FAFC] dark:bg-slate-900 text-foreground">
         <SidebarContent className="bg-[#F8FAFC] dark:bg-slate-900">
           <div className="px-4 py-3 border-b border-border flex flex-col gap-2">
-            <div className="flex justify-between items-center">
-              <SidebarGroupLabel className="text-xl font-bold text-primary tracking-wider p-0 flex items-center gap-2">
-                <img src="/assets/logo-Photoroom.png" alt="VISITORS Logo" className="h-6 w-auto" />
-                VISITORS
+            <div className="flex justify-between items-center gap-2 relative">
+              <SidebarGroupLabel className="p-0 flex items-center h-10 overflow-visible flex-1">
+                <img src="/visi.png" alt="VISITORS Logo" className="w-36 h-10 object-contain object-left scale-[2.0] origin-left -ml-1" />
               </SidebarGroupLabel>
             </div>
           </div>
@@ -304,13 +303,12 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
         <SidebarContent className="bg-[#F8FAFC] dark:bg-slate-900">
           <SidebarGroup>
             <div className="px-4 py-3 border-b border-border flex flex-col gap-2">
-              <div className="flex justify-between items-center">
-                <SidebarGroupLabel className="text-xl font-bold text-primary tracking-wider p-0 flex items-center gap-2">
-                  <img src="/assets/logo-Photoroom.png" alt="VISITORS Logo" className="h-6 w-auto" />
-                  VISITORS
+              <div className="flex justify-between items-center gap-2 relative">
+                <SidebarGroupLabel className="p-0 flex items-center h-10 overflow-visible flex-1">
+                  <img src="/visi.png" alt="VISITORS Logo" className="w-36 h-10 object-contain object-left scale-[2.0] origin-left -ml-1" />
                 </SidebarGroupLabel>
                 {import.meta.env.VITE_APP_ENV === 'test' && (
-                  <Button size="sm" variant="secondary" onClick={() => setShowTestOptions(true)} disabled={isTesting}>
+                  <Button size="sm" variant="secondary" onClick={() => setShowTestOptions(true)} disabled={isTesting} className="shrink-0 relative z-10">
                     Run Tests
                   </Button>
                 )}

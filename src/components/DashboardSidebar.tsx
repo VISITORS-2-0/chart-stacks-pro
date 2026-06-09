@@ -223,7 +223,7 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
           <div className="px-4 py-3 border-b border-border flex flex-col gap-2">
             <div className="flex justify-between items-center">
               <SidebarGroupLabel className="text-xl font-bold text-primary tracking-wider p-0 flex items-center gap-2">
-                <img src="/assets/logo.png" alt="VISITORS Logo" className="h-6 w-auto" />
+                <img src="/assets/logo-Photoroom.png" alt="VISITORS Logo" className="h-6 w-auto" />
                 VISITORS
               </SidebarGroupLabel>
             </div>
@@ -306,7 +306,7 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
             <div className="px-4 py-3 border-b border-border flex flex-col gap-2">
               <div className="flex justify-between items-center">
                 <SidebarGroupLabel className="text-xl font-bold text-primary tracking-wider p-0 flex items-center gap-2">
-                  <img src="/assets/logo.png" alt="VISITORS Logo" className="h-6 w-auto" />
+                  <img src="/assets/logo-Photoroom.png" alt="VISITORS Logo" className="h-6 w-auto" />
                   VISITORS
                 </SidebarGroupLabel>
                 {import.meta.env.VITE_APP_ENV === 'test' && (

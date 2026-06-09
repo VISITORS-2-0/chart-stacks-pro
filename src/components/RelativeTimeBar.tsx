@@ -838,6 +838,7 @@ export function RelativeTimeBar({
               </Dialog>
             </div>
           </>
+        )}
       </div>
     </div>
   );

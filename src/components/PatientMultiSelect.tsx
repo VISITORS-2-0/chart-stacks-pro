@@ -81,6 +81,24 @@ export function PatientMultiSelect({ selectedIds, onChange }: PatientMultiSelect
                     <PopoverContent className="w-[300px] p-0" align="start">
                         <Command>
                             <CommandInput placeholder="Search patient ID..." />
+                            <div className="flex items-center justify-between px-2 py-1 border-b border-border bg-muted/20">
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => handleSelectAll()} 
+                                    className="h-7 text-xs px-2"
+                                >
+                                    Select All
+                                </Button>
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => handleClearAll()} 
+                                    className="h-7 text-xs px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                >
+                                    Clear All
+                                </Button>
+                            </div>
                             <CommandList>
                                 <CommandEmpty>No matching item found.</CommandEmpty>
 
@@ -105,26 +123,6 @@ export function PatientMultiSelect({ selectedIds, onChange }: PatientMultiSelect
                         </Command>
                     </PopoverContent>
                 </Popover>
-                {!areAllSelected && (
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={handleSelectAll}
-                        className="whitespace-nowrap"
-                    >
-                        Select All
-                    </Button>
-                )}
-                {selectedIds.length > 0 && (
-                    <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={handleClearAll}
-                        className="whitespace-nowrap"
-                    >
-                        Clear All
-                    </Button>
-                )}
             </div>
 
             {selectedIds.length > 0 && (

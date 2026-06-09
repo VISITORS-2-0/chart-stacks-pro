@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { XCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 import { TemporalChartCard } from "@/components/TemporalChartCard";
 import { FilterBar, TimeRange } from "@/components/FilterBar";
@@ -138,8 +140,20 @@ export function DataExploration({
               </div>
             </div>
           ) : (
-            <div className="space-y-6">
-              {activeCharts.map((chart) => {
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onCloseAll}
+                  className="flex items-center gap-2 h-8 px-3 text-red-500 border-red-200 bg-background hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 transition-colors shrink-0 shadow-sm"
+                >
+                  <XCircle className="h-3.5 w-3.5" />
+                  Clear All
+                </Button>
+              </div>
+              <div className="space-y-6">
+                {activeCharts.map((chart) => {
                 let globalStart: string | number | undefined = undefined;
                 let globalEnd: string | number | undefined = undefined;
 
@@ -189,6 +203,7 @@ export function DataExploration({
                   />
                 );
               })}
+            </div>
             </div>
           )}
         </div>

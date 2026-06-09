@@ -52,6 +52,8 @@ import type { RelativeTimeConfig, RelativeTimeDelta, ReferenceConcept } from "@/
 import { fetchConceptGroups, ConceptGroup } from "@/services/conceptGroupsApi";
 import { cn } from "@/lib/utils";
 import { getApiUrl } from "@/config/api";
+import { TimeRangePicker } from "@/components/TimeRangePicker";
+import type { TimeRange } from "@/components/TimeRangePicker";
 import { GlobalToggle } from "@/components/GlobalToggle";
 
 export type { RelativeTimeConfig };
@@ -63,6 +65,8 @@ interface RelativeTimeBarProps {
   onConfigChange: (config: RelativeTimeConfig) => void;
   isPureIntervalsMode: boolean;
   onPureIntervalsModeChange: (val: boolean) => void;
+  timeRange: TimeRange;
+  onTimeRangeChange: (range: TimeRange) => void;
 }
 
 const TIME_UNITS: { value: RelativeTimeDelta["unit"]; label: string; short: string }[] = [
@@ -225,6 +229,8 @@ export function RelativeTimeBar({
   onConfigChange,
   isPureIntervalsMode,
   onPureIntervalsModeChange,
+  timeRange,
+  onTimeRangeChange,
 }: RelativeTimeBarProps) {
   const { data: takData } = useTakMenu();
   const [isOpen, setIsOpen] = useState(false);
@@ -439,6 +445,12 @@ export function RelativeTimeBar({
         }`}
     >
       <div className="px-6 py-2.5 flex flex-wrap items-center gap-4">
+        {/* Time Picker */}
+        <TimeRangePicker timeRange={timeRange} onTimeRangeChange={onTimeRangeChange} />
+
+        {/* Separator */}
+        <div className={`h-4 w-px ${isEnabled ? "bg-emerald-400/50" : "bg-border"} shrink-0 hidden sm:block`} />
+
         {/* Toggle */}
         <div className="flex items-center gap-2 shrink-0">
           <Switch

@@ -190,7 +190,7 @@ const Index = () => {
       const updatedCharts = [...activeCharts];
       updatedCharts[chartIndex] = {
         ...chart,
-        externalData: processPatternResult(response.result, fetchInterval, resolvedIds.length),
+        externalData: processPatternResult(response.result, fetchInterval, resolvedIds.length, chart.isRelative),
         conceptData: response.concept_data,
         cutoffs,
         isBalanced
@@ -292,7 +292,7 @@ const Index = () => {
           };
           const response = await fetchMultiplePatientsNumericAbstraction(patternParams);
           conceptData = response.concept_data;
-          resultData = processPatternResult(response.result, defaultInterval, resolvedIds.length);
+          resultData = processPatternResult(response.result, defaultInterval, resolvedIds.length, useRelative);
           isRawType = false;
         } else if (isRawType) {
           const response = await fetchRawData(params);
@@ -311,7 +311,7 @@ const Index = () => {
             };
             const response = await fetchMultiplePatientsAbstraction(patternParams);
             conceptData = response.concept_data;
-            resultData = processPatternResult(response.result, defaultInterval, resolvedIds.length);
+            resultData = processPatternResult(response.result, defaultInterval, resolvedIds.length, useRelative);
           }
         }
       }
@@ -366,15 +366,15 @@ const Index = () => {
     }
   };
 
-  const processPatternResult = (result: any[], intervalStr: string, totalPatients: number) => {
+  const processPatternResult = (result: any[], intervalStr: string, totalPatients: number, isRelative?: boolean) => {
     const transformed = result.map(item => {
       const startMs = new Date(item.StartTime).getTime();
       const endMs = new Date(item.EndTime).getTime();
       const d = new Date((startMs + endMs) / 2);
 
-      const yStr = d.getFullYear().toString();
-      const mStr = String(d.getMonth() + 1).padStart(2, '0');
-      const dStr = String(d.getDate()).padStart(2, '0');
+      const yStr = (isRelative ? d.getUTCFullYear() : d.getFullYear()).toString();
+      const mStr = String((isRelative ? d.getUTCMonth() : d.getMonth()) + 1).padStart(2, '0');
+      const dStr = String(isRelative ? d.getUTCDate() : d.getDate()).padStart(2, '0');
 
       // For key, if YE -> YYYY. If ME -> YYYY-MM. If D -> YYYY-MM-DD.
       let key = yStr;
@@ -410,6 +410,9 @@ const Index = () => {
     const resolvedIds = resolvePatientIds(currentChartPatientIds);
     if (resolvedIds.length <= 1 || chart.isRaw || chart.viewType === 'pure') return;
 
+    // Set loading state
+    setActiveCharts(prev => prev.map(c => c.id === chartId ? { ...c, loading: true } : c));
+
     const currentInterval = chart.currentInterval || (chartIsRelative && chartRelativeConfig ? mapUnitToIntervalStr(chartRelativeConfig.unit) : 'YE');
     let nextInterval = '';
 
@@ -440,14 +443,14 @@ const Index = () => {
         let nextUnit: 'd' | 'm' | 'y' = chartRelativeConfig.unit;
 
         if (currentInterval === 'YE') {
-          const clickedYear = date.getFullYear();
+          const clickedYear = date.getUTCFullYear();
           const yOffset = clickedYear - 1970;
           nextStartDelta = yOffset * 12;
           nextEndDelta = (yOffset + 1) * 12;
           nextUnit = 'm';
         } else if (currentInterval === 'ME') {
-          const year = date.getFullYear();
-          const month = date.getMonth();
+          const year = date.getUTCFullYear();
+          const month = date.getUTCMonth();
           const anchor = new Date(Date.UTC(1970, 0, 1));
           const startOfMonth = new Date(Date.UTC(year, month, 1));
           const startOfNextMonth = new Date(Date.UTC(year, month + 1, 1));
@@ -525,19 +528,25 @@ const Index = () => {
         response = await fetchMultiplePatientsAbstraction(params);
       }
 
-      const updatedCharts = [...activeCharts];
-      updatedCharts[chartIndex] = {
-        ...chart,
-        externalData: processPatternResult(response.result, nextInterval, resolvedIds.length),
-        currentInterval: nextInterval,
-        ...(chartIsRelative ? { relativeConfig: updatedRelativeConfig, relativeConfigHistory: nextHistory } : { currentStart: startDateStr!, currentEnd: endDateStr! }),
-        conceptData: response.concept_data,
-      };
-      setActiveCharts(updatedCharts);
+      setActiveCharts(prev => {
+        const index = prev.findIndex(c => c.id === chartId);
+        if (index === -1) return prev;
+        const copy = [...prev];
+        copy[index] = {
+          ...copy[index],
+          externalData: processPatternResult(response.result, nextInterval, resolvedIds.length, chartIsRelative),
+          currentInterval: nextInterval,
+          ...(chartIsRelative ? { relativeConfig: updatedRelativeConfig, relativeConfigHistory: nextHistory } : { currentStart: startDateStr!, currentEnd: endDateStr! }),
+          conceptData: response.concept_data,
+          loading: false,
+        };
+        return copy;
+      });
 
     } catch (error) {
       console.error("Failed to drill down", error);
       toast({ title: "Error drilling down", description: String(error), variant: "destructive" });
+      setActiveCharts(prev => prev.map(c => c.id === chartId ? { ...c, loading: false } : c));
     }
   };
 
@@ -554,6 +563,9 @@ const Index = () => {
 
     const resolvedIds = resolvePatientIds(currentChartPatientIds);
     if (resolvedIds.length <= 1 || chart.isRaw || !chart.currentInterval || chart.viewType === 'pure') return;
+
+    // Set loading state
+    setActiveCharts(prev => prev.map(c => c.id === chartId ? { ...c, loading: true } : c));
 
     const currentInterval = chart.currentInterval || (chartIsRelative && chartRelativeConfig ? mapUnitToIntervalStr(chartRelativeConfig.unit) : 'YE');
     let prevInterval = '';
@@ -665,19 +677,25 @@ const Index = () => {
         response = await fetchMultiplePatientsAbstraction(params);
       }
 
-      const updatedCharts = [...activeCharts];
-      updatedCharts[chartIndex] = {
-        ...chart,
-        externalData: processPatternResult(response.result, prevInterval, resolvedIds.length),
-        currentInterval: prevInterval,
-        ...(chartIsRelative ? { relativeConfig: updatedRelativeConfig, relativeConfigHistory: nextHistory } : { currentStart: startDateStr!, currentEnd: endDateStr! }),
-        conceptData: response.concept_data,
-      };
-      setActiveCharts(updatedCharts);
+      setActiveCharts(prev => {
+        const index = prev.findIndex(c => c.id === chartId);
+        if (index === -1) return prev;
+        const copy = [...prev];
+        copy[index] = {
+          ...copy[index],
+          externalData: processPatternResult(response.result, prevInterval, resolvedIds.length, chartIsRelative),
+          currentInterval: prevInterval,
+          ...(chartIsRelative ? { relativeConfig: updatedRelativeConfig, relativeConfigHistory: nextHistory } : { currentStart: startDateStr!, currentEnd: endDateStr! }),
+          conceptData: response.concept_data,
+          loading: false,
+        };
+        return copy;
+      });
 
     } catch (error) {
       console.error("Failed to zoom out", error);
       toast({ title: "Error zooming out", description: String(error), variant: "destructive" });
+      setActiveCharts(prev => prev.map(c => c.id === chartId ? { ...c, loading: false } : c));
     }
   };
 
@@ -755,7 +773,7 @@ const Index = () => {
       const updatedCharts = [...activeCharts];
       updatedCharts[chartIndex] = {
         ...chart,
-        externalData: processPatternResult(response.result, fetchInterval, resolvedIds.length),
+        externalData: processPatternResult(response.result, fetchInterval, resolvedIds.length, chart.isRelative),
         currentInterval: fetchInterval,
         currentStart: startDateStr,
         currentEnd: endDateStr,

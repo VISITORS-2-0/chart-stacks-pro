@@ -21,9 +21,11 @@ interface ActiveChart extends MenuItem {
   isRelative?: boolean;
   relativeEventName?: string;
   relativeConfig?: RelativeTimeConfig;
+  relativeConfigHistory?: RelativeTimeConfig[];
   originalStart?: string;
   originalEnd?: string;
   viewType?: 'summary' | 'pure';
+  loading?: boolean;
 }
 
 interface DataExplorationProps {
@@ -146,17 +148,14 @@ export function DataExploration({
                 const chartRelativeConfig = chart.relativeConfig;
 
                 if (chartIsRelative && chartRelativeConfig?.reference_concepts?.length) {
-                  // Compute relative boundaries based on the chart's specific relativeConfig deltas
+                  // Compute precise UTC relative boundaries
                   const getMs = (value: number, unit: string) => {
-                    const DAY = 1000 * 60 * 60 * 24;
-                    if (unit === 'y') return value * DAY * 365.25;
-                    if (unit === 'm') return value * DAY * 30.4375;
-                    if (unit === 'w') return value * DAY * 7;
-                    if (unit === 'h') return value * 1000 * 60 * 60;
-                    return value * DAY; // 'd'
+                    if (unit === 'y') return Date.UTC(1970 + value, 0, 1);
+                    if (unit === 'm') return Date.UTC(1970, value, 1);
+                    return Date.UTC(1970, 0, 1 + value); // 'd'
                   };
-                  globalStart = ANCHOR_MS + getMs(chartRelativeConfig.start_delta, chartRelativeConfig.unit);
-                  globalEnd = ANCHOR_MS + getMs(chartRelativeConfig.end_delta, chartRelativeConfig.unit);
+                  globalStart = getMs(chartRelativeConfig.start_delta, chartRelativeConfig.unit);
+                  globalEnd = getMs(chartRelativeConfig.end_delta, chartRelativeConfig.unit);
                 } else {
                   globalStart = chart.originalStart || calculateDateRange(timeRange).start_date;
                   globalEnd = chart.originalEnd || calculateDateRange(timeRange).end_date;
@@ -185,6 +184,8 @@ export function DataExploration({
                     isCutoffsBalanced={chart.isBalanced}
                     onApplyCutoffs={(cutoffs, isBalanced) => onApplyCutoffs && onApplyCutoffs(chart.id, cutoffs, isBalanced)}
                     viewType={chart.viewType}
+                    relativeConfigHistory={chart.relativeConfigHistory}
+                    loading={chart.loading}
                   />
                 );
               })}

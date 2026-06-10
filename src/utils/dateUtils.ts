@@ -73,21 +73,24 @@ export const calculateDateRange = (timeRange: TimeRange): { start_date: string; 
 export const ANCHOR_MS = 0; // 1970-01-01T00:00:00Z in milliseconds
 
 export const formatRelativeTime = (unixMs: number, granularity: 'D' | 'ME' | 'YE'): string => {
-    const diffMs = unixMs - ANCHOR_MS;
-    const diffDays = diffMs / (1000 * 60 * 60 * 24);
-    const diffMonths = diffMs / (1000 * 60 * 60 * 24 * 30.4375); // average month
-    const diffYears = diffMs / (1000 * 60 * 60 * 24 * 365.25);
+    const dObj = new Date(unixMs);
+    const year = dObj.getUTCFullYear();
+    const month = dObj.getUTCMonth();
 
     if (granularity === 'YE') {
-        const y = diffYears >= 0 ? Math.floor(diffYears) : -Math.floor(-diffYears);
+        const yOffset = year - 1970;
+        const y = yOffset >= 0 ? yOffset + 1 : yOffset;
         return `${y}y`;
     }
     if (granularity === 'ME') {
-        const m = diffMonths >= 0 ? Math.floor(diffMonths) : -Math.floor(-diffMonths);
+        const mOffset = (year - 1970) * 12 + month;
+        const m = mOffset >= 0 ? mOffset + 1 : mOffset;
         return `${m}m`;
     }
     // Default: days — round because day ticks are placed at midnight boundaries
-    const d = Math.round(diffDays);
+    const diffMs = unixMs - ANCHOR_MS;
+    const dOffset = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    const d = dOffset >= 0 ? dOffset + 1 : dOffset;
     return `${d}d`;
 };
 
@@ -120,8 +123,6 @@ export const formatRelativeTooltipTime = (unixMs: number): string => {
 
     const HOUR = 1000 * 60 * 60;
     const DAY  = HOUR * 24;
-    const MONTH = DAY * 30.4375;
-    const YEAR = DAY * 365.25;
 
     if (absDiffMs < HOUR) return 'At event';
 
@@ -129,16 +130,32 @@ export const formatRelativeTooltipTime = (unixMs: number): string => {
         const h = Math.round(absDiffMs / HOUR);
         return `${h} hour${h !== 1 ? 's' : ''} ${suffix}`;
     }
-    if (absDiffMs < MONTH * 2) {
-        const d = Math.round(absDiffMs / DAY);
-        return `${d} day${d !== 1 ? 's' : ''} ${suffix}`;
+
+    const dObj = new Date(unixMs);
+    const year = dObj.getUTCFullYear();
+    const month = dObj.getUTCMonth();
+    
+    const relMonths = (year - 1970) * 12 + month;
+    const absMonths = relMonths >= 0 ? relMonths + 1 : Math.abs(relMonths);
+
+    if (Math.abs(relMonths) < 24) {
+        const dOffset = Math.round(diffMs / DAY);
+        const d = dOffset >= 0 ? dOffset + 1 : Math.abs(dOffset);
+        if (Math.abs(dOffset) < 60) {
+            return `${d} day${d !== 1 ? 's' : ''} ${suffix}`;
+        }
+        return `${absMonths} month${absMonths !== 1 ? 's' : ''} ${suffix}`;
     }
-    if (absDiffMs < YEAR * 2) {
-        const m = Math.round(absDiffMs / MONTH);
-        return `${m} month${m !== 1 ? 's' : ''} ${suffix}`;
+
+    const relYears = year - 1970;
+    const monthFraction = dObj.getUTCMonth() / 12;
+    let yVal;
+    if (relYears >= 0) {
+        yVal = Math.round((relYears + 1 + monthFraction) * 10) / 10;
+    } else {
+        yVal = Math.round((Math.abs(relYears) - monthFraction) * 10) / 10;
     }
-    const y = Math.round(absDiffMs / YEAR * 10) / 10;
-    return `${y} year${y !== 1 ? 's' : ''} ${suffix}`;
+    return `${yVal} year${yVal !== 1 ? 's' : ''} ${suffix}`;
 };
 
 /**
@@ -147,20 +164,35 @@ export const formatRelativeTooltipTime = (unixMs: number): string => {
  */
 export const formatRelativeCompact = (unixMs: number): string => {
     const diffMs = unixMs - ANCHOR_MS;
-    const DAY  = 1000 * 60 * 60 * 24;
-    const MONTH = DAY * 30.4375;
-    const YEAR = DAY * 365.25;
     const absDiffMs = Math.abs(diffMs);
+    const DAY  = 1000 * 60 * 60 * 24;
+    const sign = diffMs >= 0 ? '' : '-';
 
     if (absDiffMs < DAY) return '0d';
-    if (absDiffMs < MONTH * 2) {
-        const d = Math.round(diffMs / DAY);
-        return `${d}d`;
+
+    const dObj = new Date(unixMs);
+    const year = dObj.getUTCFullYear();
+    const month = dObj.getUTCMonth();
+    
+    const relMonths = (year - 1970) * 12 + month;
+    const absMonths = relMonths >= 0 ? relMonths + 1 : Math.abs(relMonths);
+
+    if (Math.abs(relMonths) < 24) {
+        const dOffset = Math.round(diffMs / DAY);
+        const d = dOffset >= 0 ? dOffset + 1 : Math.abs(dOffset);
+        if (Math.abs(dOffset) < 60) {
+            return `${sign}${d}d`;
+        }
+        return `${sign}${absMonths}m`;
     }
-    if (absDiffMs < YEAR * 2) {
-        const m = Math.round(diffMs / MONTH);
-        return `${m}m`;
+
+    const relYears = year - 1970;
+    const monthFraction = dObj.getUTCMonth() / 12;
+    let yVal;
+    if (relYears >= 0) {
+        yVal = Math.round((relYears + 1 + monthFraction) * 10) / 10;
+    } else {
+        yVal = Math.round((Math.abs(relYears) - monthFraction) * 10) / 10;
     }
-    const y = Math.round(diffMs / YEAR * 10) / 10;
-    return `${y}y`;
+    return `${sign}${yVal}y`;
 };

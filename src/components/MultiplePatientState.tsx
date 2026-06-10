@@ -143,7 +143,7 @@ export function MultiplePatientState({ data, zoomLevel = 'years', onDrillDown, c
 
     return (
         <div className="w-full h-full flex flex-col space-y-4 p-4">
-            {categories.map((category: string, index: number) => {
+            {[...categories].reverse().map((category: string, index: number) => {
                 const isLast = index === categories.length - 1;
 
                 return (

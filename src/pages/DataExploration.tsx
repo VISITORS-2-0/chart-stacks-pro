@@ -20,7 +20,14 @@ interface ActiveChart extends MenuItem {
   cutoffs?: number[];
   isBalanced?: boolean;
   patientIds?: string[];
+  isRelative?: boolean;
   relativeEventName?: string;
+  relativeConfig?: RelativeTimeConfig;
+  relativeConfigHistory?: RelativeTimeConfig[];
+  originalStart?: string;
+  originalEnd?: string;
+  viewType?: 'summary' | 'pure';
+  loading?: boolean;
 }
 
 interface DataExplorationProps {
@@ -157,24 +164,21 @@ export function DataExploration({
                 let globalStart: string | number | undefined = undefined;
                 let globalEnd: string | number | undefined = undefined;
 
-                if (isRelativeMode && relativeConfig.reference_concepts?.length) {
-                  // Compute relative boundaries based on deltas
-                  const getMs = (delta: { value: number; unit: string }) => {
-                    const DAY = 1000 * 60 * 60 * 24;
-                    if (delta.unit === 'y') return delta.value * DAY * 365.25;
-                    if (delta.unit === 'm') return delta.value * DAY * 30.4375;
-                    if (delta.unit === 'w') return delta.value * DAY * 7;
-                    if (delta.unit === 'h') return delta.value * 1000 * 60 * 60;
-                    return delta.value * DAY; // 'd'
+                const chartIsRelative = chart.isRelative ?? false;
+                const chartRelativeConfig = chart.relativeConfig;
+
+                if (chartIsRelative && chartRelativeConfig?.reference_concepts?.length) {
+                  // Compute precise UTC relative boundaries
+                  const getMs = (value: number, unit: string) => {
+                    if (unit === 'y') return Date.UTC(1970 + value, 0, 1);
+                    if (unit === 'm') return Date.UTC(1970, value, 1);
+                    return Date.UTC(1970, 0, 1 + value); // 'd'
                   };
-                  // Under the updated schema, start_delta is a signed delta value indicating offset from anchor.
-                  // E.g. start_delta = -24h means 24 hours before the anchor event.
-                  globalStart = ANCHOR_MS + getMs(relativeConfig.start_delta);
-                  globalEnd = ANCHOR_MS + getMs(relativeConfig.end_delta);
+                  globalStart = getMs(chartRelativeConfig.start_delta, chartRelativeConfig.unit);
+                  globalEnd = getMs(chartRelativeConfig.end_delta, chartRelativeConfig.unit);
                 } else {
-                  const { start_date, end_date } = calculateDateRange(timeRange);
-                  globalStart = start_date;
-                  globalEnd = end_date;
+                  globalStart = chart.originalStart || calculateDateRange(timeRange).start_date;
+                  globalEnd = chart.originalEnd || calculateDateRange(timeRange).end_date;
                 }
 
                 return (
@@ -200,6 +204,8 @@ export function DataExploration({
                     isCutoffsBalanced={chart.isBalanced}
                     onApplyCutoffs={(cutoffs, isBalanced) => onApplyCutoffs && onApplyCutoffs(chart.id, cutoffs, isBalanced)}
                     viewType={chart.viewType}
+                    relativeConfigHistory={chart.relativeConfigHistory}
+                    loading={chart.loading}
                   />
                 );
               })}

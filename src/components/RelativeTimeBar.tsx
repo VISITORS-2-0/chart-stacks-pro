@@ -47,6 +47,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useTakMenu } from "@/services/takApi";
 import type { RelativeTimeConfig, RelativeTimeDelta, ReferenceConcept } from "@/api/temporal";
 import { fetchConceptGroups, ConceptGroup } from "@/services/conceptGroupsApi";
@@ -72,20 +73,9 @@ interface RelativeTimeBarProps {
 }
 
 const TIME_UNITS: { value: RelativeTimeDelta["unit"]; label: string; short: string }[] = [
-  { value: "h", label: "Hours", short: "h" },
   { value: "d", label: "Days", short: "d" },
-  { value: "w", label: "Weeks", short: "w" },
   { value: "m", label: "Months", short: "m" },
   { value: "y", label: "Years", short: "y" },
-];
-
-const OCCURRENCE_OPTIONS = [
-  { value: "-1", label: "Last occurrence" },
-  { value: "0", label: "1st occurrence" },
-  { value: "1", label: "2nd occurrence" },
-  { value: "2", label: "3rd occurrence" },
-  { value: "3", label: "4th occurrence" },
-  { value: "4", label: "5th occurrence" },
 ];
 
 // Subcomponent for Autocomplete Dropdown
@@ -150,66 +140,13 @@ function ConceptAutocomplete({
   );
 }
 
-const DeltaInput = ({
-  label,
-  delta,
-  onChange,
-}: {
-  label: string;
-  delta: RelativeTimeDelta;
-  onChange: (d: RelativeTimeDelta) => void;
-}) => {
-  const [valStr, setValStr] = useState(delta.value.toString());
-
-  useEffect(() => {
-    setValStr(delta.value.toString());
-  }, [delta.value]);
-
-  return (
-    <div className="flex flex-col gap-1.5 w-full max-w-[140px]">
-      <Label className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">
-        {label}
-      </Label>
-      <div className="flex gap-1.5 items-center w-full">
-        <Input
-          type="number"
-          value={valStr}
-          onChange={(e) => {
-            const raw = e.target.value;
-            setValStr(raw);
-            const parsed = parseInt(raw, 10);
-            if (!isNaN(parsed)) {
-              onChange({ ...delta, value: parsed });
-            }
-          }}
-          className="w-14 h-8 text-xs text-center bg-background/50 border-muted-foreground/30 focus-visible:ring-primary"
-        />
-        <Select
-          value={delta.unit}
-          onValueChange={(v) => onChange({ ...delta, unit: v as RelativeTimeDelta["unit"] })}
-        >
-          <SelectTrigger className="w-20 h-8 text-xs bg-background/50 border-muted-foreground/30">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="text-xs">
-            {TIME_UNITS.map((u) => (
-              <SelectItem key={u.value} value={u.value}>
-                {u.short}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
-  );
-};
-
-const formatDelta = (d: RelativeTimeDelta) =>
-  `${d.value}${d.unit}`;
+const formatDelta = (val: number, unit: string) =>
+  `${val}${unit}`;
 
 const formatOccurrence = (idx: number) => {
-  const opt = OCCURRENCE_OPTIONS.find((o) => o.value === String(idx));
-  return opt?.label ?? `Occurrence #${idx}`;
+  if (idx === 0) return "First occurrence";
+  if (idx === -1) return "Last occurrence";
+  return `Occurrence #${idx}`;
 };
 
 const getRangeMin = (val?: string): string => {
@@ -254,6 +191,10 @@ export function RelativeTimeBar({
   );
   const [validationError, setValidationError] = useState<string | null>(null);
 
+  const [occurrenceMode, setOccurrenceMode] = useState<'first' | 'last' | 'custom'>(
+    config.occurrence_index === 0 ? 'first' : config.occurrence_index === -1 ? 'last' : 'custom'
+  );
+
   const [conceptDict, setConceptDict] = useState<Record<string, any>>({});
   const [conceptGroups, setConceptGroups] = useState<ConceptGroup[]>([]);
 
@@ -268,6 +209,9 @@ export function RelativeTimeBar({
     );
     setSelectedGroupId(config.selected_group_id || "");
     setValidationError(null);
+    setOccurrenceMode(
+      config.occurrence_index === 0 ? 'first' : config.occurrence_index === -1 ? 'last' : 'custom'
+    );
   }, [config]);
 
   // Load concept values dictionary (like in ManageConceptGroups)
@@ -421,13 +365,15 @@ export function RelativeTimeBar({
     const defaultConfig: RelativeTimeConfig = {
       reference_concepts: [],
       occurrence_index: -1,
-      start_delta: { value: 0, unit: "d" },
-      end_delta: { value: 35, unit: "d" },
+      start_delta: 0,
+      end_delta: 35,
+      unit: "d",
     };
     setDraft(defaultConfig);
     setDraftConcepts([{ concept_name: "", concept_value: undefined }]);
     setSelectedGroupId("");
     setValidationError(null);
+    setOccurrenceMode('last');
     onConfigChange(defaultConfig);
   };
 
@@ -547,9 +493,9 @@ export function RelativeTimeBar({
                   className="h-7 gap-1.5 text-xs font-semibold border-teal-400/60 text-teal-100 bg-teal-900/50"
                 >
                   <CircleDot className="h-3 w-3" />
-                  {formatDelta(config.start_delta)}
+                  {formatDelta(config.start_delta, config.unit)}
                   <ArrowRight className="h-2.5 w-2.5" />
-                  {formatDelta(config.end_delta)}
+                  {formatDelta(config.end_delta, config.unit)}
                 </Badge>
               </div>
             ) : (
@@ -764,43 +710,134 @@ export function RelativeTimeBar({
                     <hr className="border-border" />
 
                     {/* Occurrence Index & Time Window Section - Smaller, comfortable layout */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
                       {/* Occurrence Index */}
-                      <div className="space-y-2">
-                        <Label htmlFor="occurrence-select" className="text-sm font-semibold">Occurrence</Label>
-                        <Select
-                          value={String(draft.occurrence_index)}
-                          onValueChange={(v) =>
-                            setDraft((d) => ({ ...d, occurrence_index: parseInt(v) }))
-                          }
+                      <div className="space-y-3">
+                        <Label className="text-sm font-semibold block">Occurrence</Label>
+                        <RadioGroup
+                          value={occurrenceMode}
+                          onValueChange={(v) => {
+                            const mode = v as 'first' | 'last' | 'custom';
+                            setOccurrenceMode(mode);
+                            if (mode === "first") {
+                              setDraft((d) => ({ ...d, occurrence_index: 0 }));
+                            } else if (mode === "last") {
+                              setDraft((d) => ({ ...d, occurrence_index: -1 }));
+                            } else {
+                              setDraft((d) => {
+                                const current = d.occurrence_index;
+                                const defaultVal = (current === 0 || current === -1) ? 1 : current;
+                                return { ...d, occurrence_index: defaultVal };
+                              });
+                            }
+                          }}
+                          className="flex items-center gap-4"
                         >
-                          <SelectTrigger id="occurrence-select" className="h-8 text-xs w-[200px] bg-background/50 border-muted-foreground/30">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="text-xs">
-                            {OCCURRENCE_OPTIONS.map((opt) => (
-                              <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                                {opt.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          <div className="flex items-center space-x-1.5">
+                            <RadioGroupItem value="first" id="occurrence-first" />
+                            <Label htmlFor="occurrence-first" className="text-xs font-medium cursor-pointer">
+                              First
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-1.5">
+                            <RadioGroupItem value="last" id="occurrence-last" />
+                            <Label htmlFor="occurrence-last" className="text-xs font-medium cursor-pointer">
+                              Last
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-1.5">
+                            <RadioGroupItem value="custom" id="occurrence-custom" />
+                            <Label htmlFor="occurrence-custom" className="text-xs font-medium cursor-pointer">
+                              Custom
+                            </Label>
+                          </div>
+                        </RadioGroup>
+
+                        {/* Readonly/Editable Sent Value Input */}
+                        <div className="flex items-center gap-2 max-w-[200px]">
+                          <Label htmlFor="occurrence-input" className="text-xs text-muted-foreground whitespace-nowrap">
+                            Sent value:
+                          </Label>
+                          <Input
+                            id="occurrence-input"
+                            type="number"
+                            value={draft.occurrence_index}
+                            readOnly={occurrenceMode !== "custom"}
+                            onChange={(e) => {
+                              const parsed = parseInt(e.target.value, 10);
+                              if (!isNaN(parsed)) {
+                                setDraft((d) => ({ ...d, occurrence_index: parsed }));
+                              }
+                            }}
+                            className={cn(
+                              "h-8 text-xs text-center w-20 bg-background/50 border-muted-foreground/30 focus-visible:ring-primary",
+                              occurrenceMode !== "custom" && "opacity-75 bg-muted cursor-not-allowed"
+                            )}
+                          />
+                        </div>
                       </div>
 
                       {/* Time window */}
-                      <div className="space-y-2">
-                        <Label className="text-sm font-semibold">Time Window (after event)</Label>
-                        <div className="flex gap-4">
-                          <DeltaInput
-                            label="From"
-                            delta={draft.start_delta}
-                            onChange={(d) => setDraft((prev) => ({ ...prev, start_delta: d }))}
-                          />
-                          <DeltaInput
-                            label="To"
-                            delta={draft.end_delta}
-                            onChange={(d) => setDraft((prev) => ({ ...prev, end_delta: d }))}
-                          />
+                      <div className="space-y-3">
+                        <Label className="text-sm font-semibold block">Time Window (after event)</Label>
+                        <div className="flex gap-4 items-end flex-wrap">
+                          <div className="flex flex-col gap-1.5 w-full max-w-[100px]">
+                            <Label htmlFor="start-delta-input" className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider pl-0.5">
+                              From
+                            </Label>
+                            <Input
+                              id="start-delta-input"
+                              type="number"
+                              value={draft.start_delta}
+                              onChange={(e) => {
+                                const parsed = parseInt(e.target.value, 10);
+                                if (!isNaN(parsed)) {
+                                  setDraft((prev) => ({ ...prev, start_delta: parsed }));
+                                }
+                              }}
+                              className="h-8 text-xs text-center bg-background/50 border-muted-foreground/30 focus-visible:ring-primary"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1.5 w-full max-w-[100px]">
+                            <Label htmlFor="end-delta-input" className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider pl-0.5">
+                              To
+                            </Label>
+                            <Input
+                              id="end-delta-input"
+                              type="number"
+                              value={draft.end_delta}
+                              onChange={(e) => {
+                                const parsed = parseInt(e.target.value, 10);
+                                if (!isNaN(parsed)) {
+                                  setDraft((prev) => ({ ...prev, end_delta: parsed }));
+                                }
+                              }}
+                              className="h-8 text-xs text-center bg-background/50 border-muted-foreground/30 focus-visible:ring-primary"
+                            />
+                          </div>
+
+                          <div className="flex flex-col gap-1.5 w-full max-w-[120px]">
+                            <Label htmlFor="relative-unit-select" className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider pl-0.5">
+                              Unit
+                            </Label>
+                            <Select
+                              value={draft.unit}
+                              onValueChange={(v) =>
+                                setDraft((prev) => ({ ...prev, unit: v as RelativeTimeConfig["unit"] }))
+                              }
+                            >
+                              <SelectTrigger id="relative-unit-select" className="w-full h-8 text-xs bg-background/50 border-muted-foreground/30">
+                                <SelectValue placeholder="Select unit..." />
+                              </SelectTrigger>
+                              <SelectContent className="text-xs">
+                                {TIME_UNITS.map((u) => (
+                                  <SelectItem key={u.value} value={u.value}>
+                                    {u.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-1">
                           Use negative numbers to capture events <em>before</em> reference.

@@ -14,9 +14,11 @@ interface PatientMultiLineChartProps {
     globalStart?: string | number;
     globalEnd?: string | number;
     onVisibleRangeChange?: (date: Date) => void;
+    isMultiPatient?: boolean;
 }
 
-export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, onDrillDown, onZoomOut, isRelative = false, relativeGranularity = 'YE', globalStart, globalEnd, onVisibleRangeChange }: PatientMultiLineChartProps) {
+export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, onDrillDown, onZoomOut, isRelative = false, relativeGranularity = 'YE', globalStart, globalEnd, onVisibleRangeChange, isMultiPatient = false }: PatientMultiLineChartProps) {
+    const isScrollEnabled = isRelative ? (!isMultiPatient && !!focusDate) : true;
     const scrollRef = useRef<HTMLDivElement>(null);
     // Shared X-Axis logic: Use numeric timestamps to allow precise plotting
     const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
@@ -165,103 +167,136 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
         let minTime = 0;
         let maxTime = 100;
 
-        if (zoomLevel === 'days' && focusDate) {
-            minTime = new Date(focusDate.getFullYear(), 0, 1).getTime();
-            maxTime = new Date(focusDate.getFullYear(), 11, 31, 23, 59, 59).getTime();
-        } else if (globalStart !== undefined && globalEnd !== undefined) {
-            minTime = new Date(globalStart).getTime();
-            maxTime = new Date(globalEnd).getTime();
-        } else if (scatterData.length > 0) {
-            const timestamps = scatterData.map(d => d.x);
-            minTime = Math.min(...timestamps);
-            maxTime = Math.max(...timestamps);
+        if (isRelative) {
+            const isScrollEnabled = !isMultiPatient && !!focusDate;
+            if (isScrollEnabled && zoomLevel === 'days' && focusDate) {
+                minTime = new Date(focusDate.getFullYear(), 0, 1).getTime();
+                maxTime = new Date(focusDate.getFullYear(), 11, 31, 23, 59, 59).getTime();
+            } else {
+                minTime = new Date(globalStart!).getTime();
+                maxTime = new Date(globalEnd!).getTime();
+            }
         } else {
-            return { detailAxisTicks: [], contextAxisTicks: [], xDomain: ['dataMin', 'dataMax'] };
+            if (zoomLevel === 'days' && focusDate) {
+                minTime = new Date(focusDate.getFullYear(), 0, 1).getTime();
+                maxTime = new Date(focusDate.getFullYear(), 11, 31, 23, 59, 59).getTime();
+            } else if (globalStart !== undefined && globalEnd !== undefined) {
+                minTime = new Date(globalStart).getTime();
+                maxTime = new Date(globalEnd).getTime();
+            } else if (scatterData.length > 0) {
+                const timestamps = scatterData.map(d => d.x);
+                minTime = Math.min(...timestamps);
+                maxTime = Math.max(...timestamps);
+            }
         }
 
         const minDate = new Date(minTime);
         const maxDate = new Date(maxTime);
 
-        // Determine bounds based on bucket start of minDate and bucket end of maxDate
-        // focusDate is now only used for auto-scrolling to the clicked point
-
         let domainStart = minTime;
         let domainEnd = maxTime;
 
-        if (zoomLevel === 'years') {
-            domainStart = new Date(minDate.getFullYear(), 0, 1).getTime();
-            domainEnd = new Date(maxDate.getFullYear(), 11, 31, 23, 59, 59).getTime();
-        } else if (zoomLevel === 'months') {
-            domainStart = new Date(minDate.getFullYear(), minDate.getMonth(), 1).getTime();
-            const lastDay = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 0).getDate();
-            domainEnd = new Date(maxDate.getFullYear(), maxDate.getMonth(), lastDay, 23, 59, 59).getTime();
+        if (isRelative) {
+            domainStart = minTime;
+            domainEnd = maxTime;
         } else {
-            // days
-            domainStart = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate()).getTime();
-            domainEnd = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate(), 23, 59, 59).getTime();
+            if (zoomLevel === 'years') {
+                domainStart = new Date(minDate.getFullYear(), 0, 1).getTime();
+                domainEnd = new Date(maxDate.getFullYear(), 11, 31, 23, 59, 59).getTime();
+            } else if (zoomLevel === 'months') {
+                domainStart = new Date(minDate.getFullYear(), minDate.getMonth(), 1).getTime();
+                const lastDay = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 0).getDate();
+                domainEnd = new Date(maxDate.getFullYear(), maxDate.getMonth(), lastDay, 23, 59, 59).getTime();
+            } else {
+                // days
+                domainStart = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate()).getTime();
+                domainEnd = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate(), 23, 59, 59).getTime();
+            }
         }
 
         const detailTicks: number[] = [];
         const contextTicks: number[] = [];
 
-        const startYear = minDate.getFullYear();
-        const endYear = maxDate.getFullYear();
+        if (isRelative) {
+            const dayStep = 24 * 60 * 60 * 1000;
+            const monthStep = 30.4375 * dayStep;
+            const yearStep = 365.25 * dayStep;
 
-        if (zoomLevel === 'years') {
-            // Detail: Years
-            for (let y = startYear; y <= endYear + 1; y++) {
-                detailTicks.push(new Date(y, 0, 1).getTime());
+            let step = dayStep;
+            if (zoomLevel === 'years') step = yearStep;
+            else if (zoomLevel === 'months') step = monthStep;
+
+            let firstTick = Math.ceil(domainStart / step) * step;
+            if (firstTick - step >= domainStart) {
+                firstTick -= step;
             }
 
-        } else if (zoomLevel === 'months') {
-            // Context: Year
-            for (let y = startYear; y <= endYear; y++) {
-                const yearStart = new Date(y, 0, 1).getTime();
-                const yearEnd = new Date(y, 11, 31, 23, 59, 59).getTime();
-                const visibleStart = Math.max(yearStart, domainStart);
-                const visibleEnd = Math.min(yearEnd, domainEnd);
-
-                if (visibleStart <= visibleEnd) {
-                    // Stick to the left side of the bucket
-                    contextTicks.push(visibleStart);
+            for (let t = firstTick; t <= domainEnd; t += step) {
+                if (t >= domainStart && t <= domainEnd) {
+                    detailTicks.push(t);
                 }
+            }
 
-                // Detail: Months
-                for (let m = 0; m < 12; m++) {
-                    const monthTickTime = new Date(y, m, 1).getTime();
-                    if (monthTickTime >= domainStart && monthTickTime <= domainEnd) {
-                        detailTicks.push(monthTickTime);
+            if (zoomLevel === 'days') {
+                const firstContextTick = Math.ceil(domainStart / monthStep) * monthStep;
+                for (let t = firstContextTick; t <= domainEnd; t += monthStep) {
+                    if (t >= domainStart && t <= domainEnd) {
+                        contextTicks.push(t);
                     }
                 }
             }
         } else {
-            // zoomLevel === 'days'
-            for (let y = startYear; y <= endYear; y++) {
-                for (let m = 0; m < 12; m++) {
-                    // Context: Month
-                    const monthStart = new Date(y, m, 1).getTime();
-                    const monthEnd = new Date(y, m + 1, 0, 23, 59, 59).getTime();
-                    const visibleStart = Math.max(monthStart, domainStart);
-                    const visibleEnd = Math.min(monthEnd, domainEnd);
+            const startYear = minDate.getFullYear();
+            const endYear = maxDate.getFullYear();
+
+            if (zoomLevel === 'years') {
+                for (let y = startYear; y <= endYear + 1; y++) {
+                    detailTicks.push(new Date(y, 0, 1).getTime());
+                }
+            } else if (zoomLevel === 'months') {
+                for (let y = startYear; y <= endYear; y++) {
+                    const yearStart = new Date(y, 0, 1).getTime();
+                    const yearEnd = new Date(y, 11, 31, 23, 59, 59).getTime();
+                    const visibleStart = Math.max(yearStart, domainStart);
+                    const visibleEnd = Math.min(yearEnd, domainEnd);
 
                     if (visibleStart <= visibleEnd) {
-                        // Stick to the left side of the bucket
                         contextTicks.push(visibleStart);
                     }
 
-                    const lastDay = new Date(y, m + 1, 0).getDate();
-                    // Detail: Days
-                    for (let d = 1; d <= lastDay; d++) {
-                        const tickTime = new Date(y, m, d).getTime();
-                        if (tickTime >= domainStart && tickTime <= domainEnd) {
-                            detailTicks.push(tickTime);
+                    for (let m = 0; m < 12; m++) {
+                        const monthTickTime = new Date(y, m, 1).getTime();
+                        if (monthTickTime >= domainStart && monthTickTime <= domainEnd) {
+                            detailTicks.push(monthTickTime);
+                        }
+                    }
+                }
+            } else {
+                for (let y = startYear; y <= endYear; y++) {
+                    for (let m = 0; m < 12; m++) {
+                        const monthStart = new Date(y, m, 1).getTime();
+                        const monthEnd = new Date(y, m + 1, 0, 23, 59, 59).getTime();
+                        const visibleStart = Math.max(monthStart, domainStart);
+                        const visibleEnd = Math.min(monthEnd, domainEnd);
+
+                        if (visibleStart <= visibleEnd) {
+                            contextTicks.push(visibleStart);
+                        }
+
+                        const lastDay = new Date(y, m + 1, 0).getDate();
+                        for (let d = 1; d <= lastDay; d++) {
+                            const tickTime = new Date(y, m, d).getTime();
+                            if (tickTime >= domainStart && tickTime <= domainEnd) {
+                                detailTicks.push(tickTime);
+                            }
                         }
                     }
                 }
             }
         }
+
         return { detailAxisTicks: detailTicks, contextAxisTicks: contextTicks, xDomain: [domainStart, domainEnd] };
-    }, [scatterData, zoomLevel]);
+    }, [scatterData, zoomLevel, globalStart, globalEnd, focusDate, isRelative, isMultiPatient]);
 
     const bottomMargin = useMemo(() => (contextAxisTicks.length > 0 ? 40 : 22), [contextAxisTicks]);
 
@@ -603,8 +638,8 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
                 </div>
 
                 {/* Scrollable Chart */}
-                <div ref={scrollRef} className="flex-1 h-[380px] overflow-x-auto overflow-y-hidden custom-scrollbar" onScroll={onContainerScroll}>
-                    <div style={{ width: `${chartWidth}px`, minWidth: `${chartWidth}px`, height: '380px' }}>
+                <div ref={scrollRef} className={`flex-1 h-[380px] ${isScrollEnabled ? 'overflow-x-auto' : 'overflow-x-hidden'} overflow-y-hidden custom-scrollbar`} onScroll={onContainerScroll}>
+                    <div style={{ width: isScrollEnabled ? `${chartWidth}px` : '100%', minWidth: isScrollEnabled ? `${chartWidth}px` : '100%', height: '380px' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <ScatterChart
                                 data={scatterData}

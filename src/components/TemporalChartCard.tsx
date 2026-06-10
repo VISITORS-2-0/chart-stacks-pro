@@ -1,4 +1,4 @@
-import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Clock } from "lucide-react";
+import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Clock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -10,11 +10,13 @@ import { PatientContinuousIntervalChart } from "./PatientContinuousIntervalChart
 import { PatientMultiLineChart } from "./PatientMultiLineChart";
 import { SinglePatientAbstractionPanel, AbstractionInterval, ValueLevel } from "./SinglePatientAbstractionPanel";
 import { RangeCutoffConfig } from "./RangeCutoffConfig";
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { GraphContextModal } from "./GraphContextModal";
 import { MappingAbstractionsModal } from "./MappingAbstractionsModal";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { RelativeTimeConfig } from "@/api/temporal";
+import { formatRelativeTime } from "@/utils/dateUtils";
 
 export type ZoomLevel = 'years' | 'months' | 'days';
 
@@ -39,6 +41,8 @@ interface TemporalChartCardProps {
     globalStart?: string | number;
     globalEnd?: string | number;
     viewType?: 'summary' | 'pure';
+    relativeConfigHistory?: RelativeTimeConfig[];
+    loading?: boolean;
 }
 
 export function TemporalChartCard({
@@ -62,6 +66,8 @@ export function TemporalChartCard({
     globalStart,
     globalEnd,
     viewType,
+    relativeConfigHistory,
+    loading: externalLoading,
 }: TemporalChartCardProps) {
     const isMultiPatient = patientIds ? patientIds.length > 1 : false;
 
@@ -82,6 +88,23 @@ export function TemporalChartCard({
     );
     const [focusDate, setFocusDate] = useState<Date | null>(null);
     const [scrolledFocusDate, setScrolledFocusDate] = useState<Date | null>(null);
+
+    useEffect(() => {
+        if (currentInterval) {
+            setZoomLevel(
+                currentInterval === 'D' ? 'days' :
+                currentInterval === 'ME' ? 'months' : 'years'
+            );
+        }
+    }, [currentInterval]);
+
+    useEffect(() => {
+        if (isRelative) {
+            if (!relativeConfigHistory || relativeConfigHistory.length === 0) {
+                setFocusDate(null);
+            }
+        }
+    }, [relativeConfigHistory, isRelative]);
 
     const handleVisibleRangeChange = useCallback((date: Date) => {
         setScrolledFocusDate(date);
@@ -104,7 +127,7 @@ export function TemporalChartCard({
 
     // prioritized external data if available
     const data = externalData || hookData;
-    const loading = externalData ? false : hookLoading;
+    const loading = externalLoading !== undefined ? externalLoading : (externalData ? false : hookLoading);
     const error = externalData ? null : hookError;
 
     const globalBounds = useMemo(() => {
@@ -165,12 +188,13 @@ export function TemporalChartCard({
         // to avoid loading too many data points and causing lag.
         if (isRaw) {
             if (zoomLevel === 'days' && focusDate) {
-                const targetYear = focusDate.getFullYear();
+                const targetYear = isRelative ? focusDate.getUTCFullYear() : focusDate.getFullYear();
                 return data.filter((row: any) => {
                     if (row.StartTime) {
                         const rowStart = new Date(row.StartTime);
                         if (isNaN(rowStart.getTime())) return false;
-                        return rowStart.getFullYear() === targetYear;
+                        const rowYear = isRelative ? rowStart.getUTCFullYear() : rowStart.getFullYear();
+                        return rowYear === targetYear;
                     }
                     return false;
                 });
@@ -179,6 +203,7 @@ export function TemporalChartCard({
         }
 
         if (zoomLevel === 'years') return data;
+        if (!isRaw && isMultiPatient) return data;
         if (!focusDate) return data;
 
         return data.filter((row: any) => {
@@ -195,13 +220,21 @@ export function TemporalChartCard({
                 }
 
                 if (zoomLevel === 'months') {
-                    const viewStart = new Date(focusDate.getFullYear(), 0, 1).getTime();
-                    const viewEnd = new Date(focusDate.getFullYear(), 11, 31, 23, 59, 59, 999).getTime();
+                    const viewStart = isRelative
+                        ? Date.UTC(focusDate.getUTCFullYear(), 0, 1)
+                        : new Date(focusDate.getFullYear(), 0, 1).getTime();
+                    const viewEnd = isRelative
+                        ? Date.UTC(focusDate.getUTCFullYear(), 11, 31, 23, 59, 59, 999)
+                        : new Date(focusDate.getFullYear(), 11, 31, 23, 59, 59, 999).getTime();
                     return rowStart.getTime() <= viewEnd && rowEnd.getTime() >= viewStart;
                 }
                 if (zoomLevel === 'days') {
-                    const viewStart = new Date(focusDate.getFullYear(), focusDate.getMonth(), 1).getTime();
-                    const viewEnd = new Date(focusDate.getFullYear(), focusDate.getMonth() + 1, 0, 23, 59, 59, 999).getTime();
+                    const viewStart = isRelative
+                        ? Date.UTC(focusDate.getUTCFullYear(), focusDate.getUTCMonth(), 1)
+                        : new Date(focusDate.getFullYear(), focusDate.getMonth(), 1).getTime();
+                    const viewEnd = isRelative
+                        ? Date.UTC(focusDate.getUTCFullYear(), focusDate.getUTCMonth() + 1, 0, 23, 59, 59, 999)
+                        : new Date(focusDate.getFullYear(), focusDate.getMonth() + 1, 0, 23, 59, 59, 999).getTime();
                     return rowStart.getTime() <= viewEnd && rowEnd.getTime() >= viewStart;
                 }
                 return true;
@@ -211,17 +244,20 @@ export function TemporalChartCard({
                 const rowYear = parseInt(parts[0], 10);
 
                 if (zoomLevel === 'months') {
-                    return rowYear === focusDate.getFullYear();
+                    const targetYear = isRelative ? focusDate.getUTCFullYear() : focusDate.getFullYear();
+                    return rowYear === targetYear;
                 }
                 if (zoomLevel === 'days') {
+                    const targetYear = isRelative ? focusDate.getUTCFullYear() : focusDate.getFullYear();
+                    const targetMonth = isRelative ? focusDate.getUTCMonth() : focusDate.getMonth();
                     const rowMonth = parts.length > 1 ? parseInt(parts[1], 10) - 1 : 0;
-                    return rowYear === focusDate.getFullYear() && rowMonth === focusDate.getMonth();
+                    return rowYear === targetYear && rowMonth === targetMonth;
                 }
                 return true;
             }
             return false;
         });
-    }, [data, zoomLevel, focusDate, onDrillDown]);
+    }, [data, zoomLevel, focusDate, onDrillDown, isRelative, isRaw]);
 
     // Data Transformation for SinglePatientAbstractionPanel
     const { abstractionIntervals, valueLevels } = useMemo(() => {
@@ -255,6 +291,7 @@ export function TemporalChartCard({
     }, [filteredData, conceptData, chartType]);
 
     const handleDrillDown = (dateStr: string) => {
+        if (loading) return;
         const clickedDate = new Date(dateStr);
         if (isNaN(clickedDate.getTime())) return;
 
@@ -262,10 +299,14 @@ export function TemporalChartCard({
         let targetDate = clickedDate;
         if (zoomLevel === 'years') {
             // We are drilling down to 'months', so force focusDate to Jan 1st of that year
-            targetDate = new Date(clickedDate.getFullYear(), 0, 1);
+            targetDate = isRelative
+                ? new Date(Date.UTC(clickedDate.getUTCFullYear(), 0, 1))
+                : new Date(clickedDate.getFullYear(), 0, 1);
         } else if (zoomLevel === 'months') {
             // We are drilling down to 'days', so force focusDate to the 1st of that month
-            targetDate = new Date(clickedDate.getFullYear(), clickedDate.getMonth(), 1);
+            targetDate = isRelative
+                ? new Date(Date.UTC(clickedDate.getUTCFullYear(), clickedDate.getUTCMonth(), 1))
+                : new Date(clickedDate.getFullYear(), clickedDate.getMonth(), 1);
         }
         setFocusDate(targetDate);
         setScrolledFocusDate(null);
@@ -284,6 +325,7 @@ export function TemporalChartCard({
     };
 
     const handleZoomOut = () => {
+        if (loading) return;
         if (onZoomOut) {
             onZoomOut(zoomLevel);
             // Manually revert local zoom state?
@@ -319,9 +361,13 @@ export function TemporalChartCard({
         } else if (firstRow.month) {
             const parts = firstRow.month.split('-');
             if (parts.length >= 2) {
-                dateVal = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
+                dateVal = isRelative
+                    ? new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1))
+                    : new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
             } else {
-                dateVal = new Date(parseInt(parts[0], 10), 0, 1);
+                dateVal = isRelative
+                    ? new Date(Date.UTC(parseInt(parts[0], 10), 0, 1))
+                    : new Date(parseInt(parts[0], 10), 0, 1);
             }
         }
         if (!dateVal || isNaN(dateVal.getTime())) {
@@ -329,31 +375,45 @@ export function TemporalChartCard({
             return !isNaN(fallbackDate.getTime()) ? fallbackDate : new Date();
         }
         return dateVal;
-    }, [scrolledFocusDate, focusDate, filteredData, globalStart]);
+    }, [scrolledFocusDate, focusDate, filteredData, globalStart, isRelative]);
 
     const handleNavigateWrapper = (dir: 'next' | 'prev', type: 'month' | 'year' = 'month') => {
         let currentFocus = getCurrentFocus();
 
-        const y = currentFocus.getFullYear();
-        const m = currentFocus.getMonth();
+        const y = isRelative ? currentFocus.getUTCFullYear() : currentFocus.getFullYear();
+        const m = isRelative ? currentFocus.getUTCMonth() : currentFocus.getMonth();
         let newFocus: Date;
         
         if (zoomLevel === 'months') {
             // In months zoom, arrows navigate by year. Align directly to Jan 1st of target year.
-            newFocus = new Date(y + (dir === 'next' ? 1 : -1), 0, 1);
+            newFocus = isRelative
+                ? new Date(Date.UTC(y + (dir === 'next' ? 1 : -1), 0, 1))
+                : new Date(y + (dir === 'next' ? 1 : -1), 0, 1);
         } else if (zoomLevel === 'days') {
             // In days zoom, align to 1st of target month/year.
             if (type === 'year') {
-                newFocus = new Date(y + (dir === 'next' ? 1 : -1), m, 1);
+                newFocus = isRelative
+                    ? new Date(Date.UTC(y + (dir === 'next' ? 1 : -1), m, 1))
+                    : new Date(y + (dir === 'next' ? 1 : -1), m, 1);
             } else {
-                newFocus = new Date(y, m + (dir === 'next' ? 1 : -1), 1);
+                newFocus = isRelative
+                    ? new Date(Date.UTC(y, m + (dir === 'next' ? 1 : -1), 1))
+                    : new Date(y, m + (dir === 'next' ? 1 : -1), 1);
             }
         } else {
             newFocus = new Date(currentFocus);
             if (type === 'year') {
-                newFocus.setFullYear(y + (dir === 'next' ? 1 : -1));
+                if (isRelative) {
+                    newFocus = new Date(Date.UTC(y + (dir === 'next' ? 1 : -1), m, currentFocus.getUTCDate()));
+                } else {
+                    newFocus.setFullYear(y + (dir === 'next' ? 1 : -1));
+                }
             } else {
-                newFocus.setMonth(m + (dir === 'next' ? 1 : -1));
+                if (isRelative) {
+                    newFocus = new Date(Date.UTC(y, m + (dir === 'next' ? 1 : -1), currentFocus.getUTCDate()));
+                } else {
+                    newFocus.setMonth(m + (dir === 'next' ? 1 : -1));
+                }
             }
         }
         setFocusDate(newFocus);
@@ -366,8 +426,11 @@ export function TemporalChartCard({
     const isNavDisabled = (dir: 'next' | 'prev', type: 'month' | 'year' = 'month') => {
         if (!navMinDate || !navMaxDate) return false;
         const currentFocus = getCurrentFocus();
-        let y = currentFocus.getFullYear();
-        let m = currentFocus.getMonth();
+        let y = isRelative ? currentFocus.getUTCFullYear() : currentFocus.getFullYear();
+        let m = isRelative ? currentFocus.getUTCMonth() : currentFocus.getMonth();
+
+        const limitYear = isRelative ? (dir === 'next' ? navMaxDate.getUTCFullYear() : navMinDate.getUTCFullYear()) : (dir === 'next' ? navMaxDate.getFullYear() : navMinDate.getFullYear());
+        const limitMonth = isRelative ? (dir === 'next' ? navMaxDate.getUTCMonth() : navMinDate.getUTCMonth()) : (dir === 'next' ? navMaxDate.getMonth() : navMinDate.getMonth());
 
         if (type === 'year') {
             y += (dir === 'next' ? 1 : -1);
@@ -382,11 +445,11 @@ export function TemporalChartCard({
         }
 
         if (dir === 'next') {
-            if (y > navMaxDate.getFullYear()) return true;
-            if (y === navMaxDate.getFullYear() && zoomLevel === 'days' && m > navMaxDate.getMonth()) return true;
+            if (y > limitYear) return true;
+            if (y === limitYear && zoomLevel === 'days' && m > limitMonth) return true;
         } else {
-            if (y < navMinDate.getFullYear()) return true;
-            if (y === navMinDate.getFullYear() && zoomLevel === 'days' && m < navMinDate.getMonth()) return true;
+            if (y < limitYear) return true;
+            if (y === limitYear && zoomLevel === 'days' && m < limitMonth) return true;
         }
         return false;
     };
@@ -394,6 +457,11 @@ export function TemporalChartCard({
     const getNavigationLabel = () => {
         const d = scrolledFocusDate || focusDate;
         if (d) {
+            if (isRelative) {
+                return zoomLevel === 'months'
+                    ? formatRelativeTime(d.getTime(), 'YE')
+                    : formatRelativeTime(d.getTime(), 'ME');
+            }
             return zoomLevel === 'months'
                 ? d.getFullYear().toString()
                 : d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
@@ -407,9 +475,9 @@ export function TemporalChartCard({
             if (row.StartTime) t = new Date(row.StartTime).getTime();
             else if (row.month) {
                 const parts = row.month.split('-');
-                if (parts.length === 3) t = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
-                else if (parts.length === 2) t = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1).getTime();
-                else t = new Date(parseInt(parts[0]), 0, 1).getTime();
+                if (parts.length === 3) t = isRelative ? Date.UTC(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])) : new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                else if (parts.length === 2) t = isRelative ? Date.UTC(parseInt(parts[0]), parseInt(parts[1]) - 1, 1) : new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1).getTime();
+                else t = isRelative ? Date.UTC(parseInt(parts[0]), 0, 1) : new Date(parseInt(parts[0]), 0, 1).getTime();
             }
             if (!isNaN(t)) {
                 if (t < minTime) minTime = t;
@@ -423,9 +491,21 @@ export function TemporalChartCard({
         const maxD = new Date(maxTime);
 
         if (zoomLevel === 'months') {
+            if (isRelative) {
+                const minStr = formatRelativeTime(minD.getTime(), 'YE');
+                const maxStr = formatRelativeTime(maxD.getTime(), 'YE');
+                if (minStr === maxStr) return minStr;
+                return `${minStr} - ${maxStr}`;
+            }
             if (minD.getFullYear() === maxD.getFullYear()) return minD.getFullYear().toString();
             return `${minD.getFullYear()}-${maxD.getFullYear()}`;
         } else if (zoomLevel === 'days') {
+            if (isRelative) {
+                const minStr = formatRelativeTime(minD.getTime(), 'ME');
+                const maxStr = formatRelativeTime(maxD.getTime(), 'ME');
+                if (minStr === maxStr) return minStr;
+                return `${minStr} - ${maxStr}`;
+            }
             const minStr = minD.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
             const maxStr = maxD.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
             if (minStr === maxStr) return minStr;
@@ -552,12 +632,13 @@ export function TemporalChartCard({
                             onApply={onApplyCutoffs}
                         />
                     )}
-                    {zoomLevel !== 'years' && (
+                    {((isRelative ? (relativeConfigHistory && relativeConfigHistory.length > 0) : (zoomLevel !== 'years'))) && (
                         <Button
                             variant="outline"
                             size="sm"
                             className="h-8 gap-1"
                             onClick={handleZoomOut}
+                            disabled={loading}
                         >
                             <ZoomOut className="h-3 w-3" />
                             Zoom Out
@@ -574,77 +655,88 @@ export function TemporalChartCard({
                     </Button>
                 </div>
             </CardHeader>
-            <CardContent className="flex-1 min-h-0 px-2 pb-0 pt-0">
-                {loading && <div className="h-full flex items-center justify-center text-blue-600">Loading temporal data...</div>}
+            <CardContent className="flex-1 min-h-0 px-2 pb-0 pt-0 relative">
                 {error && <div className="h-full flex items-center justify-center text-red-600">Error: {error.message}</div>}
 
-                {!loading && !error && (
-                    chartType === 'continuous-interval' ? (
-                        <PatientContinuousIntervalChart
-                            data={data as any || []}
-                            zoomLevel={zoomLevel}
-                            onDrillDown={handleDrillDown}
-                            conceptData={conceptData}
-                            focusDate={focusDate}
-                            isRelative={isRelative}
-                            relativeGranularity={relativeGranularity}
-                            globalStart={globalStart}
-                            globalEnd={globalEnd}
-                            onVisibleRangeChange={handleVisibleRangeChange}
-                        />
-                    ) : isRaw ? (
-                        <PatientMultiLineChart
-                            data={(filteredData as any) || []}
-                            zoomLevel={zoomLevel}
-                            focusDate={focusDate}
-                            onDrillDown={handleDrillDown}
-                            onZoomOut={handleZoomOut}
-                            isRelative={isRelative}
-                            relativeGranularity={relativeGranularity}
-                            globalStart={globalStart}
-                            globalEnd={globalEnd}
-                            onVisibleRangeChange={handleVisibleRangeChange}
-                        />
-                    ) : viewType === 'pure' ? (
-                        <PatientMultiStateGantt
-                            data={data as any || []}
-                            zoomLevel={zoomLevel}
-                            onDrillDown={handleDrillDown}
-                            conceptData={conceptData}
-                            focusDate={focusDate}
-                            isRelative={isRelative}
-                            relativeGranularity={relativeGranularity}
-                            globalStart={globalStart}
-                            globalEnd={globalEnd}
-                            onVisibleRangeChange={handleVisibleRangeChange}
-                        />
-                    ) : chartType === 'bar' ? (
-                        <PatientStateGantt
-                            data={data as any || []}
-                            zoomLevel={zoomLevel}
-                            onDrillDown={handleDrillDown}
-                            conceptData={conceptData}
-                            focusDate={focusDate}
-                            isRelative={isRelative}
-                            relativeGranularity={relativeGranularity}
-                            globalStart={globalStart}
-                            globalEnd={globalEnd}
-                            onVisibleRangeChange={handleVisibleRangeChange}
-                        />
-                    ) : (
-                        <PatientStatusAnalytics
-                            data={(filteredData as any) || []}
-                            zoomLevel={zoomLevel}
-                            focusDate={focusDate}
-                            onDrillDown={handleDrillDown}
-                            conceptData={conceptData}
-                            onNavigate={handleNavigateWrapper}
-                            isRelative={isRelative}
-                            relativeGranularity={relativeGranularity}
-                            globalStart={globalStart}
-                            globalEnd={globalEnd}
-                        />
-                    )
+                {!error && (
+                    <>
+                        {loading && (
+                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-[1px]">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            </div>
+                        )}
+                        {chartType === 'continuous-interval' ? (
+                            <PatientContinuousIntervalChart
+                                data={data as any || []}
+                                zoomLevel={zoomLevel}
+                                onDrillDown={handleDrillDown}
+                                conceptData={conceptData}
+                                focusDate={focusDate}
+                                isRelative={isRelative}
+                                relativeGranularity={relativeGranularity}
+                                globalStart={globalStart}
+                                globalEnd={globalEnd}
+                                onVisibleRangeChange={handleVisibleRangeChange}
+                                isMultiPatient={isMultiPatient}
+                            />
+                        ) : isRaw ? (
+                            <PatientMultiLineChart
+                                data={(filteredData as any) || []}
+                                zoomLevel={zoomLevel}
+                                focusDate={focusDate}
+                                onDrillDown={handleDrillDown}
+                                onZoomOut={handleZoomOut}
+                                isRelative={isRelative}
+                                relativeGranularity={relativeGranularity}
+                                globalStart={globalStart}
+                                globalEnd={globalEnd}
+                                onVisibleRangeChange={handleVisibleRangeChange}
+                                isMultiPatient={isMultiPatient}
+                            />
+                        ) : viewType === 'pure' ? (
+                            <PatientMultiStateGantt
+                                data={data as any || []}
+                                zoomLevel={zoomLevel}
+                                onDrillDown={handleDrillDown}
+                                conceptData={conceptData}
+                                focusDate={focusDate}
+                                isRelative={isRelative}
+                                relativeGranularity={relativeGranularity}
+                                globalStart={globalStart}
+                                globalEnd={globalEnd}
+                                onVisibleRangeChange={handleVisibleRangeChange}
+                                isMultiPatient={isMultiPatient}
+                            />
+                        ) : chartType === 'bar' ? (
+                            <PatientStateGantt
+                                data={data as any || []}
+                                zoomLevel={zoomLevel}
+                                onDrillDown={handleDrillDown}
+                                conceptData={conceptData}
+                                focusDate={focusDate}
+                                isRelative={isRelative}
+                                relativeGranularity={relativeGranularity}
+                                globalStart={globalStart}
+                                globalEnd={globalEnd}
+                                onVisibleRangeChange={handleVisibleRangeChange}
+                                isMultiPatient={isMultiPatient}
+                            />
+                        ) : (
+                            <PatientStatusAnalytics
+                                data={(filteredData as any) || []}
+                                zoomLevel={zoomLevel}
+                                focusDate={focusDate}
+                                onDrillDown={handleDrillDown}
+                                conceptData={conceptData}
+                                onNavigate={handleNavigateWrapper}
+                                isRelative={isRelative}
+                                relativeGranularity={relativeGranularity}
+                                globalStart={globalStart}
+                                globalEnd={globalEnd}
+                                isMultiPatient={isMultiPatient}
+                            />
+                        )}
+                    </>
                 )}
             </CardContent>
         </Card>

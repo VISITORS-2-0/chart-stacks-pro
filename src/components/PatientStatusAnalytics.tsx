@@ -16,9 +16,10 @@ interface PatientStatusAnalyticsProps {
     relativeGranularity?: 'D' | 'ME' | 'YE';
     globalStart?: string | number;
     globalEnd?: string | number;
+    isMultiPatient?: boolean;
 }
 
-export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, onNavigate, isRelative = false, relativeGranularity = 'YE', globalStart, globalEnd }: PatientStatusAnalyticsProps) {
+export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, onNavigate, isRelative = false, relativeGranularity = 'YE', globalStart, globalEnd, isMultiPatient = false }: PatientStatusAnalyticsProps) {
     const componentId = React.useId();
     const syncId = `patientStatus-${componentId}`;
 
@@ -68,12 +69,16 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
 
                     let key;
                     if (zoomLevel === 'years') {
-                        key = `${date.getFullYear()}`;
+                        key = isRelative ? `${date.getUTCFullYear()}` : `${date.getFullYear()}`;
                     } else if (zoomLevel === 'months') {
-                        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                        key = isRelative 
+                            ? `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
+                            : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
                     } else {
                         // Days
-                        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                        key = isRelative
+                            ? `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
+                            : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
                     }
 
                     if (!buckets.has(key)) {
@@ -113,6 +118,10 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
         let eStartMs = globalStart !== undefined ? new Date(globalStart).getTime() : NaN;
         let eEndMs = globalEnd !== undefined ? new Date(globalEnd).getTime() : NaN;
 
+        if (isRelative && !isNaN(eEndMs)) {
+            eEndMs = eEndMs - 1;
+        }
+
         if (isNaN(eStartMs) || isNaN(eEndMs)) {
             if (processedData.length === 0) return [];
             eStartMs = Infinity;
@@ -130,14 +139,16 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
 
         if (focusDate && zoomLevel !== 'years') {
             if (zoomLevel === 'months') {
-                const y = focusDate.getFullYear();
+                const y = isRelative ? focusDate.getUTCFullYear() : focusDate.getFullYear();
                 for (let m = 1; m <= 12; m++) {
                     keysToGenerate.push(`${y}-${String(m).padStart(2, '0')}`);
                 }
             } else if (zoomLevel === 'days') {
-                const y = focusDate.getFullYear();
-                const m = focusDate.getMonth() + 1;
-                const daysInMonth = new Date(y, m, 0).getDate();
+                const y = isRelative ? focusDate.getUTCFullYear() : focusDate.getFullYear();
+                const m = isRelative ? focusDate.getUTCMonth() + 1 : focusDate.getMonth() + 1;
+                const daysInMonth = isRelative 
+                    ? new Date(Date.UTC(y, m, 0)).getUTCDate() 
+                    : new Date(y, m, 0).getDate();
                 for (let d = 1; d <= daysInMonth; d++) {
                     keysToGenerate.push(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
                 }
@@ -146,18 +157,18 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
             const sDate = new Date(eStartMs);
             const eDate = new Date(eEndMs);
             if (zoomLevel === 'years') {
-                let startY = sDate.getFullYear();
-                let endY = eDate.getFullYear();
+                let startY = isRelative ? sDate.getUTCFullYear() : sDate.getFullYear();
+                let endY = isRelative ? eDate.getUTCFullYear() : eDate.getFullYear();
                 // safeguard against crazy bounds
                 if (endY - startY > 100) endY = startY + 100;
                 for (let y = startY; y <= endY; y++) {
                     keysToGenerate.push(`${y}`);
                 }
             } else if (zoomLevel === 'months') {
-                let currY = sDate.getFullYear();
-                let currM = sDate.getMonth() + 1;
-                const endY = eDate.getFullYear();
-                const endM = eDate.getMonth() + 1;
+                let currY = isRelative ? sDate.getUTCFullYear() : sDate.getFullYear();
+                let currM = isRelative ? sDate.getUTCMonth() + 1 : sDate.getMonth() + 1;
+                const endY = isRelative ? eDate.getUTCFullYear() : eDate.getFullYear();
+                const endM = isRelative ? eDate.getUTCMonth() + 1 : eDate.getMonth() + 1;
                 let sanity = 0;
                 while ((currY < endY || (currY === endY && currM <= endM)) && sanity < 1200) {
                     keysToGenerate.push(`${currY}-${String(currM).padStart(2, '0')}`);
@@ -166,12 +177,21 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
                     sanity++;
                 }
             } else if (zoomLevel === 'days') {
-                const curr = new Date(sDate.getFullYear(), sDate.getMonth(), sDate.getDate());
-                const end = new Date(eDate.getFullYear(), eDate.getMonth(), eDate.getDate());
+                const curr = isRelative 
+                    ? new Date(Date.UTC(sDate.getUTCFullYear(), sDate.getUTCMonth(), sDate.getUTCDate()))
+                    : new Date(sDate.getFullYear(), sDate.getMonth(), sDate.getDate());
+                const end = isRelative
+                    ? new Date(Date.UTC(eDate.getUTCFullYear(), eDate.getUTCMonth(), eDate.getUTCDate()))
+                    : new Date(eDate.getFullYear(), eDate.getMonth(), eDate.getDate());
                 let sanity = 0;
                 while (curr.getTime() <= end.getTime() && sanity < 36500) {
-                    keysToGenerate.push(`${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}-${String(curr.getDate()).padStart(2, '0')}`);
-                    curr.setDate(curr.getDate() + 1);
+                    if (isRelative) {
+                        keysToGenerate.push(`${curr.getUTCFullYear()}-${String(curr.getUTCMonth() + 1).padStart(2, '0')}-${String(curr.getUTCDate()).padStart(2, '0')}`);
+                        curr.setUTCDate(curr.getUTCDate() + 1);
+                    } else {
+                        keysToGenerate.push(`${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}-${String(curr.getDate()).padStart(2, '0')}`);
+                        curr.setDate(curr.getDate() + 1);
+                    }
                     sanity++;
                 }
             }
@@ -197,18 +217,20 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
 
     const handleBarClick = (data: any) => {
         if (onDrillDown && data && data.month) {
-            // "month" field in current abstract data is YYYY-MM. 
-            // If we drill down from years, we might need a full date string or just pass what we have.
-            // For Abstract data currently:
-            // Years view -> data has "month" (or could be "year")
-            // Months view -> data has "month" (YYYY-MM)
-            // Days view -> data likely needs "day"
-
-            // Assuming the mock data structure adapts or we parse.
-            // Current mock data is strictly YYYY-MM.
-            // We need to construct a date object to drill down reliably.
-            const validDate = new Date(data.month + '-01'); // Force 1st of month
-            if (!isNaN(validDate.getTime())) {
+            const parts = data.month.split('-');
+            let validDate;
+            if (isRelative) {
+                if (parts.length === 3) {
+                    validDate = new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
+                } else if (parts.length === 2) {
+                    validDate = new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1));
+                } else {
+                    validDate = new Date(Date.UTC(parseInt(parts[0], 10), 0, 1));
+                }
+            } else {
+                validDate = new Date(data.month + '-01'); // Force 1st of month
+            }
+            if (validDate && !isNaN(validDate.getTime())) {
                 onDrillDown(validDate.toISOString());
             }
         }
@@ -248,7 +270,7 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
                 className="w-full flex-1 flex flex-col space-y-4 min-h-0"
                 style={{ minHeight: `${(categories.length * 125) + 30}px` }}
             >
-                {categories.map((category: string, index: number) => {
+                {[...categories].reverse().map((category: string, index: number) => {
                     const isLast = index === categories.length - 1;
 
                     return (

@@ -64,7 +64,7 @@ export interface MappingAbstractions {
 
 export interface RelativeTimeDelta {
     value: number;
-    unit: 'h' | 'd' | 'w' | 'm' | 'y';
+    unit: 'd' | 'm' | 'y';
 }
 
 export interface ReferenceConcept {
@@ -75,8 +75,9 @@ export interface ReferenceConcept {
 export interface RelativeTimeConfig {
     reference_concepts: ReferenceConcept[];
     occurrence_index: number; // 0=first, 1=second, -1=last
-    start_delta: RelativeTimeDelta;
-    end_delta: RelativeTimeDelta;
+    start_delta: number;
+    end_delta: number;
+    unit: 'd' | 'm' | 'y';
     selected_group_id?: string;
     selected_group_name?: string;
 }
@@ -88,6 +89,7 @@ export interface QueryParams {
     end_date: string | null;
     use_generated_data?: boolean;
     relative_time?: RelativeTimeConfig;
+    interval_str?: string;
 }
 
 export const fetchAbstractionData = async (params: QueryParams): Promise<AbstractionResponse> => {

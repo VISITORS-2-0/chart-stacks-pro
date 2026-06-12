@@ -443,94 +443,13 @@ export function RelativeTimeBar({
             <Clock className="h-3.5 w-3.5" />
             Relative Time
           </Label>
-        </div>
 
-        {/* Separator */}
-        <div className={`h-4 w-px ${isEnabled ? "bg-cyan-400/50" : "bg-border"} shrink-0 hidden sm:block`} />
-
-        {/* Pure Intervals Global Toggle */}
-        <div className="flex items-center gap-2 shrink-0">
-          <Switch
-            id="pure-intervals-toggle"
-            checked={isPureIntervalsMode}
-            onCheckedChange={onPureIntervalsModeChange}
-            className="data-[state=checked]:bg-primary scale-90"
-          />
-          <Label
-            htmlFor="pure-intervals-toggle"
-            className={`text-sm font-semibold cursor-pointer flex items-center gap-1.5 transition-colors ${
-              isPureIntervalsMode ? (isEnabled ? "text-cyan-100" : "text-foreground font-bold") : (isEnabled ? "text-cyan-100/70" : "text-muted-foreground")
-            }`}
-          >
-            <Layers className="h-3.5 w-3.5" />
-            Pure Intervals Mode
-          </Label>
-        </div>
-
-        {/* Separator */}
-        <div className={`h-4 w-px ${isEnabled ? "bg-cyan-400/50" : "bg-border"} shrink-0 hidden sm:block`} />
-
-        {/* Use Generated Data Global Toggle */}
-        <GlobalToggle labelClassName={isEnabled ? "text-cyan-100 font-semibold" : undefined} />
-
-        {/* Separator */}
-        <div className={`h-5 w-px ${isEnabled ? "bg-cyan-400/50" : "bg-border"} shrink-0`} />
-
-        {/* Summary badges / configure button — only when enabled */}
-        {isEnabled && hasValidConfig && (
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Reference concept badge */}
-              {config.selected_group_name ? (
-                <Badge
-                  variant="outline"
-                  className="h-7 gap-1.5 text-xs font-semibold border-cyan-400/60 text-cyan-100 bg-cyan-900/50"
-                >
-                  <Layers className="h-3 w-3" />
-                  Group: {config.selected_group_name}
-                </Badge>
-              ) : (
-                config.reference_concepts.map((rc, i) => (
-                  <Badge
-                    key={i}
-                    variant="outline"
-                    className="h-7 gap-1.5 text-xs font-semibold border-cyan-400/60 text-cyan-100 bg-cyan-900/50"
-                  >
-                    <Anchor className="h-3 w-3" />
-                    {rc.concept_name}
-                    {rc.concept_value ? `: ${rc.concept_value}` : ''}
-                  </Badge>
-                ))
-              )}
-
-              {/* Occurrence badge */}
-              <Badge
-                variant="outline"
-                className="h-7 gap-1.5 text-xs font-semibold border-teal-400/60 text-teal-100 bg-teal-900/50"
-              >
-                <Hash className="h-3 w-3" />
-                {formatOccurrence(config.occurrence_index)}
-              </Badge>
-
-              {/* Time window badge */}
-              <Badge
-                variant="outline"
-                className="h-7 gap-1.5 text-xs font-semibold border-cyan-400/60 text-cyan-100 bg-cyan-900/50"
-              >
-                <CircleDot className="h-3 w-3" />
-                {formatDelta(config.start_delta, config.unit)}
-                <ArrowRight className="h-2.5 w-2.5" />
-                {formatDelta(config.end_delta, config.unit)}
-              </Badge>
-            </div>
-        )}
-
-        <div className="ml-auto flex items-center gap-2">
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
             {isEnabled && (
               <Button
                 size="sm"
                 variant="outline"
-                className="h-7 text-xs font-semibold gap-1.5 border-cyan-400/60 text-cyan-400 hover:bg-cyan-900/50 hover:text-white"
+                className="h-7 text-xs px-2 ml-1 font-semibold gap-1.5 border-cyan-400/60 text-cyan-400 hover:bg-cyan-900/50 hover:text-white"
                 onClick={() => setIsOpen(true)}
               >
                 Configure
@@ -895,7 +814,87 @@ export function RelativeTimeBar({
                   </div>
                 </DialogContent>
               </Dialog>
+        </div>
+
+        {/* Separator */}
+        <div className={`h-4 w-px ${isEnabled ? "bg-cyan-400/50" : "bg-border"} shrink-0 hidden sm:block`} />
+
+        {/* Pure Intervals Global Toggle */}
+        <div className="flex items-center gap-2 shrink-0">
+          <Switch
+            id="pure-intervals-toggle"
+            checked={isPureIntervalsMode}
+            onCheckedChange={onPureIntervalsModeChange}
+            className="data-[state=checked]:bg-primary scale-90"
+          />
+          <Label
+            htmlFor="pure-intervals-toggle"
+            className={`text-sm font-semibold cursor-pointer flex items-center gap-1.5 transition-colors ${
+              isPureIntervalsMode ? (isEnabled ? "text-cyan-100" : "text-foreground font-bold") : (isEnabled ? "text-cyan-100/70" : "text-muted-foreground")
+            }`}
+          >
+            <Layers className="h-3.5 w-3.5" />
+            Pure Intervals Mode
+          </Label>
+        </div>
+
+        {/* Separator */}
+        <div className={`h-4 w-px ${isEnabled ? "bg-cyan-400/50" : "bg-border"} shrink-0 hidden sm:block`} />
+
+        {/* Use Generated Data Global Toggle */}
+        <GlobalToggle labelClassName={isEnabled ? "text-cyan-100 font-semibold" : undefined} />
+
+        {/* Separator */}
+        <div className={`h-5 w-px ${isEnabled ? "bg-cyan-400/50" : "bg-border"} shrink-0`} />
+
+        {/* Summary badges / configure button — only when enabled */}
+        {isEnabled && hasValidConfig && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Reference concept badge */}
+              {config.selected_group_name ? (
+                <Badge
+                  variant="outline"
+                  className="h-7 gap-1.5 text-xs font-semibold border-cyan-400/60 text-cyan-100 bg-cyan-900/50"
+                >
+                  <Layers className="h-3 w-3" />
+                  Group: {config.selected_group_name}
+                </Badge>
+              ) : (
+                config.reference_concepts.map((rc, i) => (
+                  <Badge
+                    key={i}
+                    variant="outline"
+                    className="h-7 gap-1.5 text-xs font-semibold border-cyan-400/60 text-cyan-100 bg-cyan-900/50"
+                  >
+                    <Anchor className="h-3 w-3" />
+                    {rc.concept_name}
+                    {rc.concept_value ? `: ${rc.concept_value}` : ''}
+                  </Badge>
+                ))
+              )}
+
+              {/* Occurrence badge */}
+              <Badge
+                variant="outline"
+                className="h-7 gap-1.5 text-xs font-semibold border-teal-400/60 text-teal-100 bg-teal-900/50"
+              >
+                <Hash className="h-3 w-3" />
+                {formatOccurrence(config.occurrence_index)}
+              </Badge>
+
+              {/* Time window badge */}
+              <Badge
+                variant="outline"
+                className="h-7 gap-1.5 text-xs font-semibold border-cyan-400/60 text-cyan-100 bg-cyan-900/50"
+              >
+                <CircleDot className="h-3 w-3" />
+                {formatDelta(config.start_delta, config.unit)}
+                <ArrowRight className="h-2.5 w-2.5" />
+                {formatDelta(config.end_delta, config.unit)}
+              </Badge>
             </div>
+        )}
+
       </div>
     </div>
   );

@@ -34,11 +34,13 @@ const relativeOptions = [
 interface TimeRangePickerProps {
   timeRange: TimeRange;
   onTimeRangeChange: (range: TimeRange) => void;
+  labelClassName?: string;
 }
 
 export const TimeRangePicker = ({
   timeRange,
   onTimeRangeChange,
+  labelClassName,
 }: TimeRangePickerProps) => {
   const [localStartDate, setLocalStartDate] = useState<Date | undefined>(timeRange.startDate);
   const [localEndDate, setLocalEndDate] = useState<Date | undefined>(timeRange.endDate);
@@ -126,7 +128,7 @@ export const TimeRangePicker = ({
 
   return (
     <div className="flex items-center gap-2">
-      <Label className="text-sm font-semibold text-muted-foreground shrink-0 hidden sm:block">Time Range:</Label>
+      <Label className={cn("text-sm font-semibold text-muted-foreground shrink-0 hidden sm:block", labelClassName)}>Time Range:</Label>
       <Popover open={isOpen} onOpenChange={setIsOpen}>
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className="h-8 gap-2 min-w-[200px] justify-start font-normal bg-background">

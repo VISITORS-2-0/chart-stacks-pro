@@ -23,13 +23,36 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
     const componentId = React.useId();
     const syncId = `patientStatus-${componentId}`;
 
-    // Determine Categories from conceptData or fallback
     const categories = React.useMemo(() => {
-        if (conceptData && conceptData.values) {
+        if (conceptData && conceptData.values && conceptData.values.length > 0) {
             return conceptData.values;
         }
+        if (conceptData && conceptData.allowed_values && conceptData.allowed_values.values) {
+            return conceptData.allowed_values.values;
+        }
+        
+        // Dynamically extract from data
+        if (data && data.length > 0) {
+            if ('month' in data[0] || 'NormalPct' in data[0]) {
+                // Pre-processed data
+                const dynamicCategories = new Set<string>();
+                data.forEach((row: any) => {
+                    Object.keys(row).forEach(k => {
+                        if (k !== 'month' && !k.endsWith('Pct') && k !== 'total' && k !== 'TotalPatientsWithData') {
+                            dynamicCategories.add(k);
+                        }
+                    });
+                });
+                const dynamicArray = Array.from(dynamicCategories);
+                if (dynamicArray.length > 0) return dynamicArray.sort();
+            } else {
+                // Raw data
+                const vals = new Set((data as TemporalRow[]).map(d => String(d.Value)));
+                if (vals.size > 0) return Array.from(vals).sort();
+            }
+        }
         return ['High', 'Normal', 'Moderately_low']; // Fallback
-    }, [conceptData]);
+    }, [conceptData, data]);
 
     const categoryColors: Record<string, string> = React.useMemo(() => {
         const colors: Record<string, string> = {
@@ -55,12 +78,62 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
         let processedData: any[] = [];
 
         if (data && data.length > 0) {
+            const normalizedData = data.map((d: any) => {
+                if (!('month' in d) && !('NormalPct' in d)) return d;
+                const newRow: any = { ...d };
+                categories.forEach(cat => {
+                    // find a key in d that matches cat case-insensitively
+                    const match = Object.keys(d).find(k => k.toLowerCase() === cat.toLowerCase());
+                    if (match && match !== cat) {
+                        newRow[cat] = d[match];
+                        newRow[`${cat}Pct`] = d[`${match}Pct`];
+                    }
+                    if (newRow[cat] === undefined) newRow[cat] = 0;
+                    if (newRow[`${cat}Pct`] === undefined) newRow[`${cat}Pct`] = 0;
+                });
+                return newRow;
+            });
+
             // Detect if already processed
-            if ('NormalPct' in data[0] || 'month' in data[0]) {
-                processedData = data as PatientStatusProcessedRow[];
+            if ('NormalPct' in normalizedData[0] || 'month' in normalizedData[0]) {
+                const isMonthFormat = normalizedData[0].month && normalizedData[0].month.split('-').length === 2;
+                
+                if (zoomLevel === 'years' && isMonthFormat) {
+                    // Re-aggregate monthly processed data into yearly
+                    const buckets = new Map<string, any>();
+                    normalizedData.forEach((d: any) => {
+                        const year = d.month.split('-')[0];
+                        if (!buckets.has(year)) {
+                            const newEntry: any = { month: year, total: 0 };
+                            categories.forEach(c => newEntry[c] = 0);
+                            buckets.set(year, newEntry);
+                        }
+                        const entry = buckets.get(year)!;
+                        let rowTotal = 0;
+                        categories.forEach(c => {
+                            if (d[c] !== undefined) {
+                                entry[c] += d[c];
+                                rowTotal += d[c];
+                            }
+                        });
+                        entry.total += rowTotal;
+                    });
+                    
+                    Array.from(buckets.keys()).sort().forEach(year => {
+                        const entry = buckets.get(year)!;
+                        const row: any = { month: year };
+                        categories.forEach(cat => {
+                            row[cat] = entry[cat];
+                            row[`${cat}Pct`] = entry.total > 0 ? (entry[cat] / entry.total) * 100 : 0;
+                        });
+                        processedData.push(row);
+                    });
+                } else {
+                    processedData = normalizedData as PatientStatusProcessedRow[];
+                }
             } else {
                 // Processing Raw Data (TemporalRow[])
-                const rawData = data as TemporalRow[];
+                const rawData = normalizedData as TemporalRow[];
                 const buckets = new Map<string, Record<string, number>>();
 
                 rawData.forEach(row => {
@@ -270,6 +343,9 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
                 className="w-full flex-1 flex flex-col space-y-4 min-h-0"
                 style={{ minHeight: `${(categories.length * 125) + 30}px` }}
             >
+                <div className="w-full text-xs text-muted-foreground break-words max-h-32 overflow-auto bg-muted p-2 rounded">
+                    Debug chartData ({chartData.length}): {JSON.stringify(chartData)}
+                </div>
                 {[...categories].reverse().map((category: string, index: number) => {
                     const isLast = index === categories.length - 1;
 
@@ -282,18 +358,19 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
                             <h3 className="text-sm font-medium mb-1 text-left ml-[15px] shrink-0" style={{ color: categoryColors[category] }}>
                                 {category.replace('_', ' ')}
                             </h3>
-                            <div className="w-full flex-1 min-h-0">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart
-                                        data={chartData}
-                                        syncId={syncId}
-                                        margin={{ top: 5, right: 30, left: 20, bottom: isLast ? 35 : 5 }}
-                                        onClick={(e: any) => {
-                                            if (e && e.activePayload && e.activePayload[0]) {
-                                                handleBarClick(e.activePayload[0].payload);
-                                            }
-                                        }}
-                                    >
+                            <div className="w-full flex-1 min-h-0 min-w-0 relative">
+                                <div className="absolute inset-0">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart
+                                            data={chartData}
+                                            syncId={syncId}
+                                            margin={{ top: 5, right: 30, left: 20, bottom: isLast ? 35 : 5 }}
+                                            onClick={(e: any) => {
+                                                if (e && e.activePayload && e.activePayload[0]) {
+                                                    handleBarClick(e.activePayload[0].payload);
+                                                }
+                                            }}
+                                        >
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                         <XAxis
                                             dataKey="month"
@@ -345,6 +422,7 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
                                         />
                                     </BarChart>
                                 </ResponsiveContainer>
+                                </div>
                             </div>
                         </div>
                     );

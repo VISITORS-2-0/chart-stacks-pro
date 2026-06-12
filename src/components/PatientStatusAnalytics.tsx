@@ -343,9 +343,6 @@ export function PatientStatusAnalytics({ data, zoomLevel = 'years', onDrillDown,
                 className="w-full flex-1 flex flex-col space-y-4 min-h-0"
                 style={{ minHeight: `${(categories.length * 125) + 30}px` }}
             >
-                <div className="w-full text-xs text-muted-foreground break-words max-h-32 overflow-auto bg-muted p-2 rounded">
-                    Debug chartData ({chartData.length}): {JSON.stringify(chartData)}
-                </div>
                 {[...categories].reverse().map((category: string, index: number) => {
                     const isLast = index === categories.length - 1;
 

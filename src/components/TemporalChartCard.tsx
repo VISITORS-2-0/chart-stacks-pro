@@ -632,7 +632,7 @@ export function TemporalChartCard({
                             onApply={onApplyCutoffs}
                         />
                     )}
-                    {((isRelative ? (relativeConfigHistory && relativeConfigHistory.length > 0) : (zoomLevel !== 'years'))) && (
+                    {(zoomLevel !== 'years') && (
                         <Button
                             variant="outline"
                             size="sm"

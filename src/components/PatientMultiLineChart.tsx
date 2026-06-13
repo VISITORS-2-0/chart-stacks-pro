@@ -18,7 +18,7 @@ interface PatientMultiLineChartProps {
 }
 
 export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, onDrillDown, onZoomOut, isRelative = false, relativeGranularity = 'YE', globalStart, globalEnd, onVisibleRangeChange, isMultiPatient = false }: PatientMultiLineChartProps) {
-    const isScrollEnabled = isRelative ? (!isMultiPatient && !!focusDate) : true;
+    const isScrollEnabled = isRelative ? (zoomLevel !== 'years') : true;
     const scrollRef = useRef<HTMLDivElement>(null);
     // Shared X-Axis logic: Use numeric timestamps to allow precise plotting
     const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
@@ -168,10 +168,9 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
         let maxTime = 100;
 
         if (isRelative) {
-            const isScrollEnabled = !isMultiPatient && !!focusDate;
             if (isScrollEnabled && zoomLevel === 'days' && focusDate) {
-                minTime = new Date(focusDate.getFullYear(), 0, 1).getTime();
-                maxTime = new Date(focusDate.getFullYear(), 11, 31, 23, 59, 59).getTime();
+                minTime = Date.UTC(focusDate.getUTCFullYear(), 0, 1);
+                maxTime = Date.UTC(focusDate.getUTCFullYear(), 11, 31, 23, 59, 59, 999);
             } else {
                 minTime = new Date(globalStart!).getTime();
                 maxTime = new Date(globalEnd!).getTime();

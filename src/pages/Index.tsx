@@ -867,7 +867,7 @@ const Index = () => {
                 : "text-muted-foreground hover:text-foreground"
                 }`}
             >
-              Manage User Groups
+              User Groups
               {activeTab === "manage-groups" && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
               )}
@@ -879,13 +879,12 @@ const Index = () => {
                 : "text-muted-foreground hover:text-foreground"
                 }`}
             >
-              Manage Concept Values Groups
+              Concept Values Groups
               {activeTab === "manage-concept-groups" && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
               )}
             </button>
             <div className="flex-1" />
-            <GlobalToggle />
           </div>
 
           {/* Active Screen */}

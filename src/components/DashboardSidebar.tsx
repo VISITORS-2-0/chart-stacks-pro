@@ -208,9 +208,9 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
 
   if (loading) {
     return (
-      <Sidebar className="w-[--sidebar-width] border-r border-primary/20 bg-primary text-primary-foreground">
-        <SidebarContent className="bg-primary flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary-foreground/60" />
+      <Sidebar className="w-[--sidebar-width] border-r border-border bg-[#F8FAFC] dark:bg-slate-900 text-foreground">
+        <SidebarContent className="bg-[#F8FAFC] dark:bg-slate-900 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </SidebarContent>
       </Sidebar>
     );
@@ -218,12 +218,12 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
 
   if (error) {
     return (
-      <Sidebar className="w-[--sidebar-width] border-r border-primary/20 bg-primary text-primary-foreground">
-        <SidebarContent className="bg-primary">
-          <div className="px-4 py-3 border-b border-primary-foreground/10 flex flex-col gap-2">
-            <div className="flex justify-between items-center">
-              <SidebarGroupLabel className="text-xl font-bold text-primary-foreground tracking-wider p-0">
-                VISITORS
+      <Sidebar className="w-[--sidebar-width] border-r border-border bg-[#F8FAFC] dark:bg-slate-900 text-foreground">
+        <SidebarContent className="bg-[#F8FAFC] dark:bg-slate-900">
+          <div className="px-4 py-3 border-b border-border flex flex-col gap-2">
+            <div className="flex justify-between items-center gap-2 relative">
+              <SidebarGroupLabel className="p-0 flex items-center h-10 overflow-visible flex-1">
+                <img src="/visi.png" alt="VISITORS Logo" className="w-36 h-10 object-contain object-left scale-[2.0] origin-left -ml-1" />
               </SidebarGroupLabel>
             </div>
           </div>
@@ -299,29 +299,29 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
           </div>
         </DialogContent>
       </Dialog>
-      <Sidebar className="w-[--sidebar-width] border-r border-primary/20 bg-primary text-primary-foreground">
-        <SidebarContent className="bg-primary">
+      <Sidebar className="w-[--sidebar-width] border-r border-border bg-[#F8FAFC] dark:bg-slate-900 text-foreground">
+        <SidebarContent className="bg-[#F8FAFC] dark:bg-slate-900">
           <SidebarGroup>
-            <div className="px-4 py-3 border-b border-primary-foreground/10 flex flex-col gap-2">
-              <div className="flex justify-between items-center">
-                <SidebarGroupLabel className="text-xl font-bold text-primary-foreground tracking-wider p-0">
-                  VISITORS
+            <div className="px-4 py-3 border-b border-border flex flex-col gap-2">
+              <div className="flex justify-between items-center gap-2 relative">
+                <SidebarGroupLabel className="p-0 flex items-center h-10 overflow-visible flex-1">
+                  <img src="/visi.png" alt="VISITORS Logo" className="w-36 h-10 object-contain object-left scale-[2.0] origin-left -ml-1" />
                 </SidebarGroupLabel>
                 {import.meta.env.VITE_APP_ENV === 'test' && (
-                  <Button size="sm" variant="secondary" onClick={() => setShowTestOptions(true)} disabled={isTesting}>
+                  <Button size="sm" variant="secondary" onClick={() => setShowTestOptions(true)} disabled={isTesting} className="shrink-0 relative z-10">
                     Run Tests
                   </Button>
                 )}
               </div>
             </div>
-            <SidebarGroupContent className="px-4 py-2">
+            <SidebarGroupContent className="px-4 py-2 mt-2">
               <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-primary-foreground/60" />
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search metrics..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground placeholder:text-primary-foreground/60"
+                  className="pl-8 bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-700 text-foreground shadow-sm placeholder:text-muted-foreground"
                 />
               </div>
             </SidebarGroupContent>
@@ -335,10 +335,11 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
                     key={section.parent}
                     open={openSections.includes(section.parent)}
                     onOpenChange={() => toggleSection(section.parent)}
+                    className="mb-2"
                   >
                     <SidebarMenuItem>
                       <CollapsibleTrigger asChild>
-                        <SidebarMenuButton className="w-full justify-between font-medium text-primary-foreground hover:bg-primary-foreground/10">
+                        <SidebarMenuButton className="w-full justify-between font-bold uppercase tracking-wider text-sm text-foreground hover:bg-slate-200 dark:hover:bg-slate-800 border-b border-border/50 pb-2 mb-1">
                           <span>{section.parent}</span>
                           <ChevronRight
                             className={`h-4 w-4 transition-transform duration-200 ${openSections.includes(section.parent) ? "rotate-90" : ""
@@ -346,24 +347,24 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
                           />
                         </SidebarMenuButton>
                       </CollapsibleTrigger>
-                      <CollapsibleContent className="pl-4 max-h-[300px] overflow-y-auto pr-2">
+                      <CollapsibleContent className="pl-4 max-h-[300px] overflow-y-auto pr-2 mt-1">
                         <SidebarMenu>
                           {section.children.map((child, index) => {
                             const hasMapping = child.originalItem?.concept_type?.toLowerCase() === "state";
                             return (
                               <SidebarMenuItem key={`${section.parent}-${child.id}-${index}`}>
-                                <div className="flex items-center w-full rounded-md transition-colors hover:bg-primary-foreground/10 group px-2 py-0.5">
+                                <div className="flex items-center w-full rounded-md transition-colors hover:bg-slate-200 dark:hover:bg-slate-800 group px-2 py-0.5">
                                   {/* Left Icons Container */}
                                   <div className="flex items-center gap-1 shrink-0 mr-1.5">
                                     <GraphContextModal
                                       conceptName={child.title}
-                                      className="h-6 w-6 text-primary-foreground/50 hover:text-primary-foreground p-0 border-0 bg-transparent shadow-none"
+                                      className="h-6 w-6 text-muted-foreground hover:text-foreground p-0 border-0 bg-transparent shadow-none"
                                     />
                                     {hasMapping ? (
                                       <MappingAbstractionsModal
                                         conceptName={child.title}
                                         conceptType={child.originalItem.concept_type}
-                                        className="h-6 w-6 text-primary-foreground/50 hover:text-primary-foreground p-0 border-0 bg-transparent shadow-none"
+                                        className="h-6 w-6 text-muted-foreground hover:text-foreground p-0 border-0 bg-transparent shadow-none"
                                       />
                                     ) : (
                                       <div className="w-6 h-6 shrink-0" />
@@ -371,7 +372,7 @@ export function DashboardSidebar({ onItemClick, patientIds, onCloseAll }: Dashbo
                                   </div>
                                   <SidebarMenuButton
                                     onClick={() => handleItemSelect(child, section.parent)}
-                                    className="text-primary-foreground hover:bg-transparent bg-transparent flex-1 truncate py-2 justify-start h-auto pl-0 font-medium"
+                                    className="text-foreground hover:bg-transparent bg-transparent flex-1 truncate py-2 justify-start h-auto pl-0 font-medium"
                                   >
                                     {child.title}
                                   </SidebarMenuButton>

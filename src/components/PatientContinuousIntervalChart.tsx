@@ -66,7 +66,7 @@ const GanttBar = (props: any) => {
 };
 
 export function PatientContinuousIntervalChart({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, isRelative = false, relativeGranularity = 'YE', globalStart: globalStartProp, globalEnd: globalEndProp, onVisibleRangeChange, isMultiPatient = false }: PatientContinuousIntervalChartProps) {
-    const isScrollEnabled = isRelative ? (!isMultiPatient && !!focusDate) : true;
+    const isScrollEnabled = isRelative ? (zoomLevel !== 'years') : true;
     const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [visibleWindow, setVisibleWindow] = useState<{ start: number, end: number } | null>(null);

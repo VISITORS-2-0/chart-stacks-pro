@@ -67,7 +67,7 @@ const GanttBar = (props: any) => {
 };
 
 export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conceptData, focusDate, isRelative = false, relativeGranularity = 'YE', globalStart: globalStartProp, globalEnd: globalEndProp, onVisibleRangeChange, isMultiPatient = false }: PatientStateGanttProps) {
-    const isScrollEnabled = isRelative ? (!isMultiPatient && !!focusDate) : true;
+    const isScrollEnabled = isRelative ? (zoomLevel !== 'years') : true;
     const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [visibleWindow, setVisibleWindow] = useState<{ start: number, end: number } | null>(null);
@@ -265,33 +265,31 @@ export function PatientStateGantt({ data, zoomLevel = 'years', onDrillDown, conc
         const endTs = Math.min(globalEnd, windowEnd);
 
         if (isRelative) {
-            const dayStep = 24 * 60 * 60 * 1000;
-            const monthStep = 30.4375 * dayStep;
-            const yearStep = 365.25 * dayStep;
+            let curr = new Date(Math.max(globalStart, windowStart));
+            if (zoomLevel === 'years') curr = new Date(Date.UTC(curr.getUTCFullYear(), 0, 1));
+            else if (zoomLevel === 'months') curr = new Date(Date.UTC(curr.getUTCFullYear(), curr.getUTCMonth(), 1));
+            else curr = new Date(Date.UTC(curr.getUTCFullYear(), curr.getUTCMonth(), curr.getUTCDate()));
 
-            let step = dayStep;
-            if (zoomLevel === 'years') step = yearStep;
-            else if (zoomLevel === 'months') step = monthStep;
-
-            const startLimit = Math.max(globalStart, windowStart);
-            let firstTick = Math.ceil(startLimit / step) * step;
-
-            if (firstTick - step >= startLimit) {
-                firstTick -= step;
-            }
-
-            for (let t = firstTick; t <= endTs; t += step) {
+            while (curr.getTime() <= endTs) {
+                const t = curr.getTime();
                 if (t >= windowStart && t >= globalStart && t <= globalEnd) {
                     vTicks.push(t);
                 }
+
+                if (zoomLevel === 'years') curr.setUTCFullYear(curr.getUTCFullYear() + 1);
+                else if (zoomLevel === 'months') curr.setUTCMonth(curr.getUTCMonth() + 1);
+                else curr.setUTCDate(curr.getUTCDate() + 1);
             }
 
             if (zoomLevel === 'days') {
-                const firstContextTick = Math.ceil(startLimit / monthStep) * monthStep;
-                for (let t = firstContextTick; t <= endTs; t += monthStep) {
+                let ctxCurr = new Date(Math.max(globalStart, windowStart));
+                ctxCurr = new Date(Date.UTC(ctxCurr.getUTCFullYear(), ctxCurr.getUTCMonth(), 1));
+                while (ctxCurr.getTime() <= endTs) {
+                    const t = ctxCurr.getTime();
                     if (t >= windowStart && t >= globalStart && t <= globalEnd) {
                         vContextTicks.push(t);
                     }
+                    ctxCurr.setUTCMonth(ctxCurr.getUTCMonth() + 1);
                 }
             }
         } else {

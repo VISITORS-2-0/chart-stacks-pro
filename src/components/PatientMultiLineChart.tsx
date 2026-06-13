@@ -18,7 +18,7 @@ interface PatientMultiLineChartProps {
 }
 
 export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, onDrillDown, onZoomOut, isRelative = false, relativeGranularity = 'YE', globalStart, globalEnd, onVisibleRangeChange, isMultiPatient = false }: PatientMultiLineChartProps) {
-    const isScrollEnabled = isRelative ? (!isMultiPatient && !!focusDate) : true;
+    const isScrollEnabled = isRelative ? (zoomLevel !== 'years') : true;
     const scrollRef = useRef<HTMLDivElement>(null);
     // Shared X-Axis logic: Use numeric timestamps to allow precise plotting
     const [hoveredRange, setHoveredRange] = useState<{ start: number, end: number } | null>(null);
@@ -168,10 +168,9 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
         let maxTime = 100;
 
         if (isRelative) {
-            const isScrollEnabled = !isMultiPatient && !!focusDate;
             if (isScrollEnabled && zoomLevel === 'days' && focusDate) {
-                minTime = new Date(focusDate.getFullYear(), 0, 1).getTime();
-                maxTime = new Date(focusDate.getFullYear(), 11, 31, 23, 59, 59).getTime();
+                minTime = Date.UTC(focusDate.getUTCFullYear(), 0, 1);
+                maxTime = Date.UTC(focusDate.getUTCFullYear(), 11, 31, 23, 59, 59, 999);
             } else {
                 minTime = new Date(globalStart!).getTime();
                 maxTime = new Date(globalEnd!).getTime();
@@ -218,31 +217,31 @@ export function PatientMultiLineChart({ data, zoomLevel = 'years', focusDate, on
         const contextTicks: number[] = [];
 
         if (isRelative) {
-            const dayStep = 24 * 60 * 60 * 1000;
-            const monthStep = 30.4375 * dayStep;
-            const yearStep = 365.25 * dayStep;
+            let curr = new Date(domainStart);
+            if (zoomLevel === 'years') curr = new Date(Date.UTC(curr.getUTCFullYear(), 0, 1));
+            else if (zoomLevel === 'months') curr = new Date(Date.UTC(curr.getUTCFullYear(), curr.getUTCMonth(), 1));
+            else curr = new Date(Date.UTC(curr.getUTCFullYear(), curr.getUTCMonth(), curr.getUTCDate()));
 
-            let step = dayStep;
-            if (zoomLevel === 'years') step = yearStep;
-            else if (zoomLevel === 'months') step = monthStep;
-
-            let firstTick = Math.ceil(domainStart / step) * step;
-            if (firstTick - step >= domainStart) {
-                firstTick -= step;
-            }
-
-            for (let t = firstTick; t <= domainEnd; t += step) {
+            while (curr.getTime() <= domainEnd) {
+                const t = curr.getTime();
                 if (t >= domainStart && t <= domainEnd) {
                     detailTicks.push(t);
                 }
+
+                if (zoomLevel === 'years') curr.setUTCFullYear(curr.getUTCFullYear() + 1);
+                else if (zoomLevel === 'months') curr.setUTCMonth(curr.getUTCMonth() + 1);
+                else curr.setUTCDate(curr.getUTCDate() + 1);
             }
 
             if (zoomLevel === 'days') {
-                const firstContextTick = Math.ceil(domainStart / monthStep) * monthStep;
-                for (let t = firstContextTick; t <= domainEnd; t += monthStep) {
+                let ctxCurr = new Date(domainStart);
+                ctxCurr = new Date(Date.UTC(ctxCurr.getUTCFullYear(), ctxCurr.getUTCMonth(), 1));
+                while (ctxCurr.getTime() <= domainEnd) {
+                    const t = ctxCurr.getTime();
                     if (t >= domainStart && t <= domainEnd) {
                         contextTicks.push(t);
                     }
+                    ctxCurr.setUTCMonth(ctxCurr.getUTCMonth() + 1);
                 }
             }
         } else {

@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Check,
   ChevronsUpDown,
+  XCircle,
 } from "lucide-react";
 import { Toggle } from "@/components/ui/toggle";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -53,6 +53,9 @@ import type { RelativeTimeConfig, RelativeTimeDelta, ReferenceConcept } from "@/
 import { fetchConceptGroups, ConceptGroup } from "@/services/conceptGroupsApi";
 import { cn } from "@/lib/utils";
 import { getApiUrl } from "@/config/api";
+import { TimeRangePicker } from "@/components/TimeRangePicker";
+import type { TimeRange } from "@/components/TimeRangePicker";
+import { GlobalToggle } from "@/components/GlobalToggle";
 
 export type { RelativeTimeConfig };
 
@@ -61,6 +64,12 @@ interface RelativeTimeBarProps {
   onToggle: (enabled: boolean) => void;
   config: RelativeTimeConfig;
   onConfigChange: (config: RelativeTimeConfig) => void;
+  isPureIntervalsMode: boolean;
+  onPureIntervalsModeChange: (val: boolean) => void;
+  timeRange: TimeRange;
+  onTimeRangeChange: (range: TimeRange) => void;
+  hasCharts?: boolean;
+  onCloseAll?: () => void;
 }
 
 const TIME_UNITS: { value: RelativeTimeDelta["unit"]; label: string; short: string }[] = [
@@ -157,6 +166,12 @@ export function RelativeTimeBar({
   onToggle,
   config,
   onConfigChange,
+  isPureIntervalsMode,
+  onPureIntervalsModeChange,
+  timeRange,
+  onTimeRangeChange,
+  hasCharts,
+  onCloseAll,
 }: RelativeTimeBarProps) {
   const { data: takData } = useTakMenu();
   const [isOpen, setIsOpen] = useState(false);
@@ -278,73 +293,84 @@ export function RelativeTimeBar({
     setDraftConcepts(updated);
   };
 
-  const handleApply = () => {
-    if (configMode === 'concepts') {
-      const validConcepts = draftConcepts.filter(rc => rc.concept_name.trim() !== "");
-      
-      // Perform same validation checks as ManageConceptGroups
-      for (let i = 0; i < validConcepts.length; i++) {
-        const rc = validConcepts[i];
-        if (!rc.concept_name) {
-          setValidationError(`Concept name is required in row ${i + 1}.`);
-          return;
-        }
-
-        const details = conceptDict[rc.concept_name];
-        const isEventTak = eventConcepts.includes(rc.concept_name);
-
-        if (details && !isEventTak) {
-          if (typeof details.min === "number" && typeof details.max === "number") {
-            const minValStr = getRangeMin(rc.concept_value);
-            const maxValStr = getRangeMax(rc.concept_value);
-            if (minValStr === "" || maxValStr === "") {
-              setValidationError(`Please specify both Min and Max for numeric concept "${rc.concept_name}" in row ${i + 1}.`);
-              return;
-            }
-            const minVal = parseFloat(minValStr);
-            const maxVal = parseFloat(maxValStr);
-            if (minVal > maxVal) {
-              setValidationError(`Min (${minVal}) cannot be greater than Max (${maxVal}) for concept "${rc.concept_name}" in row ${i + 1}.`);
-              return;
-            }
-            if (minVal < details.min || maxVal > details.max) {
-              setValidationError(`Subrange [${minVal}, ${maxVal}] is outside the allowed range [${details.min}, ${details.max}] for "${rc.concept_name}" in row ${i + 1}.`);
-              return;
-            }
-          } else if (details.values && details.values.length > 0) {
-            if (!rc.concept_value) {
-              setValidationError(`Please select a value for categorical concept "${rc.concept_name}" in row ${i + 1}.`);
-              return;
+    const handleApply = () => {
+      let passedValidation = false;
+      let newConfig = draft;
+      if (configMode === 'concepts') {
+        const validConcepts = draftConcepts.filter(rc => rc.concept_name.trim() !== "");
+        
+        // Perform same validation checks as ManageConceptGroups
+        for (let i = 0; i < validConcepts.length; i++) {
+          const rc = validConcepts[i];
+          if (!rc.concept_name) {
+            setValidationError(`Concept name is required in row ${i + 1}.`);
+            return;
+          }
+  
+          const details = conceptDict[rc.concept_name];
+          const isEventTak = eventConcepts.includes(rc.concept_name);
+  
+          if (details && !isEventTak) {
+            if (typeof details.min === "number" && typeof details.max === "number") {
+              const minValStr = getRangeMin(rc.concept_value);
+              const maxValStr = getRangeMax(rc.concept_value);
+              if (minValStr === "" || maxValStr === "") {
+                setValidationError(`Please specify both Min and Max for numeric concept "${rc.concept_name}" in row ${i + 1}.`);
+                return;
+              }
+              const minVal = parseFloat(minValStr);
+              const maxVal = parseFloat(maxValStr);
+              if (minVal > maxVal) {
+                setValidationError(`Min (${minVal}) cannot be greater than Max (${maxVal}) for concept "${rc.concept_name}" in row ${i + 1}.`);
+                return;
+              }
+              if (minVal < details.min || maxVal > details.max) {
+                setValidationError(`Subrange [${minVal}, ${maxVal}] is outside the allowed range [${details.min}, ${details.max}] for "${rc.concept_name}" in row ${i + 1}.`);
+                return;
+              }
+            } else if (details.values && details.values.length > 0) {
+              if (!rc.concept_value) {
+                setValidationError(`Please select a value for categorical concept "${rc.concept_name}" in row ${i + 1}.`);
+                return;
+              }
             }
           }
         }
-      }
-
-      setValidationError(null);
-      onConfigChange({
-        ...draft,
-        reference_concepts: validConcepts,
-        selected_group_id: undefined,
-        selected_group_name: undefined,
-      });
-    } else {
-      const group = conceptGroups.find(g => g._id === selectedGroupId);
-      if (group) {
-        const reference_concepts = group.concepts.map(c => ({
-          concept_name: c.concept,
-          concept_value: c.value !== undefined ? c.value : (c.min !== undefined && c.max !== undefined ? `[${c.min}, ${c.max}]` : undefined)
-        }));
+  
         setValidationError(null);
-        onConfigChange({
+        newConfig = {
           ...draft,
-          reference_concepts,
-          selected_group_id: group._id,
-          selected_group_name: group.name,
-        });
+          reference_concepts: validConcepts,
+          selected_group_id: undefined,
+          selected_group_name: undefined,
+        };
+        passedValidation = true;
+      } else {
+        const group = conceptGroups.find(g => g._id === selectedGroupId);
+        if (group) {
+          const reference_concepts = group.concepts.map(c => ({
+            concept_name: c.concept,
+            concept_value: c.value !== undefined ? c.value : (c.min !== undefined && c.max !== undefined ? `[${c.min}, ${c.max}]` : undefined)
+          }));
+          setValidationError(null);
+          newConfig = {
+            ...draft,
+            reference_concepts,
+            selected_group_id: group._id,
+            selected_group_name: group.name,
+          };
+          passedValidation = true;
+        }
       }
-    }
-    setIsOpen(false);
-  };
+      
+      if (passedValidation) {
+        onConfigChange(newConfig);
+        setIsOpen(false);
+        if (!isEnabled) {
+            onToggle(true);
+        }
+      }
+    };
 
   const handleReset = () => {
     const defaultConfig: RelativeTimeConfig = {
@@ -362,7 +388,6 @@ export function RelativeTimeBar({
     onConfigChange(defaultConfig);
   };
 
-  // Determine if apply button should be disabled
   const isApplyDisabled =
     configMode === 'concepts'
       ? draftConcepts.some(c => !c.concept_name)
@@ -372,100 +397,65 @@ export function RelativeTimeBar({
     return conceptGroups.find(g => g._id === selectedGroupId);
   }, [conceptGroups, selectedGroupId]);
 
+  const handleToggle = (checked: boolean) => {
+    if (checked) {
+      if (!hasValidConfig) {
+        setIsOpen(true);
+      } else {
+        onToggle(true);
+      }
+    } else {
+      onToggle(false);
+    }
+  };
+
   return (
     <div
       className={`border-b transition-all duration-300 ${isEnabled
-        ? "bg-gradient-to-r from-emerald-950/60 via-green-950/50 to-emerald-950/60 border-emerald-400/40"
+        ? "bg-gradient-to-r from-teal-950/60 via-cyan-950/50 to-teal-950/60 border-cyan-400/40"
         : "bg-card border-border"
         }`}
     >
-      <div className="px-6 py-2.5 flex items-center gap-4">
+      <div className="px-6 py-2.5 flex flex-wrap items-center gap-4">
+        {/* Time Picker */}
+        <TimeRangePicker 
+            timeRange={timeRange} 
+            onTimeRangeChange={onTimeRangeChange} 
+            labelClassName={isEnabled ? "text-cyan-100" : undefined}
+        />
+
+        {/* Separator */}
+        <div className={`h-4 w-px ${isEnabled ? "bg-cyan-400/50" : "bg-border"} shrink-0 hidden sm:block`} />
+
         {/* Toggle */}
         <div className="flex items-center gap-2 shrink-0">
           <Switch
             id="relative-time-toggle"
             checked={isEnabled}
-            onCheckedChange={onToggle}
-            className="data-[state=checked]:bg-emerald-500"
+            onCheckedChange={handleToggle}
+            className="data-[state=checked]:bg-cyan-500 scale-90"
           />
           <Label
             htmlFor="relative-time-toggle"
-            className={`text-sm font-semibold cursor-pointer flex items-center gap-1.5 ${isEnabled ? "text-emerald-100" : "text-muted-foreground"
+            className={`text-sm font-semibold cursor-pointer flex items-center gap-1.5 ${isEnabled ? "text-cyan-100" : "text-muted-foreground"
               }`}
           >
             <Clock className="h-3.5 w-3.5" />
             Relative Time
           </Label>
-        </div>
 
-        {/* Separator */}
-        <div className={`h-5 w-px ${isEnabled ? "bg-emerald-400/50" : "bg-border"}`} />
-
-        {/* Summary badges / configure button — only when enabled */}
-        {isEnabled ? (
-          <>
-            {hasValidConfig ? (
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* Reference concept badge */}
-                {config.selected_group_name ? (
-                  <Badge
-                    variant="outline"
-                    className="h-7 gap-1.5 text-xs font-semibold border-emerald-400/60 text-emerald-100 bg-emerald-900/50"
-                  >
-                    <Layers className="h-3 w-3" />
-                    Group: {config.selected_group_name}
-                  </Badge>
-                ) : (
-                  config.reference_concepts.map((rc, i) => (
-                    <Badge
-                      key={i}
-                      variant="outline"
-                      className="h-7 gap-1.5 text-xs font-semibold border-emerald-400/60 text-emerald-100 bg-emerald-900/50"
-                    >
-                      <Anchor className="h-3 w-3" />
-                      {rc.concept_name}
-                      {rc.concept_value ? `: ${rc.concept_value}` : ''}
-                    </Badge>
-                  ))
-                )}
-
-                {/* Occurrence badge */}
-                <Badge
-                  variant="outline"
-                  className="h-7 gap-1.5 text-xs font-semibold border-green-400/60 text-green-100 bg-green-900/50"
-                >
-                  <Hash className="h-3 w-3" />
-                  {formatOccurrence(config.occurrence_index)}
-                </Badge>
-
-                {/* Time window badge */}
-                <Badge
-                  variant="outline"
-                  className="h-7 gap-1.5 text-xs font-semibold border-teal-400/60 text-teal-100 bg-teal-900/50"
-                >
-                  <CircleDot className="h-3 w-3" />
-                  {formatDelta(config.start_delta, config.unit)}
-                  <ArrowRight className="h-2.5 w-2.5" />
-                  {formatDelta(config.end_delta, config.unit)}
-                </Badge>
-              </div>
-            ) : (
-              <span className="text-xs text-emerald-200 italic">
-                No reference event selected — configure below
-              </span>
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            {isEnabled && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs px-2 ml-1 font-semibold gap-1.5 border-cyan-400/60 text-cyan-400 hover:bg-cyan-900/50 hover:text-white"
+                onClick={() => setIsOpen(true)}
+              >
+                Configure
+                <ChevronDown className="h-3 w-3" />
+              </Button>
             )}
-
-            <div className="ml-auto flex items-center gap-2">
-              <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs font-semibold gap-1.5 border-emerald-400/60 text-emerald-400 hover:bg-emerald-900/50 hover:text-white"
-                  onClick={() => setIsOpen(true)}
-                >
-                  Configure
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
 
                 <DialogContent
                   className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto p-6 rounded-2xl border shadow-xl bg-card/95 backdrop-blur-sm"
@@ -806,7 +796,7 @@ export function RelativeTimeBar({
                   </div>
 
                   {/* Dialog Footer */}
-                  <DialogFooter className="pt-4 border-t gap-2 sm:gap-0">
+                  <div className="flex justify-end pt-4 border-t gap-2 sm:gap-2">
                     <Button
                       variant="outline"
                       className="border-muted-foreground/30 h-8 text-xs"
@@ -821,16 +811,90 @@ export function RelativeTimeBar({
                     >
                       Apply Configuration
                     </Button>
-                  </DialogFooter>
+                  </div>
                 </DialogContent>
               </Dialog>
+        </div>
+
+        {/* Separator */}
+        <div className={`h-4 w-px ${isEnabled ? "bg-cyan-400/50" : "bg-border"} shrink-0 hidden sm:block`} />
+
+        {/* Pure Intervals Global Toggle */}
+        <div className="flex items-center gap-2 shrink-0">
+          <Switch
+            id="pure-intervals-toggle"
+            checked={isPureIntervalsMode}
+            onCheckedChange={onPureIntervalsModeChange}
+            className="data-[state=checked]:bg-primary scale-90"
+          />
+          <Label
+            htmlFor="pure-intervals-toggle"
+            className={`text-sm font-semibold cursor-pointer flex items-center gap-1.5 transition-colors ${
+              isPureIntervalsMode ? (isEnabled ? "text-cyan-100" : "text-foreground font-bold") : (isEnabled ? "text-cyan-100/70" : "text-muted-foreground")
+            }`}
+          >
+            <Layers className="h-3.5 w-3.5" />
+            Pure Intervals Mode
+          </Label>
+        </div>
+
+        {/* Separator */}
+        <div className={`h-4 w-px ${isEnabled ? "bg-cyan-400/50" : "bg-border"} shrink-0 hidden sm:block`} />
+
+        {/* Use Generated Data Global Toggle */}
+        <GlobalToggle labelClassName={isEnabled ? "text-cyan-100 font-semibold" : undefined} />
+
+        {/* Separator */}
+        <div className={`h-5 w-px ${isEnabled ? "bg-cyan-400/50" : "bg-border"} shrink-0`} />
+
+        {/* Summary badges / configure button — only when enabled */}
+        {isEnabled && hasValidConfig && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Reference concept badge */}
+              {config.selected_group_name ? (
+                <Badge
+                  variant="outline"
+                  className="h-7 gap-1.5 text-xs font-semibold border-cyan-400/60 text-cyan-100 bg-cyan-900/50"
+                >
+                  <Layers className="h-3 w-3" />
+                  Group: {config.selected_group_name}
+                </Badge>
+              ) : (
+                config.reference_concepts.map((rc, i) => (
+                  <Badge
+                    key={i}
+                    variant="outline"
+                    className="h-7 gap-1.5 text-xs font-semibold border-cyan-400/60 text-cyan-100 bg-cyan-900/50"
+                  >
+                    <Anchor className="h-3 w-3" />
+                    {rc.concept_name}
+                    {rc.concept_value ? `: ${rc.concept_value}` : ''}
+                  </Badge>
+                ))
+              )}
+
+              {/* Occurrence badge */}
+              <Badge
+                variant="outline"
+                className="h-7 gap-1.5 text-xs font-semibold border-teal-400/60 text-teal-100 bg-teal-900/50"
+              >
+                <Hash className="h-3 w-3" />
+                {formatOccurrence(config.occurrence_index)}
+              </Badge>
+
+              {/* Time window badge */}
+              <Badge
+                variant="outline"
+                className="h-7 gap-1.5 text-xs font-semibold border-cyan-400/60 text-cyan-100 bg-cyan-900/50"
+              >
+                <CircleDot className="h-3 w-3" />
+                {formatDelta(config.start_delta, config.unit)}
+                <ArrowRight className="h-2.5 w-2.5" />
+                {formatDelta(config.end_delta, config.unit)}
+              </Badge>
             </div>
-          </>
-        ) : (
-          <span className="text-xs text-muted-foreground">
-            Enable to view data relative to a reference event
-          </span>
         )}
+
       </div>
     </div>
   );

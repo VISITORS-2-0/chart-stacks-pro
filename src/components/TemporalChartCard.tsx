@@ -378,6 +378,7 @@ export function TemporalChartCard({
     }, [scrolledFocusDate, focusDate, filteredData, globalStart, isRelative]);
 
     const handleNavigateWrapper = (dir: 'next' | 'prev', type: 'month' | 'year' = 'month') => {
+        if (loading) return;
         let currentFocus = getCurrentFocus();
 
         const y = isRelative ? currentFocus.getUTCFullYear() : currentFocus.getFullYear();
@@ -424,6 +425,7 @@ export function TemporalChartCard({
     };
 
     const isNavDisabled = (dir: 'next' | 'prev', type: 'month' | 'year' = 'month') => {
+        if (loading) return true;
         if (!navMinDate || !navMaxDate) return false;
         const currentFocus = getCurrentFocus();
         let y = isRelative ? currentFocus.getUTCFullYear() : currentFocus.getFullYear();

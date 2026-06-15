@@ -710,6 +710,9 @@ const Index = () => {
     // Navigation is not meaningful in relative mode or pure intervals mode
     if (resolvedIds.length <= 1 || chart.isRaw || chart.isRelative || chart.viewType === 'pure') return;
 
+    // Set loading state
+    setActiveCharts(prev => prev.map(c => c.id === chartId ? { ...c, loading: true } : c));
+
     let startDateStr = '';
     let endDateStr = '';
     let fetchInterval = chart.currentInterval || 'ME';
@@ -736,6 +739,7 @@ const Index = () => {
       endDateStr = `${endD.getFullYear()}-${String(endD.getMonth() + 1).padStart(2, '0')}-${String(endD.getDate()).padStart(2, '0')}T23:59:59`;
       fetchInterval = 'D';
     } else {
+      setActiveCharts(prev => prev.map(c => c.id === chartId ? { ...c, loading: false } : c));
       return;
     }
 
@@ -770,20 +774,26 @@ const Index = () => {
         response = await fetchMultiplePatientsAbstraction(params);
       }
 
-      const updatedCharts = [...activeCharts];
-      updatedCharts[chartIndex] = {
-        ...chart,
-        externalData: processPatternResult(response.result, fetchInterval, resolvedIds.length, chart.isRelative),
-        currentInterval: fetchInterval,
-        currentStart: startDateStr,
-        currentEnd: endDateStr,
-        conceptData: response.concept_data, // usually stable but good to update
-      };
-      setActiveCharts(updatedCharts);
+      setActiveCharts(prev => {
+        const index = prev.findIndex(c => c.id === chartId);
+        if (index === -1) return prev;
+        const copy = [...prev];
+        copy[index] = {
+          ...copy[index],
+          externalData: processPatternResult(response.result, fetchInterval, resolvedIds.length, chart.isRelative),
+          currentInterval: fetchInterval,
+          currentStart: startDateStr,
+          currentEnd: endDateStr,
+          conceptData: response.concept_data, // usually stable but good to update
+          loading: false,
+        };
+        return copy;
+      });
 
     } catch (error) {
       console.error("Failed to navigate chart data", error);
       toast({ title: "Error navigating data", description: String(error), variant: "destructive" });
+      setActiveCharts(prev => prev.map(c => c.id === chartId ? { ...c, loading: false } : c));
     }
   };
 

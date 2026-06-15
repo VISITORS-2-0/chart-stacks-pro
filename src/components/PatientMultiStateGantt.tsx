@@ -18,6 +18,32 @@ interface PatientMultiStateGanttProps {
     isMultiPatient?: boolean;
 }
 
+// Custom Shape to render transition lines between category changes
+const TransitionLine = (props: any) => {
+    const { xAxis, yAxis, payload } = props;
+    if (!xAxis || !yAxis || !payload) return null;
+
+    const x1 = xAxis.scale(payload.start);
+    const y1 = yAxis.scale(payload.yStart);
+    const x2 = xAxis.scale(payload.end);
+    const y2 = yAxis.scale(payload.yEnd);
+
+    if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) return null;
+
+    return (
+        <line
+            x1={x1}
+            y1={y1}
+            x2={x2}
+            y2={y2}
+            stroke={payload.color}
+            strokeWidth={1.5}
+            strokeDasharray="3 3"
+            strokeOpacity={0.8}
+        />
+    );
+};
+
 // Custom Shape to render the Gantt bars
 const GanttBar = (props: any) => {
     const { cx, cy, payload, xAxis, yAxis, setBarTooltip } = props;
@@ -164,6 +190,50 @@ export function PatientMultiStateGantt({
             };
         });
     }, [data, patientColors, categories, uniquePatients]);
+
+    // Calculate category-crossing transition lines for each patient
+    const allTransitions = useMemo(() => {
+        const transitions: any[] = [];
+        const grouped: Record<string, any[]> = {};
+
+        uniquePatients.forEach(pid => {
+            grouped[pid] = [];
+        });
+
+        fullChartData.forEach(d => {
+            if (grouped[d.patientId]) {
+                grouped[d.patientId].push(d);
+            }
+        });
+
+        uniquePatients.forEach(pid => {
+            const pData = grouped[pid];
+            pData.sort((a, b) => a.start - b.start);
+
+            for (let i = 0; i < pData.length - 1; i++) {
+                const current = pData[i];
+                const next = pData[i + 1];
+
+                // Connect only if they transition to a different category
+                if (current.value !== next.value) {
+                    transitions.push({
+                        start: current.end,
+                        end: next.start,
+                        yStart: current.y,
+                        yEnd: next.y,
+                        x: current.end, // Required dummy coordinate for Scatter
+                        y: current.y,   // Required dummy coordinate for Scatter
+                        time: current.end, // Add time to match XAxis dataKey
+                        fill: patientColors[pid], // Add fill for rendering
+                        color: patientColors[pid],
+                        patientId: pid
+                    });
+                }
+            }
+        });
+
+        return transitions;
+    }, [fullChartData, uniquePatients, patientColors]);
 
     // Group the data by patient ID for rendering individual Scatter series (lines)
     const patientScatterData = useMemo(() => {
@@ -497,12 +567,12 @@ export function PatientMultiStateGantt({
     // 11 to 15 patients = multiplier 3
     // etc.
     const multiplier = useMemo(() => {
-        return Math.ceil(uniquePatients.length / 5) || 1;
+        return (uniquePatients.length / 5) + 0.5;
     }, [uniquePatients]);
 
     const chartHeight = useMemo(() => {
-        const baseCategoryHeight = 120;
-        return Math.max(300, categories.length * baseCategoryHeight * multiplier);
+        const baseCategoryHeight = 100;
+        return Math.max(200, categories.length * baseCategoryHeight * multiplier);
     }, [categories, multiplier]);
 
     return (
@@ -665,7 +735,18 @@ export function PatientMultiStateGantt({
                                     />
                                 )}
 
-                                {/* Render Scatter Series (and connecting transition lines) for each Patient */}
+                                {/* Render category-crossing transition lines behind the Gantt bars */}
+                                <Scatter
+                                    xAxisId="detail"
+                                    data={allTransitions}
+                                    dataKey="y"
+                                    fill="#888888"
+                                    shape={<TransitionLine />}
+                                    isAnimationActive={false}
+                                    legendType="none"
+                                />
+
+                                {/* Render Scatter Series for each Patient */}
                                 {uniquePatients.map((patientId) => {
                                     const pData = patientScatterData[patientId] || [];
                                     return (
@@ -673,8 +754,8 @@ export function PatientMultiStateGantt({
                                             key={patientId}
                                             xAxisId="detail"
                                             data={pData}
+                                            dataKey="y"
                                             shape={<GanttBar setBarTooltip={setBarTooltip} />}
-                                            line={{ stroke: patientColors[patientId], strokeWidth: 1.5, strokeOpacity: 0.8 }}
                                             fill={patientColors[patientId]}
                                             isAnimationActive={false}
                                             legendType="none"

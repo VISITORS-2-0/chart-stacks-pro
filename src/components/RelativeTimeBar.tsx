@@ -293,84 +293,84 @@ export function RelativeTimeBar({
     setDraftConcepts(updated);
   };
 
-    const handleApply = () => {
-      let passedValidation = false;
-      let newConfig = draft;
-      if (configMode === 'concepts') {
-        const validConcepts = draftConcepts.filter(rc => rc.concept_name.trim() !== "");
-        
-        // Perform same validation checks as ManageConceptGroups
-        for (let i = 0; i < validConcepts.length; i++) {
-          const rc = validConcepts[i];
-          if (!rc.concept_name) {
-            setValidationError(`Concept name is required in row ${i + 1}.`);
-            return;
-          }
-  
-          const details = conceptDict[rc.concept_name];
-          const isEventTak = eventConcepts.includes(rc.concept_name);
-  
-          if (details && !isEventTak) {
-            if (typeof details.min === "number" && typeof details.max === "number") {
-              const minValStr = getRangeMin(rc.concept_value);
-              const maxValStr = getRangeMax(rc.concept_value);
-              if (minValStr === "" || maxValStr === "") {
-                setValidationError(`Please specify both Min and Max for numeric concept "${rc.concept_name}" in row ${i + 1}.`);
-                return;
-              }
-              const minVal = parseFloat(minValStr);
-              const maxVal = parseFloat(maxValStr);
-              if (minVal > maxVal) {
-                setValidationError(`Min (${minVal}) cannot be greater than Max (${maxVal}) for concept "${rc.concept_name}" in row ${i + 1}.`);
-                return;
-              }
-              if (minVal < details.min || maxVal > details.max) {
-                setValidationError(`Subrange [${minVal}, ${maxVal}] is outside the allowed range [${details.min}, ${details.max}] for "${rc.concept_name}" in row ${i + 1}.`);
-                return;
-              }
-            } else if (details.values && details.values.length > 0) {
-              if (!rc.concept_value) {
-                setValidationError(`Please select a value for categorical concept "${rc.concept_name}" in row ${i + 1}.`);
-                return;
-              }
+  const handleApply = () => {
+    let passedValidation = false;
+    let newConfig = draft;
+    if (configMode === 'concepts') {
+      const validConcepts = draftConcepts.filter(rc => rc.concept_name.trim() !== "");
+
+      // Perform same validation checks as ManageConceptGroups
+      for (let i = 0; i < validConcepts.length; i++) {
+        const rc = validConcepts[i];
+        if (!rc.concept_name) {
+          setValidationError(`Concept name is required in row ${i + 1}.`);
+          return;
+        }
+
+        const details = conceptDict[rc.concept_name];
+        const isEventTak = eventConcepts.includes(rc.concept_name);
+
+        if (details && !isEventTak) {
+          if (typeof details.min === "number" && typeof details.max === "number") {
+            const minValStr = getRangeMin(rc.concept_value);
+            const maxValStr = getRangeMax(rc.concept_value);
+            if (minValStr === "" || maxValStr === "") {
+              setValidationError(`Please specify both Min and Max for numeric concept "${rc.concept_name}" in row ${i + 1}.`);
+              return;
+            }
+            const minVal = parseFloat(minValStr);
+            const maxVal = parseFloat(maxValStr);
+            if (minVal > maxVal) {
+              setValidationError(`Min (${minVal}) cannot be greater than Max (${maxVal}) for concept "${rc.concept_name}" in row ${i + 1}.`);
+              return;
+            }
+            if (minVal < details.min || maxVal > details.max) {
+              setValidationError(`Subrange [${minVal}, ${maxVal}] is outside the allowed range [${details.min}, ${details.max}] for "${rc.concept_name}" in row ${i + 1}.`);
+              return;
+            }
+          } else if (details.values && details.values.length > 0) {
+            if (!rc.concept_value) {
+              setValidationError(`Please select a value for categorical concept "${rc.concept_name}" in row ${i + 1}.`);
+              return;
             }
           }
         }
-  
+      }
+
+      setValidationError(null);
+      newConfig = {
+        ...draft,
+        reference_concepts: validConcepts,
+        selected_group_id: undefined,
+        selected_group_name: undefined,
+      };
+      passedValidation = true;
+    } else {
+      const group = conceptGroups.find(g => g._id === selectedGroupId);
+      if (group) {
+        const reference_concepts = group.concepts.map(c => ({
+          concept_name: c.concept,
+          concept_value: c.value !== undefined ? c.value : (c.min !== undefined && c.max !== undefined ? `[${c.min}, ${c.max}]` : undefined)
+        }));
         setValidationError(null);
         newConfig = {
           ...draft,
-          reference_concepts: validConcepts,
-          selected_group_id: undefined,
-          selected_group_name: undefined,
+          reference_concepts,
+          selected_group_id: group._id,
+          selected_group_name: group.name,
         };
         passedValidation = true;
-      } else {
-        const group = conceptGroups.find(g => g._id === selectedGroupId);
-        if (group) {
-          const reference_concepts = group.concepts.map(c => ({
-            concept_name: c.concept,
-            concept_value: c.value !== undefined ? c.value : (c.min !== undefined && c.max !== undefined ? `[${c.min}, ${c.max}]` : undefined)
-          }));
-          setValidationError(null);
-          newConfig = {
-            ...draft,
-            reference_concepts,
-            selected_group_id: group._id,
-            selected_group_name: group.name,
-          };
-          passedValidation = true;
-        }
       }
-      
-      if (passedValidation) {
-        onConfigChange(newConfig);
-        setIsOpen(false);
-        if (!isEnabled) {
-            onToggle(true);
-        }
+    }
+
+    if (passedValidation) {
+      onConfigChange(newConfig);
+      setIsOpen(false);
+      if (!isEnabled) {
+        onToggle(true);
       }
-    };
+    }
+  };
 
   const handleReset = () => {
     const defaultConfig: RelativeTimeConfig = {
@@ -418,10 +418,10 @@ export function RelativeTimeBar({
     >
       <div className="px-6 py-2.5 flex flex-wrap items-center gap-4">
         {/* Time Picker */}
-        <TimeRangePicker 
-            timeRange={timeRange} 
-            onTimeRangeChange={onTimeRangeChange} 
-            labelClassName={isEnabled ? "text-cyan-100" : undefined}
+        <TimeRangePicker
+          timeRange={timeRange}
+          onTimeRangeChange={onTimeRangeChange}
+          labelClassName={isEnabled ? "text-cyan-100" : undefined}
         />
 
         {/* Separator */}
@@ -457,363 +457,363 @@ export function RelativeTimeBar({
               </Button>
             )}
 
-                <DialogContent
-                  className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto p-6 rounded-2xl border shadow-xl bg-card/95 backdrop-blur-sm"
-                >
-                  <DialogHeader className="pb-4 border-b">
-                    <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                      <Clock className="h-5 w-5 text-primary" />
-                      Relative Time Configuration
-                    </DialogTitle>
-                    <DialogDescription>
-                      Align all chart data relative to a reference event.
-                    </DialogDescription>
-                  </DialogHeader>
+            <DialogContent
+              className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto p-6 rounded-2xl border shadow-xl bg-card/95 backdrop-blur-sm"
+            >
+              <DialogHeader className="pb-4 border-b">
+                <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-primary" />
+                  Relative Time Configuration
+                </DialogTitle>
+                <DialogDescription>
+                  Align all chart data relative to a reference event.
+                </DialogDescription>
+              </DialogHeader>
 
-                  {/* Dialog Body - Non-scrollable layout (the entire DialogContent is scrollable via overflow-y-auto on DialogContent) */}
-                  <div className="py-4 space-y-5 my-1 pr-1">
-                    {/* Mode Selector */}
-                    <div className="grid grid-cols-2 gap-1 bg-muted p-1 rounded-lg text-sm">
-                      <button
-                        type="button"
-                        className={cn(
-                          "py-2 rounded-md font-semibold transition-all",
-                          configMode === 'concepts'
-                            ? "bg-background shadow-sm text-foreground"
-                            : "text-muted-foreground hover:text-foreground"
-                        )}
-                        onClick={() => setConfigMode('concepts')}
-                      >
-                        Specific Concepts
-                      </button>
-                      <button
-                        type="button"
-                        className={cn(
-                          "py-2 rounded-md font-semibold transition-all",
-                          configMode === 'group'
-                            ? "bg-background shadow-sm text-foreground"
-                            : "text-muted-foreground hover:text-foreground"
-                        )}
-                        onClick={() => setConfigMode('group')}
-                      >
-                        Concept Group
-                      </button>
+              {/* Dialog Body - Non-scrollable layout (the entire DialogContent is scrollable via overflow-y-auto on DialogContent) */}
+              <div className="py-4 space-y-5 my-1 pr-1">
+                {/* Mode Selector */}
+                <div className="grid grid-cols-2 gap-1 bg-muted p-1 rounded-lg text-sm">
+                  <button
+                    type="button"
+                    className={cn(
+                      "py-2 rounded-md font-semibold transition-all",
+                      configMode === 'concepts'
+                        ? "bg-background shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={() => setConfigMode('concepts')}
+                  >
+                    Specific Concepts
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      "py-2 rounded-md font-semibold transition-all",
+                      configMode === 'group'
+                        ? "bg-background shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={() => setConfigMode('group')}
+                  >
+                    Concept Group
+                  </button>
+                </div>
+
+                {configMode === 'concepts' ? (
+                  /* Specific Concepts Setup */
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <Label className="text-sm font-semibold">Concept Values Setup</Label>
+                      <Button type="button" variant="outline" size="sm" onClick={handleAddConceptRow} className="text-xs h-8">
+                        <Plus className="mr-1 h-3 w-3" /> Add Concept
+                      </Button>
                     </div>
 
-                    {configMode === 'concepts' ? (
-                      /* Specific Concepts Setup */
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <Label className="text-sm font-semibold">Concept Values Setup</Label>
-                          <Button type="button" variant="outline" size="sm" onClick={handleAddConceptRow} className="text-xs h-8">
-                            <Plus className="mr-1 h-3 w-3" /> Add Concept
-                          </Button>
-                        </div>
+                    <div className="space-y-3">
+                      {draftConcepts.map((item, index) => {
+                        const details = conceptDict[item.concept_name];
+                        const isEventTak = eventConcepts.includes(item.concept_name);
+                        const isCategorical = details && details.values !== undefined;
+                        const isRange = details && typeof details.min === "number" && typeof details.max === "number";
 
-                        <div className="space-y-3">
-                          {draftConcepts.map((item, index) => {
-                            const details = conceptDict[item.concept_name];
-                            const isEventTak = eventConcepts.includes(item.concept_name);
-                            const isCategorical = details && details.values !== undefined;
-                            const isRange = details && typeof details.min === "number" && typeof details.max === "number";
+                        return (
+                          <div key={index} className="flex flex-col md:flex-row md:items-center gap-3 p-4 border rounded-xl bg-muted/20 backdrop-blur-sm relative group hover:border-muted-foreground/30 transition-all">
+                            {/* Left Column: Concept Autocomplete (comfortably-sized) */}
+                            <div className="flex-1 space-y-1.5 max-w-[240px]">
+                              <Label className="text-xs text-muted-foreground font-medium">Concept Name</Label>
+                              <ConceptAutocomplete
+                                concepts={allConceptsList}
+                                selected={item.concept_name}
+                                onSelect={(conceptName) => handleConceptSelect(index, conceptName)}
+                              />
+                            </div>
 
-                            return (
-                              <div key={index} className="flex flex-col md:flex-row md:items-center gap-3 p-4 border rounded-xl bg-muted/20 backdrop-blur-sm relative group hover:border-muted-foreground/30 transition-all">
-                                {/* Left Column: Concept Autocomplete (comfortably-sized) */}
-                                <div className="flex-1 space-y-1.5 max-w-[240px]">
-                                  <Label className="text-xs text-muted-foreground font-medium">Concept Name</Label>
-                                  <ConceptAutocomplete
-                                    concepts={allConceptsList}
-                                    selected={item.concept_name}
-                                    onSelect={(conceptName) => handleConceptSelect(index, conceptName)}
-                                  />
+                            {/* Right Column: Value input based on concept type (comfortably-sized) */}
+                            <div className="flex-1 space-y-1.5 max-w-[240px]">
+                              <Label className="text-xs text-muted-foreground font-medium">Value Selection</Label>
+                              {!item.concept_name ? (
+                                <div className="text-xs text-muted-foreground italic h-8 border border-dashed rounded-lg flex items-center justify-center px-3 bg-background/30 border-muted-foreground/20">
+                                  Please select a concept first
                                 </div>
-
-                                {/* Right Column: Value input based on concept type (comfortably-sized) */}
-                                <div className="flex-1 space-y-1.5 max-w-[240px]">
-                                  <Label className="text-xs text-muted-foreground font-medium">Value Selection</Label>
-                                  {!item.concept_name ? (
-                                    <div className="text-xs text-muted-foreground italic h-8 border border-dashed rounded-lg flex items-center justify-center px-3 bg-background/30 border-muted-foreground/20">
-                                      Please select a concept first
-                                    </div>
-                                  ) : isEventTak ? (
-                                    <div className="text-xs text-emerald-600/80 font-medium italic h-8 border border-dashed rounded-lg flex items-center justify-center px-3 bg-background/30 border-muted-foreground/20">
-                                      Event TAK (no value needed)
-                                    </div>
-                                  ) : isCategorical ? (
-                                    <Select
-                                      value={item.concept_value || ""}
-                                      onValueChange={(val) => handleValueChange(index, val)}
-                                    >
-                                      <SelectTrigger className="w-full h-8 bg-background/50 border-muted-foreground/30 text-xs">
-                                        <SelectValue placeholder="Select optional value..." />
-                                      </SelectTrigger>
-                                      <SelectContent className="max-h-[200px]">
-                                        {details.values?.map((val: string) => (
-                                          <SelectItem key={val} value={val} className="text-xs">
-                                            {val}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  ) : isRange ? (
-                                    <div className="space-y-1">
-                                      <div className="flex items-center gap-1.5">
-                                        <Input
-                                          type="number"
-                                          placeholder="Min"
-                                          value={getRangeMin(item.concept_value)}
-                                          onChange={(e) => handleRangeChange(index, e.target.value, getRangeMax(item.concept_value))}
-                                          className="h-8 text-xs bg-background/50 border-muted-foreground/30 text-center w-20"
-                                        />
-                                        <span className="text-muted-foreground text-xs font-medium">to</span>
-                                        <Input
-                                          type="number"
-                                          placeholder="Max"
-                                          value={getRangeMax(item.concept_value)}
-                                          onChange={(e) => handleRangeChange(index, getRangeMin(item.concept_value), e.target.value)}
-                                          className="h-8 text-xs bg-background/50 border-muted-foreground/30 text-center w-20"
-                                        />
-                                      </div>
-                                      <span className="text-[10px] text-muted-foreground block pl-1">
-                                        Allowed range: {details.min} to {details.max}
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <div className="text-xs text-destructive flex items-center gap-1 h-8 pl-1">
-                                      <AlertCircle className="h-4 w-4" /> Unknown concept type mapping.
-                                    </div>
-                                  )}
+                              ) : isEventTak ? (
+                                <div className="text-xs text-emerald-600/80 font-medium italic h-8 border border-dashed rounded-lg flex items-center justify-center px-3 bg-background/30 border-muted-foreground/20">
+                                  Event TAK (no value needed)
                                 </div>
-
-                                {/* Remove Button */}
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="text-muted-foreground hover:text-destructive self-center h-8 w-8 shrink-0 hover:bg-destructive/10"
-                                  onClick={() => handleRemoveConceptRow(index)}
+                              ) : isCategorical ? (
+                                <Select
+                                  value={item.concept_value || ""}
+                                  onValueChange={(val) => handleValueChange(index, val)}
                                 >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
+                                  <SelectTrigger className="w-full h-8 bg-background/50 border-muted-foreground/30 text-xs">
+                                    <SelectValue placeholder="Select optional value..." />
+                                  </SelectTrigger>
+                                  <SelectContent className="max-h-[200px]">
+                                    {details.values?.map((val: string) => (
+                                      <SelectItem key={val} value={val} className="text-xs">
+                                        {val}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : isRange ? (
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <Input
+                                      type="number"
+                                      placeholder="Min"
+                                      value={getRangeMin(item.concept_value)}
+                                      onChange={(e) => handleRangeChange(index, e.target.value, getRangeMax(item.concept_value))}
+                                      className="h-8 text-xs bg-background/50 border-muted-foreground/30 text-center w-20"
+                                    />
+                                    <span className="text-muted-foreground text-xs font-medium">to</span>
+                                    <Input
+                                      type="number"
+                                      placeholder="Max"
+                                      value={getRangeMax(item.concept_value)}
+                                      onChange={(e) => handleRangeChange(index, getRangeMin(item.concept_value), e.target.value)}
+                                      className="h-8 text-xs bg-background/50 border-muted-foreground/30 text-center w-20"
+                                    />
+                                  </div>
+                                  <span className="text-[10px] text-muted-foreground block pl-1">
+                                    Allowed range: {details.min} to {details.max}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="text-xs text-destructive flex items-center gap-1 h-8 pl-1">
+                                  <AlertCircle className="h-4 w-4" /> Unknown concept type mapping.
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Remove Button */}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="text-muted-foreground hover:text-destructive self-center h-8 w-8 shrink-0 hover:bg-destructive/10"
+                              onClick={() => handleRemoveConceptRow(index)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  /* Concept Group Selection */
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="concept-group-dropdown" className="text-sm font-semibold">Concept Group</Label>
+                      <Select
+                        value={selectedGroupId}
+                        onValueChange={(val) => setSelectedGroupId(val)}
+                      >
+                        <SelectTrigger id="concept-group-dropdown" className="h-8 text-xs w-[240px] bg-background/50 border-muted-foreground/30">
+                          <SelectValue placeholder="Select a concept group…" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-52 overflow-y-auto">
+                          {conceptGroups.length > 0 ? (
+                            conceptGroups.map((g) => (
+                              <SelectItem key={g._id} value={g._id} className="text-xs">
+                                {g.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="__none" disabled className="text-xs">
+                              No concept groups available
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Readonly preview of group contents */}
+                    {selectedGroup && (
+                      <div className="p-4 rounded-xl border bg-muted/25 space-y-2.5 max-w-[500px]">
+                        <h5 className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Group Preview</h5>
+                        <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto">
+                          {selectedGroup.concepts.map((c, i) => {
+                            const detailStr = c.value ? `: ${c.value}` : `: [${c.min}, ${c.max}]`;
+                            return (
+                              <Badge key={i} variant="secondary" className="text-[10px] py-0.5 px-2 bg-background text-foreground border border-border">
+                                {c.concept}{detailStr}
+                              </Badge>
                             );
                           })}
                         </div>
                       </div>
-                    ) : (
-                      /* Concept Group Selection */
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="concept-group-dropdown" className="text-sm font-semibold">Concept Group</Label>
-                          <Select
-                            value={selectedGroupId}
-                            onValueChange={(val) => setSelectedGroupId(val)}
-                          >
-                            <SelectTrigger id="concept-group-dropdown" className="h-8 text-xs w-[240px] bg-background/50 border-muted-foreground/30">
-                              <SelectValue placeholder="Select a concept group…" />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-52 overflow-y-auto">
-                              {conceptGroups.length > 0 ? (
-                                conceptGroups.map((g) => (
-                                  <SelectItem key={g._id} value={g._id} className="text-xs">
-                                    {g.name}
-                                  </SelectItem>
-                                ))
-                              ) : (
-                                <SelectItem value="__none" disabled className="text-xs">
-                                  No concept groups available
-                                </SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {/* Readonly preview of group contents */}
-                        {selectedGroup && (
-                          <div className="p-4 rounded-xl border bg-muted/25 space-y-2.5 max-w-[500px]">
-                            <h5 className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Group Preview</h5>
-                            <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto">
-                              {selectedGroup.concepts.map((c, i) => {
-                                const detailStr = c.value ? `: ${c.value}` : `: [${c.min}, ${c.max}]`;
-                                return (
-                                  <Badge key={i} variant="secondary" className="text-[10px] py-0.5 px-2 bg-background text-foreground border border-border">
-                                    {c.concept}{detailStr}
-                                  </Badge>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
                     )}
+                  </div>
+                )}
 
-                    <hr className="border-border" />
+                <hr className="border-border" />
 
-                    {/* Occurrence Index & Time Window Section - Smaller, comfortable layout */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                      {/* Occurrence Index */}
-                      <div className="space-y-3">
-                        <Label className="text-sm font-semibold block">Occurrence</Label>
-                        <RadioGroup
-                          value={occurrenceMode}
-                          onValueChange={(v) => {
-                            const mode = v as 'first' | 'last' | 'custom';
-                            setOccurrenceMode(mode);
-                            if (mode === "first") {
-                              setDraft((d) => ({ ...d, occurrence_index: 0 }));
-                            } else if (mode === "last") {
-                              setDraft((d) => ({ ...d, occurrence_index: -1 }));
-                            } else {
-                              setDraft((d) => {
-                                const current = d.occurrence_index;
-                                const defaultVal = (current === 0 || current === -1) ? 1 : current;
-                                return { ...d, occurrence_index: defaultVal };
-                              });
+                {/* Occurrence Index & Time Window Section - Smaller, comfortable layout */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                  {/* Occurrence Index */}
+                  <div className="space-y-3">
+                    <Label className="text-sm font-semibold block">Occurrence</Label>
+                    <RadioGroup
+                      value={occurrenceMode}
+                      onValueChange={(v) => {
+                        const mode = v as 'first' | 'last' | 'custom';
+                        setOccurrenceMode(mode);
+                        if (mode === "first") {
+                          setDraft((d) => ({ ...d, occurrence_index: 0 }));
+                        } else if (mode === "last") {
+                          setDraft((d) => ({ ...d, occurrence_index: -1 }));
+                        } else {
+                          setDraft((d) => {
+                            const current = d.occurrence_index;
+                            const defaultVal = (current === 0 || current === -1) ? 1 : current;
+                            return { ...d, occurrence_index: defaultVal };
+                          });
+                        }
+                      }}
+                      className="flex items-center gap-4"
+                    >
+                      <div className="flex items-center space-x-1.5">
+                        <RadioGroupItem value="first" id="occurrence-first" />
+                        <Label htmlFor="occurrence-first" className="text-xs font-medium cursor-pointer">
+                          First
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-1.5">
+                        <RadioGroupItem value="last" id="occurrence-last" />
+                        <Label htmlFor="occurrence-last" className="text-xs font-medium cursor-pointer">
+                          Last
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-1.5">
+                        <RadioGroupItem value="custom" id="occurrence-custom" />
+                        <Label htmlFor="occurrence-custom" className="text-xs font-medium cursor-pointer">
+                          Custom
+                        </Label>
+                      </div>
+                    </RadioGroup>
+
+                    {/* Readonly/Editable Sent Value Input */}
+                    <div className="flex items-center gap-2 max-w-[200px]">
+                      <Label htmlFor="occurrence-input" className="text-xs text-muted-foreground whitespace-nowrap">
+                        Sent value:
+                      </Label>
+                      <Input
+                        id="occurrence-input"
+                        type="number"
+                        value={draft.occurrence_index}
+                        readOnly={occurrenceMode !== "custom"}
+                        onChange={(e) => {
+                          const parsed = parseInt(e.target.value, 10);
+                          if (!isNaN(parsed)) {
+                            setDraft((d) => ({ ...d, occurrence_index: parsed }));
+                          }
+                        }}
+                        className={cn(
+                          "h-8 text-xs text-center w-20 bg-background/50 border-muted-foreground/30 focus-visible:ring-primary",
+                          occurrenceMode !== "custom" && "opacity-75 bg-muted cursor-not-allowed"
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Time window */}
+                  <div className="space-y-3">
+                    <Label className="text-sm font-semibold block">Time Window (after event)</Label>
+                    <div className="flex gap-4 items-end flex-wrap">
+                      <div className="flex flex-col gap-1.5 w-full max-w-[100px]">
+                        <Label htmlFor="start-delta-input" className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider pl-0.5">
+                          From
+                        </Label>
+                        <Input
+                          id="start-delta-input"
+                          type="number"
+                          value={draft.start_delta}
+                          onChange={(e) => {
+                            const parsed = parseInt(e.target.value, 10);
+                            if (!isNaN(parsed)) {
+                              setDraft((prev) => ({ ...prev, start_delta: parsed }));
                             }
                           }}
-                          className="flex items-center gap-4"
-                        >
-                          <div className="flex items-center space-x-1.5">
-                            <RadioGroupItem value="first" id="occurrence-first" />
-                            <Label htmlFor="occurrence-first" className="text-xs font-medium cursor-pointer">
-                              First
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-1.5">
-                            <RadioGroupItem value="last" id="occurrence-last" />
-                            <Label htmlFor="occurrence-last" className="text-xs font-medium cursor-pointer">
-                              Last
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-1.5">
-                            <RadioGroupItem value="custom" id="occurrence-custom" />
-                            <Label htmlFor="occurrence-custom" className="text-xs font-medium cursor-pointer">
-                              Custom
-                            </Label>
-                          </div>
-                        </RadioGroup>
-
-                        {/* Readonly/Editable Sent Value Input */}
-                        <div className="flex items-center gap-2 max-w-[200px]">
-                          <Label htmlFor="occurrence-input" className="text-xs text-muted-foreground whitespace-nowrap">
-                            Sent value:
-                          </Label>
-                          <Input
-                            id="occurrence-input"
-                            type="number"
-                            value={draft.occurrence_index}
-                            readOnly={occurrenceMode !== "custom"}
-                            onChange={(e) => {
-                              const parsed = parseInt(e.target.value, 10);
-                              if (!isNaN(parsed)) {
-                                setDraft((d) => ({ ...d, occurrence_index: parsed }));
-                              }
-                            }}
-                            className={cn(
-                              "h-8 text-xs text-center w-20 bg-background/50 border-muted-foreground/30 focus-visible:ring-primary",
-                              occurrenceMode !== "custom" && "opacity-75 bg-muted cursor-not-allowed"
-                            )}
-                          />
-                        </div>
+                          className="h-8 text-xs text-center bg-background/50 border-muted-foreground/30 focus-visible:ring-primary"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5 w-full max-w-[100px]">
+                        <Label htmlFor="end-delta-input" className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider pl-0.5">
+                          To
+                        </Label>
+                        <Input
+                          id="end-delta-input"
+                          type="number"
+                          value={draft.end_delta}
+                          onChange={(e) => {
+                            const parsed = parseInt(e.target.value, 10);
+                            if (!isNaN(parsed)) {
+                              setDraft((prev) => ({ ...prev, end_delta: parsed }));
+                            }
+                          }}
+                          className="h-8 text-xs text-center bg-background/50 border-muted-foreground/30 focus-visible:ring-primary"
+                        />
                       </div>
 
-                      {/* Time window */}
-                      <div className="space-y-3">
-                        <Label className="text-sm font-semibold block">Time Window (after event)</Label>
-                        <div className="flex gap-4 items-end flex-wrap">
-                          <div className="flex flex-col gap-1.5 w-full max-w-[100px]">
-                            <Label htmlFor="start-delta-input" className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider pl-0.5">
-                              From
-                            </Label>
-                            <Input
-                              id="start-delta-input"
-                              type="number"
-                              value={draft.start_delta}
-                              onChange={(e) => {
-                                const parsed = parseInt(e.target.value, 10);
-                                if (!isNaN(parsed)) {
-                                  setDraft((prev) => ({ ...prev, start_delta: parsed }));
-                                }
-                              }}
-                              className="h-8 text-xs text-center bg-background/50 border-muted-foreground/30 focus-visible:ring-primary"
-                            />
-                          </div>
-                          <div className="flex flex-col gap-1.5 w-full max-w-[100px]">
-                            <Label htmlFor="end-delta-input" className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider pl-0.5">
-                              To
-                            </Label>
-                            <Input
-                              id="end-delta-input"
-                              type="number"
-                              value={draft.end_delta}
-                              onChange={(e) => {
-                                const parsed = parseInt(e.target.value, 10);
-                                if (!isNaN(parsed)) {
-                                  setDraft((prev) => ({ ...prev, end_delta: parsed }));
-                                }
-                              }}
-                              className="h-8 text-xs text-center bg-background/50 border-muted-foreground/30 focus-visible:ring-primary"
-                            />
-                          </div>
-
-                          <div className="flex flex-col gap-1.5 w-full max-w-[120px]">
-                            <Label htmlFor="relative-unit-select" className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider pl-0.5">
-                              Unit
-                            </Label>
-                            <Select
-                              value={draft.unit}
-                              onValueChange={(v) =>
-                                setDraft((prev) => ({ ...prev, unit: v as RelativeTimeConfig["unit"] }))
-                              }
-                            >
-                              <SelectTrigger id="relative-unit-select" className="w-full h-8 text-xs bg-background/50 border-muted-foreground/30">
-                                <SelectValue placeholder="Select unit..." />
-                              </SelectTrigger>
-                              <SelectContent className="text-xs">
-                                {TIME_UNITS.map((u) => (
-                                  <SelectItem key={u.value} value={u.value}>
-                                    {u.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          Use negative numbers to capture events <em>before</em> reference.
-                        </p>
+                      <div className="flex flex-col gap-1.5 w-full max-w-[120px]">
+                        <Label htmlFor="relative-unit-select" className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider pl-0.5">
+                          Unit
+                        </Label>
+                        <Select
+                          value={draft.unit}
+                          onValueChange={(v) =>
+                            setDraft((prev) => ({ ...prev, unit: v as RelativeTimeConfig["unit"] }))
+                          }
+                        >
+                          <SelectTrigger id="relative-unit-select" className="w-full h-8 text-xs bg-background/50 border-muted-foreground/30">
+                            <SelectValue placeholder="Select unit..." />
+                          </SelectTrigger>
+                          <SelectContent className="text-xs">
+                            {TIME_UNITS.map((u) => (
+                              <SelectItem key={u.value} value={u.value}>
+                                {u.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
-
-                    {/* Validation Error Banner */}
-                    {validationError && (
-                      <div className="text-xs text-destructive flex items-center gap-1.5 bg-destructive/10 p-2.5 rounded-lg border border-destructive/20 mt-2">
-                        <AlertCircle className="h-4 w-4 shrink-0" />
-                        <span>{validationError}</span>
-                      </div>
-                    )}
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Use negative numbers to capture events <em>before</em> reference.
+                    </p>
                   </div>
+                </div>
 
-                  {/* Dialog Footer */}
-                  <div className="flex justify-end pt-4 border-t gap-2 sm:gap-2">
-                    <Button
-                      variant="outline"
-                      className="border-muted-foreground/30 h-8 text-xs"
-                      onClick={handleReset}
-                    >
-                      Reset
-                    </Button>
-                    <Button
-                      className="bg-primary hover:bg-primary/95 text-primary-foreground font-semibold h-8 text-xs"
-                      onClick={handleApply}
-                      disabled={isApplyDisabled}
-                    >
-                      Apply Configuration
-                    </Button>
+                {/* Validation Error Banner */}
+                {validationError && (
+                  <div className="text-xs text-destructive flex items-center gap-1.5 bg-destructive/10 p-2.5 rounded-lg border border-destructive/20 mt-2">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span>{validationError}</span>
                   </div>
-                </DialogContent>
-              </Dialog>
+                )}
+              </div>
+
+              {/* Dialog Footer */}
+              <div className="flex justify-end pt-4 border-t gap-2 sm:gap-2">
+                <Button
+                  variant="outline"
+                  className="border-muted-foreground/30 h-8 text-xs"
+                  onClick={handleReset}
+                >
+                  Reset
+                </Button>
+                <Button
+                  className="bg-primary hover:bg-primary/95 text-primary-foreground font-semibold h-8 text-xs"
+                  onClick={handleApply}
+                  disabled={isApplyDisabled}
+                >
+                  Apply Configuration
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Separator */}
@@ -829,9 +829,8 @@ export function RelativeTimeBar({
           />
           <Label
             htmlFor="pure-intervals-toggle"
-            className={`text-sm font-semibold cursor-pointer flex items-center gap-1.5 transition-colors ${
-              isPureIntervalsMode ? (isEnabled ? "text-cyan-100" : "text-foreground font-bold") : (isEnabled ? "text-cyan-100/70" : "text-muted-foreground")
-            }`}
+            className={`text-sm font-semibold cursor-pointer flex items-center gap-1.5 transition-colors ${isPureIntervalsMode ? (isEnabled ? "text-cyan-100" : "text-foreground font-bold") : (isEnabled ? "text-cyan-100/70" : "text-muted-foreground")
+              }`}
           >
             <Layers className="h-3.5 w-3.5" />
             Pure Intervals Mode
@@ -839,60 +838,63 @@ export function RelativeTimeBar({
         </div>
 
         {/* Separator */}
-        <div className={`h-4 w-px ${isEnabled ? "bg-cyan-400/50" : "bg-border"} shrink-0 hidden sm:block`} />
-
-        {/* Use Generated Data Global Toggle */}
-        <GlobalToggle labelClassName={isEnabled ? "text-cyan-100 font-semibold" : undefined} />
+        {import.meta.env.DEV && (
+          <>
+            <div className={`h-4 w-px ${isEnabled ? "bg-cyan-400/50" : "bg-border"} shrink-0 hidden sm:block`} />
+            {/* Use Generated Data Global Toggle */}
+            <GlobalToggle labelClassName={isEnabled ? "text-cyan-100 font-semibold" : undefined} />
+          </>
+        )}
 
         {/* Separator */}
         <div className={`h-5 w-px ${isEnabled ? "bg-cyan-400/50" : "bg-border"} shrink-0`} />
 
         {/* Summary badges / configure button — only when enabled */}
         {isEnabled && hasValidConfig && (
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Reference concept badge */}
-              {config.selected_group_name ? (
-                <Badge
-                  variant="outline"
-                  className="h-7 gap-1.5 text-xs font-semibold border-cyan-400/60 text-cyan-100 bg-cyan-900/50"
-                >
-                  <Layers className="h-3 w-3" />
-                  Group: {config.selected_group_name}
-                </Badge>
-              ) : (
-                config.reference_concepts.map((rc, i) => (
-                  <Badge
-                    key={i}
-                    variant="outline"
-                    className="h-7 gap-1.5 text-xs font-semibold border-cyan-400/60 text-cyan-100 bg-cyan-900/50"
-                  >
-                    <Anchor className="h-3 w-3" />
-                    {rc.concept_name}
-                    {rc.concept_value ? `: ${rc.concept_value}` : ''}
-                  </Badge>
-                ))
-              )}
-
-              {/* Occurrence badge */}
-              <Badge
-                variant="outline"
-                className="h-7 gap-1.5 text-xs font-semibold border-teal-400/60 text-teal-100 bg-teal-900/50"
-              >
-                <Hash className="h-3 w-3" />
-                {formatOccurrence(config.occurrence_index)}
-              </Badge>
-
-              {/* Time window badge */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Reference concept badge */}
+            {config.selected_group_name ? (
               <Badge
                 variant="outline"
                 className="h-7 gap-1.5 text-xs font-semibold border-cyan-400/60 text-cyan-100 bg-cyan-900/50"
               >
-                <CircleDot className="h-3 w-3" />
-                {formatDelta(config.start_delta, config.unit)}
-                <ArrowRight className="h-2.5 w-2.5" />
-                {formatDelta(config.end_delta, config.unit)}
+                <Layers className="h-3 w-3" />
+                Group: {config.selected_group_name}
               </Badge>
-            </div>
+            ) : (
+              config.reference_concepts.map((rc, i) => (
+                <Badge
+                  key={i}
+                  variant="outline"
+                  className="h-7 gap-1.5 text-xs font-semibold border-cyan-400/60 text-cyan-100 bg-cyan-900/50"
+                >
+                  <Anchor className="h-3 w-3" />
+                  {rc.concept_name}
+                  {rc.concept_value ? `: ${rc.concept_value}` : ''}
+                </Badge>
+              ))
+            )}
+
+            {/* Occurrence badge */}
+            <Badge
+              variant="outline"
+              className="h-7 gap-1.5 text-xs font-semibold border-teal-400/60 text-teal-100 bg-teal-900/50"
+            >
+              <Hash className="h-3 w-3" />
+              {formatOccurrence(config.occurrence_index)}
+            </Badge>
+
+            {/* Time window badge */}
+            <Badge
+              variant="outline"
+              className="h-7 gap-1.5 text-xs font-semibold border-cyan-400/60 text-cyan-100 bg-cyan-900/50"
+            >
+              <CircleDot className="h-3 w-3" />
+              {formatDelta(config.start_delta, config.unit)}
+              <ArrowRight className="h-2.5 w-2.5" />
+              {formatDelta(config.end_delta, config.unit)}
+            </Badge>
+          </div>
         )}
 
       </div>

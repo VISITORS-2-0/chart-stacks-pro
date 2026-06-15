@@ -12,7 +12,6 @@ import { fetchAbstractionData, fetchRawData, fetchMultiplePatientsAbstraction, f
 import { calculateDateRange } from "@/utils/dateUtils";
 import { useToast } from "@/components/ui/use-toast";
 import { useGeneratedDataMode } from "@/contexts/GeneratedDataContext";
-import { GlobalToggle } from "@/components/GlobalToggle";
 import { fetchGroups, Group } from "@/services/groupsApi";
 import { useEffect } from "react";
 

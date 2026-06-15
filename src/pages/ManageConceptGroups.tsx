@@ -430,7 +430,7 @@ export function ManageConceptGroups() {
       <div className="container max-w-7xl mx-auto space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold tracking-tight">
               Concept Values Groups
             </h1>
             <p className="text-muted-foreground mt-1">Create and manage groups of concept values and subranges.</p>

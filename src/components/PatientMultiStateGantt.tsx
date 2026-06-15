@@ -214,21 +214,18 @@ export function PatientMultiStateGantt({
                 const current = pData[i];
                 const next = pData[i + 1];
 
-                // Connect only if they transition to a different category
-                if (current.value !== next.value) {
-                    transitions.push({
-                        start: current.end,
-                        end: next.start,
-                        yStart: current.y,
-                        yEnd: next.y,
-                        x: current.end, // Required dummy coordinate for Scatter
-                        y: current.y,   // Required dummy coordinate for Scatter
-                        time: current.end, // Add time to match XAxis dataKey
-                        fill: patientColors[pid], // Add fill for rendering
-                        color: patientColors[pid],
-                        patientId: pid
-                    });
-                }
+                transitions.push({
+                    start: current.end,
+                    end: next.start,
+                    yStart: current.y,
+                    yEnd: next.y,
+                    x: current.end, // Required dummy coordinate for Scatter
+                    y: current.y,   // Required dummy coordinate for Scatter
+                    time: current.end, // Add time to match XAxis dataKey
+                    fill: patientColors[pid], // Add fill for rendering
+                    color: patientColors[pid],
+                    patientId: pid
+                });
             }
         });
 

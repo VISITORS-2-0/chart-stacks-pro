@@ -7,11 +7,7 @@ import { Database } from 'lucide-react';
 export const GlobalToggle = ({ labelClassName }: { labelClassName?: string }) => {
   const { useGeneratedData, setUseGeneratedData } = useGeneratedDataMode();
 
-  if (!import.meta.env.DEV) {
-    return null;
-  }
-
-  return (
+  return import.meta.env.VITE_APP_ENV === 'test' && (
     <div className="flex items-center gap-2 shrink-0">
       <Switch 
         id="generated-data-mode" 

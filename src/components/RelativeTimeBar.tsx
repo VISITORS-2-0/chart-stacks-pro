@@ -838,7 +838,7 @@ export function RelativeTimeBar({
         </div>
 
         {/* Separator */}
-        {import.meta.env.DEV && (
+        {import.meta.env.VITE_APP_ENV === 'test' && (
           <>
             <div className={`h-4 w-px ${isEnabled ? "bg-cyan-400/50" : "bg-border"} shrink-0 hidden sm:block`} />
             {/* Use Generated Data Global Toggle */}
